@@ -91,7 +91,20 @@ PROJECT_ROOT = Path(
         "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
     )
 )
-OUT_DIR = PROJECT_ROOT / "data" / "pieces_detected"
+_OUT_BASE = PROJECT_ROOT / "data" / "pieces_detected"
+
+# Per-capture subfolder.
+# Phase 1 assumes only ONE piece is visible in the capture area at a time
+# (the others are manually hidden in Isaac Sim). To avoid overwriting the
+# previous capture, set USE_CAPTURE_SUBDIR=True and change CAPTURE_NAME
+# between runs.
+#
+# CAPTURE_NAME is an EXPERIMENTAL RUN LABEL ONLY — never used by detection,
+# segmentation, classification, selection, or matching logic.
+CAPTURE_NAME       = "piece_test"
+USE_CAPTURE_SUBDIR = True
+
+OUT_DIR = (_OUT_BASE / CAPTURE_NAME) if USE_CAPTURE_SUBDIR else _OUT_BASE
 
 # ── END CONFIG ────────────────────────────────────────────────────────────────
 
@@ -644,10 +657,13 @@ def save_metadata(out_dir, success, best_mask, blob_stats, points,
         }
 
     metadata = {
-        "script":       "capture_piece_detection.py",
-        "timestamp":    ts,
-        "project_root": str(PROJECT_ROOT),
-        "output_dir":   str(out_dir),
+        "script":             "capture_piece_detection.py",
+        "timestamp":          ts,
+        "project_root":       str(PROJECT_ROOT),
+        "capture_name":       CAPTURE_NAME,
+        "use_capture_subdir": USE_CAPTURE_SUBDIR,
+        "output_dir":         str(out_dir),
+        "visible_piece_assumption": "single visible piece",
         "camera_pose": {
             "x":          CAM_X,
             "y":          CAM_Y,
@@ -713,6 +729,9 @@ async def main():
     print("=" * 60)
     print("capture_piece_detection.py — Phase 1")
     print("=" * 60)
+    print(f"[main] capture_name = {CAPTURE_NAME!r}  "
+          f"use_capture_subdir = {USE_CAPTURE_SUBDIR}")
+    print(f"[main] output_dir   = {OUT_DIR}")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -762,6 +781,12 @@ async def main():
         # ── Step 5: Connected components ──────────────────────────────────────
         print("\n--- Step 5: Select best component ---")
         best_mask, blob_stats, selected_rank = select_best_component(raw_mask)
+
+        print(f"[main] n_valid_components = {len(blob_stats)}")
+        if len(blob_stats) != 1:
+            print(f"[main] WARNING: expected exactly 1 visible piece for "
+                  f"capture_name={CAPTURE_NAME!r}, found {len(blob_stats)}. "
+                  f"Hide the other pieces in Isaac Sim before capturing.")
 
         if best_mask is None:
             raise RuntimeError(
