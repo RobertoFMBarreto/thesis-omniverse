@@ -11,6 +11,7 @@ Run inside Isaac Sim 5.1 Script Editor.
 import asyncio
 import math
 import json
+import os
 import time
 from pathlib import Path
 
@@ -75,13 +76,22 @@ MANUAL_COMPONENT_INDEX = 0
 N_POINTS = 2048
 
 # Output directory.
-# Resolved relative to this script file so it always lands in the repo
-# (data/pieces_detected/) regardless of whether the script runs on the Mac
-# or inside the Isaac Sim container — no hardcoded absolute paths needed.
-# Outputs can then be inspected, committed, or pulled to a developer machine
-# without docker cp + scp.
-REPO_ROOT = Path(__file__).resolve().parent.parent
-OUT_DIR   = REPO_ROOT / "data" / "pieces_detected"
+# Outputs are intentionally saved inside the repository (not /tmp) so they
+# can be inspected, committed, or pulled to a developer machine from the
+# Isaac Sim container without docker cp + scp.
+#
+# Do NOT derive PROJECT_ROOT from __file__: when this script is pasted into
+# the Isaac Sim Script Editor, __file__ resolves to a temporary path such as
+# /tmp/carb.../script_*.py, which would put OUT_DIR under /tmp. Use an
+# explicit container path, with an environment variable escape hatch for
+# other machines (e.g. a Mac developer workflow).
+PROJECT_ROOT = Path(
+    os.environ.get(
+        "SHAPE_INSERTION_PROJECT_ROOT",
+        "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
+    )
+)
+OUT_DIR = PROJECT_ROOT / "data" / "pieces_detected"
 
 # ── END CONFIG ────────────────────────────────────────────────────────────────
 
@@ -634,9 +644,10 @@ def save_metadata(out_dir, success, best_mask, blob_stats, points,
         }
 
     metadata = {
-        "script":     "capture_piece_detection.py",
-        "timestamp":  ts,
-        "output_dir": str(out_dir),
+        "script":       "capture_piece_detection.py",
+        "timestamp":    ts,
+        "project_root": str(PROJECT_ROOT),
+        "output_dir":   str(out_dir),
         "camera_pose": {
             "x":          CAM_X,
             "y":          CAM_Y,
