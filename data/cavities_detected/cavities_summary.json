@@ -1,13 +1,13 @@
 {
   "script": "capture_cavity_detection.py",
-  "timestamp": "2026-05-01T15:39:34",
+  "timestamp": "2026-05-01T15:41:25",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
   "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected",
   "success": false,
   "camera_pose": {
-    "x": 0.285,
+    "x": 0.288,
     "y": 0.0003,
-    "z": 0.6,
+    "z": 0.55,
     "rot_z_deg": null,
     "source": "stage"
   },
@@ -32,7 +32,7 @@
     "footprint_canvas_px": 256,
     "row_bin_px": 30
   },
-  "board_surface_depth_m": 0.2005000000000001,
+  "board_surface_depth_m": 0.15050000000000005,
   "raw_cavity_pixels": 0,
   "n_detected_cavities": 0,
   "cavities": [],
