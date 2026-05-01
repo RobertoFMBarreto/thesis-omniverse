@@ -85,8 +85,28 @@ APERTURE_MM = 36.0
 # fraction of the image (BOARD_ROI_FRACTION) instead of the full frame.
 # This is OPTIONAL.  Disable when the board fills most of the view.
 # Enable when floor/bench at the image edges contaminates the histogram peak.
+# Used ONLY when AUTO_DETECT_BOARD=False.  When AUTO_DETECT_BOARD=True these
+# constants are ignored for surface estimation; the board mask drives it.
 BOARD_ROI_ENABLED  = False
 BOARD_ROI_FRACTION = 0.6   # fraction of each dimension kept (centred)
+
+# ── Automatic board detection ─────────────────────────────────────────────────
+# When AUTO_DETECT_BOARD=True the pipeline:
+#   1. Estimates the table/background depth from the full-image histogram.
+#   2. Finds pixels closer than the table by at least BOARD_ABOVE_TABLE_MARGIN.
+#   3. Keeps connected components that pass area and rectangularity filters.
+#   4. Restricts surface estimation and cavity search to the detected board.
+#
+# When AUTO_DETECT_BOARD=False, the original BOARD_ROI_ENABLED / manual path
+# is used (legacy fallback).  Do not remove the legacy constants above.
+AUTO_DETECT_BOARD        = True
+BOARD_ABOVE_TABLE_MARGIN = 0.005    # metres — board must be at least 5 mm
+                                    # above the table to be detected.
+                                    # If the board is thinner, lower this value.
+BOARD_MIN_AREA_PX        = 5000     # smallest plausible board footprint
+BOARD_MAX_AREA_PX        = 250000   # largest  (81% of 640×480 = 307200 px)
+BOARD_RECTANGULARITY_MIN = 0.70     # area / bbox_area — rectangular board ~0.9
+BOARD_FILL_MODE          = "contour"  # "contour" (preferred) or "bbox"
 
 # ── Surface / cavity depth thresholds ────────────────────────────────────────
 # Bracket the board top surface.  Pixels outside this range are ignored when
@@ -260,31 +280,220 @@ async def capture_rgb_depth():
 
 # ── SURFACE ESTIMATION ────────────────────────────────────────────────────────
 
-def estimate_board_surface_depth(depth):
+def estimate_table_or_background_depth(depth):
+    """
+    Estimate the depth of the table / background by finding the dominant
+    histogram peak in the FULL image within [SURFACE_DEPTH_MIN, SURFACE_DEPTH_MAX].
+
+    In a top-down scene with a small board on a large table the table covers the
+    majority of pixels, so the global mode returns the table depth.  The board
+    pixels (closer to the camera) are a minority and fall in a secondary peak.
+
+    Returns the estimated table/background depth in metres.
+    """
+    import numpy as np
+
+    valid = depth[(depth > SURFACE_DEPTH_MIN) & (depth < SURFACE_DEPTH_MAX)]
+    if valid.size == 0:
+        raise RuntimeError(
+            f"[table_depth] No valid depth pixels in "
+            f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m. "
+            f"Check SURFACE_DEPTH_MIN / SURFACE_DEPTH_MAX."
+        )
+
+    bins        = np.arange(SURFACE_DEPTH_MIN,
+                             SURFACE_DEPTH_MAX + SURFACE_HIST_BIN,
+                             SURFACE_HIST_BIN)
+    hist, edges = np.histogram(valid, bins=bins)
+    peak_bin    = int(np.argmax(hist))
+    table_depth = float(edges[peak_bin]) + SURFACE_HIST_BIN / 2.0
+    peak_frac   = float(hist[peak_bin]) / float(valid.size)
+
+    print(f"[table_depth] full-image dominant depth = {table_depth:.4f} m  "
+          f"({peak_frac * 100:.1f}% of valid pixels)  "
+          f"— interpreted as table/background")
+
+    return table_depth
+
+
+def detect_board(depth, table_depth_m):
+    """
+    Detect the board (raised platform) in the depth image.
+
+    Algorithm
+    ---------
+    1. Board candidate mask: pixels at least BOARD_ABOVE_TABLE_MARGIN metres
+       closer to the camera than the table AND above DEPTH_MIN_VALID (> 0).
+    2. Connected-component analysis, filter by area and rectangularity.
+    3. Pick the largest component that passes the filters.
+    4. Build a filled board_region_mask (either filled contour or bounding box).
+
+    Returns
+    -------
+    dict with keys:
+        success            : bool
+        board_mask         : H×W bool  — board SURFACE mask (holes in cavities)
+        board_region_mask  : H×W bool  — filled board footprint (no holes)
+        area_px            : int or None
+        bbox               : (x, y, w, h) or None
+        centroid           : (cx, cy) in pixels or None
+        rectangularity     : float or None
+        candidates_total   : int   — components before rectangularity filter
+        candidates_passing : int   — components after rectangularity filter
+        table_depth_m      : float — the input table depth (echoed for metadata)
+    """
+    import numpy as np
+    import cv2
+
+    result = {
+        "success":            False,
+        "board_mask":         None,
+        "board_region_mask":  None,
+        "area_px":            None,
+        "bbox":               None,
+        "centroid":           None,
+        "rectangularity":     None,
+        "candidates_total":   0,
+        "candidates_passing": 0,
+        "table_depth_m":      table_depth_m,
+    }
+
+    DEPTH_MIN_VALID = 1e-4   # metres — ignore zero/invalid depth pixels
+
+    # Step 1: board candidate mask
+    candidate_mask = (
+        (depth > DEPTH_MIN_VALID) &
+        (depth < table_depth_m - BOARD_ABOVE_TABLE_MARGIN)
+    )
+    n_candidate_px = int(candidate_mask.sum())
+    print(f"[board_detect] table_depth={table_depth_m:.4f} m  "
+          f"candidate pixels (closer by >{BOARD_ABOVE_TABLE_MARGIN*1000:.0f} mm): "
+          f"{n_candidate_px}")
+
+    if n_candidate_px == 0:
+        print("[board_detect] WARNING: no candidate pixels — "
+              "is BOARD_ABOVE_TABLE_MARGIN too large? Is the board in the scene?")
+        return result
+
+    # Step 2: connected components
+    binary_u8 = (candidate_mask.astype(np.uint8)) * 255
+    n_cc, labels, stats, centroids = cv2.connectedComponentsWithStats(binary_u8)
+    result["candidates_total"] = n_cc - 1   # exclude background label 0
+
+    candidates = []
+    for i in range(1, n_cc):
+        area     = int(stats[i, cv2.CC_STAT_AREA])
+        bx       = int(stats[i, cv2.CC_STAT_LEFT])
+        by       = int(stats[i, cv2.CC_STAT_TOP])
+        bw       = int(stats[i, cv2.CC_STAT_WIDTH])
+        bh       = int(stats[i, cv2.CC_STAT_HEIGHT])
+        bbox_area = bw * bh
+        rect     = area / bbox_area if bbox_area > 0 else 0.0
+
+        if BOARD_MIN_AREA_PX <= area <= BOARD_MAX_AREA_PX:
+            if rect >= BOARD_RECTANGULARITY_MIN:
+                candidates.append({
+                    "label":          i,
+                    "area_px":        area,
+                    "bbox":           (bx, by, bw, bh),
+                    "centroid":       (float(centroids[i][0]),
+                                       float(centroids[i][1])),
+                    "rectangularity": rect,
+                })
+
+    result["candidates_passing"] = len(candidates)
+    print(f"[board_detect] components total={result['candidates_total']}  "
+          f"passing area+rect filters: {result['candidates_passing']}")
+
+    if not candidates:
+        return result
+
+    # Step 3: pick largest by area
+    best = max(candidates, key=lambda c: c["area_px"])
+    bx, by, bw, bh = best["bbox"]
+    print(f"[board_detect] selected component  area={best['area_px']} px  "
+          f"rect={best['rectangularity']:.3f}  "
+          f"centroid=({best['centroid'][0]:.1f}, {best['centroid'][1]:.1f})  "
+          f"bbox=({bx},{by},{bw},{bh})")
+
+    board_surface_mask = (labels == best["label"])
+
+    # Step 4: filled board_region_mask
+    board_region_mask = np.zeros_like(board_surface_mask, dtype=bool)
+
+    if BOARD_FILL_MODE == "contour":
+        surf_u8    = board_surface_mask.astype(np.uint8) * 255
+        contours, _ = cv2.findContours(surf_u8, cv2.RETR_EXTERNAL,
+                                        cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            filled = np.zeros_like(surf_u8)
+            largest_cnt = max(contours, key=cv2.contourArea)
+            cv2.drawContours(filled, [largest_cnt], -1, 255,
+                             thickness=cv2.FILLED)
+            board_region_mask = filled.astype(bool)
+            print(f"[board_detect] fill mode=contour  "
+                  f"region pixels={int(board_region_mask.sum())}")
+        else:
+            # Fallback to bbox if no contour found
+            print("[board_detect] WARNING: no contour found, falling back to bbox fill")
+            board_region_mask[by : by + bh, bx : bx + bw] = True
+    else:
+        # bbox fill
+        board_region_mask[by : by + bh, bx : bx + bw] = True
+        print(f"[board_detect] fill mode=bbox  "
+              f"region pixels={int(board_region_mask.sum())}")
+
+    result.update({
+        "success":           True,
+        "board_mask":        board_surface_mask,
+        "board_region_mask": board_region_mask,
+        "area_px":           best["area_px"],
+        "bbox":              best["bbox"],
+        "centroid":          best["centroid"],
+        "rectangularity":    best["rectangularity"],
+    })
+    return result
+
+
+def estimate_board_surface_depth(depth, board_mask=None):
     """
     Estimate the depth (distance to camera) of the board top surface by finding
     the dominant histogram peak within [SURFACE_DEPTH_MIN, SURFACE_DEPTH_MAX].
 
-    If BOARD_ROI_ENABLED, restricts the analysis to a centred rectangular sub-
-    image of size BOARD_ROI_FRACTION of the full frame, which reduces the
-    influence of floor/bench pixels at the image edges.
+    Parameters
+    ----------
+    depth       : H×W float32 depth image (metres).
+    board_mask  : optional H×W bool mask.  If provided, only pixels inside the
+                  mask are used for the histogram (AUTO_DETECT_BOARD path).
+                  Cavities are holes in the board surface mask and therefore do
+                  not contribute, keeping the estimate clean.
+                  If None, falls back to the legacy BOARD_ROI_ENABLED path.
 
     Returns the estimated board surface depth in metres.
     """
     import numpy as np
 
-    if BOARD_ROI_ENABLED:
-        h, w = depth.shape
-        dh   = int(h * (1.0 - BOARD_ROI_FRACTION) / 2.0)
-        dw   = int(w * (1.0 - BOARD_ROI_FRACTION) / 2.0)
-        roi  = depth[dh : h - dh, dw : w - dw]
-        print(f"[surface_est] using ROI [{dh}:{h-dh}, {dw}:{w-dw}]  "
-              f"({roi.shape[1]}x{roi.shape[0]} px)")
+    if board_mask is not None:
+        roi = depth[board_mask]
+        n_board_px = int(board_mask.sum())
+        print(f"[surface_est] using board surface mask  "
+              f"({n_board_px} board pixels)")
+        # roi is already a 1-D array of depth values
+        valid = roi[(roi > SURFACE_DEPTH_MIN) & (roi < SURFACE_DEPTH_MAX)]
     else:
-        roi = depth
-        print("[surface_est] using full image (BOARD_ROI_ENABLED=False)")
+        # Legacy path
+        if BOARD_ROI_ENABLED:
+            h, w = depth.shape
+            dh   = int(h * (1.0 - BOARD_ROI_FRACTION) / 2.0)
+            dw   = int(w * (1.0 - BOARD_ROI_FRACTION) / 2.0)
+            roi_2d = depth[dh : h - dh, dw : w - dw]
+            print(f"[surface_est] using ROI [{dh}:{h-dh}, {dw}:{w-dw}]  "
+                  f"({roi_2d.shape[1]}x{roi_2d.shape[0]} px)")
+            valid = roi_2d[(roi_2d > SURFACE_DEPTH_MIN) & (roi_2d < SURFACE_DEPTH_MAX)]
+        else:
+            print("[surface_est] using full image (BOARD_ROI_ENABLED=False)")
+            valid = depth[(depth > SURFACE_DEPTH_MIN) & (depth < SURFACE_DEPTH_MAX)]
 
-    valid = roi[(roi > SURFACE_DEPTH_MIN) & (roi < SURFACE_DEPTH_MAX)]
     if valid.size == 0:
         raise RuntimeError(
             f"[surface_est] No valid depth pixels in "
@@ -300,20 +509,25 @@ def estimate_board_surface_depth(depth):
     board_surface_z  = float(edges[peak_bin]) + SURFACE_HIST_BIN / 2.0
     peak_fraction    = float(hist[peak_bin]) / float(valid.size)
 
-    print(f"[surface_est] dominant depth = {board_surface_z:.4f} m  "
-          f"({peak_fraction * 100:.1f}% of valid pixels in range)")
+    print(f"[surface_est] board surface depth = {board_surface_z:.4f} m  "
+          f"({peak_fraction * 100:.1f}% of analysed pixels at peak bin)")
 
     if peak_fraction < 0.05:
-        print("[surface_est] WARNING: peak fraction < 5% — histogram is noisy. "
-              "Enable BOARD_ROI_ENABLED or adjust SURFACE_DEPTH_MIN/MAX. "
-              "Inspect depth_vis.png.")
+        if board_mask is not None:
+            print("[surface_est] WARNING: peak fraction < 5% — board mask may be "
+                  "contaminated or too small. Inspect board_mask.png.")
+        else:
+            print("[surface_est] WARNING: peak fraction < 5% — histogram is noisy. "
+                  "Enable BOARD_ROI_ENABLED or adjust SURFACE_DEPTH_MIN/MAX. "
+                  "Inspect depth_vis.png.")
 
     return board_surface_z
 
 
 # ── SEGMENTATION ──────────────────────────────────────────────────────────────
 
-def segment_cavities_from_depth(depth, board_surface_z: float):
+def segment_cavities_from_depth(depth, board_surface_z: float,
+                                board_region_mask=None):
     """
     Return a boolean mask of pixels that correspond to cavities.
 
@@ -321,6 +535,14 @@ def segment_cavities_from_depth(depth, board_surface_z: float):
     least CAVITY_DEPTH_MARGIN (camera sees farther — the pixel is inside a
     hole) but no more than MAX_CAVITY_DEPTH (rejects floor, holes through the
     board, and far-field noise).
+
+    Parameters
+    ----------
+    depth             : H×W float32 depth image (metres).
+    board_surface_z   : estimated board top surface depth (metres).
+    board_region_mask : optional H×W bool mask.  If provided, cavity candidates
+                        are restricted to pixels inside the board footprint,
+                        preventing table/floor pixels from leaking in.
 
     A morphological open (remove isolated noise pixels) followed by a close
     (fill small gaps inside cavities) is applied with a 3×3 kernel.
@@ -332,6 +554,11 @@ def segment_cavities_from_depth(depth, board_surface_z: float):
     hi = board_surface_z + MAX_CAVITY_DEPTH
 
     raw_mask = (depth > lo) & (depth < hi)
+
+    if board_region_mask is not None:
+        raw_mask = raw_mask & board_region_mask
+        print(f"[segment] cavity search restricted to board region mask  "
+              f"({int(board_region_mask.sum())} region pixels)")
 
     n_raw = int(raw_mask.sum())
     print(f"[segment] board_surface_z={board_surface_z:.4f} m  "
@@ -580,6 +807,144 @@ def make_cavity_footprint(points):
     return footprint_bgr
 
 
+# ── BOARD DEBUG OUTPUTS ───────────────────────────────────────────────────────
+
+def save_board_debug_images(out_dir: Path, rgb, depth, board_dict: dict) -> None:
+    """
+    Write board-detection debug images.
+
+    Files written
+    -------------
+    board_mask.png          — binary board SURFACE mask (holes in cavities).
+    board_region_mask.png   — binary filled board footprint (no holes).
+    board_debug.png         — RGB overlay: surface tinted green (40% alpha),
+                              board_region outline in cyan, bounding rect, centroid.
+    board_roi_auto_debug.png — depth-vis with board candidate pixels highlighted
+                               (yellow) and final selection in green.  Always
+                               written — even on detection failure — so the user
+                               can diagnose WHY detection failed.
+    """
+    import numpy as np
+    import cv2
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build depth visualisation once — used in board_roi_auto_debug
+    depth_vis = None
+    if depth is not None:
+        valid_d = depth[depth > 0.0]
+        d_min   = float(valid_d.min()) if valid_d.size > 0 else 0.0
+        d_max   = float(valid_d.max()) if valid_d.size > 0 else 1.0
+        d_norm  = np.clip((depth - d_min) / (d_max - d_min + 1e-8), 0.0, 1.0)
+        depth_vis = cv2.applyColorMap((d_norm * 255).astype(np.uint8),
+                                      cv2.COLORMAP_VIRIDIS)
+
+    board_mask        = board_dict.get("board_mask")
+    board_region_mask = board_dict.get("board_region_mask")
+    centroid          = board_dict.get("centroid")
+    bbox              = board_dict.get("bbox")
+    success           = board_dict.get("success", False)
+    table_depth_m     = board_dict.get("table_depth_m")
+
+    # ── board_mask.png ────────────────────────────────────────────────────────
+    if board_mask is not None:
+        cv2.imwrite(str(out_dir / "board_mask.png"),
+                    (board_mask.astype(np.uint8) * 255))
+        print("[board_debug] board_mask.png")
+
+    # ── board_region_mask.png ─────────────────────────────────────────────────
+    if board_region_mask is not None:
+        cv2.imwrite(str(out_dir / "board_region_mask.png"),
+                    (board_region_mask.astype(np.uint8) * 255))
+        print("[board_debug] board_region_mask.png")
+
+    # ── board_debug.png ───────────────────────────────────────────────────────
+    if rgb is not None and success:
+        debug = rgb.copy()
+
+        # Tint board surface green at 40% alpha
+        if board_mask is not None:
+            tint = np.array([60, 255, 60], dtype=np.float32)
+            debug[board_mask] = (
+                debug[board_mask].astype(np.float32) * 0.60 + tint * 0.40
+            ).astype(np.uint8)
+
+        debug_bgr = cv2.cvtColor(debug, cv2.COLOR_RGB2BGR)
+
+        # Draw filled board region outline in cyan
+        if board_region_mask is not None:
+            region_u8  = board_region_mask.astype(np.uint8) * 255
+            contours, _ = cv2.findContours(region_u8, cv2.RETR_EXTERNAL,
+                                            cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(debug_bgr, contours, -1, (255, 255, 0), 2)  # cyan BGR
+
+        # Bounding rectangle
+        if bbox is not None:
+            bx, by, bw, bh = bbox
+            cv2.rectangle(debug_bgr, (bx, by), (bx + bw, by + bh),
+                          (0, 255, 255), 2)  # yellow
+
+        # Centroid dot
+        if centroid is not None:
+            cx, cy = int(centroid[0]), int(centroid[1])
+            cv2.circle(debug_bgr, (cx, cy), 6, (0, 0, 255), -1)  # red dot
+            cv2.putText(debug_bgr, f"board ({cx},{cy})",
+                        (cx + 8, cy - 8), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.4, (0, 0, 255), 1, cv2.LINE_AA)
+
+        cv2.imwrite(str(out_dir / "board_debug.png"), debug_bgr)
+        print("[board_debug] board_debug.png")
+
+    # ── board_roi_auto_debug.png ──────────────────────────────────────────────
+    # Always write — even on failure — so the user can see what was attempted.
+    if depth_vis is not None:
+        diag = depth_vis.copy()
+
+        # Highlight candidate pixels (depth < table - margin) in yellow
+        if depth is not None and table_depth_m is not None:
+            DEPTH_MIN_VALID = 1e-4
+            cand_mask = (
+                (depth > DEPTH_MIN_VALID) &
+                (depth < table_depth_m - BOARD_ABOVE_TABLE_MARGIN)
+            )
+            diag[cand_mask] = (
+                diag[cand_mask].astype(np.float32) * 0.3
+                + np.array([0, 255, 255], np.float32) * 0.7
+            ).astype(np.uint8)
+
+        # Highlight accepted board region in green
+        if success and board_region_mask is not None:
+            diag[board_region_mask] = (
+                diag[board_region_mask].astype(np.float32) * 0.3
+                + np.array([0, 255, 0], np.float32) * 0.7
+            ).astype(np.uint8)
+
+        # Legend text
+        status_str = "BOARD DETECTED" if success else "BOARD NOT DETECTED"
+        colour_s   = (0, 200, 0) if success else (0, 0, 255)
+        cv2.putText(diag, status_str, (8, 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, colour_s, 2, cv2.LINE_AA)
+        if table_depth_m is not None:
+            cv2.putText(diag,
+                        f"table_depth={table_depth_m:.4f}m  "
+                        f"margin={BOARD_ABOVE_TABLE_MARGIN*1000:.0f}mm",
+                        (8, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.40,
+                        (200, 200, 200), 1, cv2.LINE_AA)
+        info_str = (f"cands_total={board_dict.get('candidates_total', '?')}  "
+                    f"cands_passing={board_dict.get('candidates_passing', '?')}")
+        cv2.putText(diag, info_str, (8, 62),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.40, (200, 200, 200), 1, cv2.LINE_AA)
+        if success and board_dict.get("area_px"):
+            cv2.putText(diag,
+                        f"area={board_dict['area_px']}px  "
+                        f"rect={board_dict.get('rectangularity', 0):.3f}",
+                        (8, 82), cv2.FONT_HERSHEY_SIMPLEX, 0.40,
+                        (200, 200, 200), 1, cv2.LINE_AA)
+
+        cv2.imwrite(str(out_dir / "board_roi_auto_debug.png"), diag)
+        print("[board_debug] board_roi_auto_debug.png")
+
+
 # ── GLOBAL DEBUG OUTPUTS ──────────────────────────────────────────────────────
 
 def save_global_outputs(out_dir: Path, rgb, depth, raw_mask, cavities):
@@ -776,11 +1141,29 @@ def save_cavity_outputs(out_dir: Path, cavity_id: int, cavity_dict: dict,
 def save_summary_metadata(out_dir: Path, success: bool, board_surface_z: float,
                            raw_pixels: int, cavities_meta: list,
                            camera_pose: dict = None,
-                           error_msg=None):
+                           error_msg=None,
+                           board_dict: dict = None):
     """
     Write cavities_summary.json.  Always called, even on failure.
+
+    board_dict — result from detect_board(); None when AUTO_DETECT_BOARD=False.
     """
     ts = time.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # Derive board metadata fields
+    bd = board_dict or {}
+    board_detected = bool(bd.get("success", False))
+    board_area_px  = bd.get("area_px")
+    _bbox          = bd.get("bbox")
+    _centroid      = bd.get("centroid")
+    _region_mask   = bd.get("board_region_mask")
+
+    bbox_json = ({"x": _bbox[0], "y": _bbox[1], "w": _bbox[2], "h": _bbox[3]}
+                 if _bbox else None)
+    centroid_json = ({"x": float(_centroid[0]), "y": float(_centroid[1])}
+                     if _centroid else None)
+    region_pixels = (int(_region_mask.sum()) if _region_mask is not None else None)
+    table_depth_m = bd.get("table_depth_m")
 
     summary = {
         "script":           "capture_cavity_detection.py",
@@ -796,21 +1179,37 @@ def save_summary_metadata(out_dir: Path, success: bool, board_surface_z: float,
             "width":  IMAGE_WIDTH,
             "height": IMAGE_HEIGHT,
         },
+        "auto_detect_board":  AUTO_DETECT_BOARD,
+        "board_detected":     board_detected,
+        "board_component_area_px": board_area_px,
+        "board_bbox_px":      bbox_json,
+        "board_centroid_px":  centroid_json,
+        "board_region_pixels": region_pixels,
+        "table_or_background_depth_m": table_depth_m,
+        "cavity_detection_restricted_to_board_region": (
+            AUTO_DETECT_BOARD and board_detected
+        ),
         "parameters": {
-            "focal_mm":             FOCAL_MM,
-            "aperture_mm":          APERTURE_MM,
-            "board_roi_enabled":    BOARD_ROI_ENABLED,
-            "board_roi_fraction":   BOARD_ROI_FRACTION,
-            "surface_depth_min":    SURFACE_DEPTH_MIN,
-            "surface_depth_max":    SURFACE_DEPTH_MAX,
-            "cavity_depth_margin":  CAVITY_DEPTH_MARGIN,
-            "max_cavity_depth":     MAX_CAVITY_DEPTH,
-            "cc_min_area_px":       CC_MIN_AREA_PX,
-            "cc_max_area_px":       CC_MAX_AREA_PX,
-            "n_points":             N_POINTS,
-            "footprint_res_m_per_px": FOOTPRINT_RESOLUTION_M_PER_PX,
-            "footprint_canvas_px":  FOOTPRINT_CANVAS_PX,
-            "row_bin_px":           ROW_BIN_PX,
+            "focal_mm":                 FOCAL_MM,
+            "aperture_mm":              APERTURE_MM,
+            "board_roi_enabled":        BOARD_ROI_ENABLED,
+            "board_roi_fraction":       BOARD_ROI_FRACTION,
+            "surface_depth_min":        SURFACE_DEPTH_MIN,
+            "surface_depth_max":        SURFACE_DEPTH_MAX,
+            "cavity_depth_margin":      CAVITY_DEPTH_MARGIN,
+            "max_cavity_depth":         MAX_CAVITY_DEPTH,
+            "cc_min_area_px":           CC_MIN_AREA_PX,
+            "cc_max_area_px":           CC_MAX_AREA_PX,
+            "n_points":                 N_POINTS,
+            "footprint_res_m_per_px":   FOOTPRINT_RESOLUTION_M_PER_PX,
+            "footprint_canvas_px":      FOOTPRINT_CANVAS_PX,
+            "row_bin_px":               ROW_BIN_PX,
+            "auto_detect_board":        AUTO_DETECT_BOARD,
+            "board_above_table_margin": BOARD_ABOVE_TABLE_MARGIN,
+            "board_min_area_px":        BOARD_MIN_AREA_PX,
+            "board_max_area_px":        BOARD_MAX_AREA_PX,
+            "board_rectangularity_min": BOARD_RECTANGULARITY_MIN,
+            "board_fill_mode":          BOARD_FILL_MODE,
         },
         "board_surface_depth_m": board_surface_z,
         "raw_cavity_pixels":     raw_pixels,
@@ -837,6 +1236,8 @@ def _cleanup_stale(out_dir: Path) -> None:
     _global_files = [
         "rgb.png", "depth_vis.png", "raw_cavity_mask.png",
         "cavities_debug.png", "cavities_summary.json",
+        "board_mask.png", "board_region_mask.png",
+        "board_debug.png", "board_roi_auto_debug.png",
     ]
     for fname in _global_files:
         p = out_dir / fname
@@ -863,18 +1264,19 @@ async def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     _cleanup_stale(OUT_DIR)
 
-    # State variables — kept at module scope of main() so the finally block
+    # State variables — kept at function scope so the finally block
     # always has something to write, even on early failure.
-    error_msg       = None
-    success         = False
-    rgb             = None
-    depth           = None
-    raw_mask        = None
-    board_surface_z = 0.0
-    raw_pixels      = 0
-    cavities        = []        # list of component dicts
-    cavities_meta   = []        # list of per-cavity metadata dicts (for summary)
-    active_camera_pose = None   # populated after Step 1; recorded in metadata
+    error_msg          = None
+    success            = False
+    rgb                = None
+    depth              = None
+    raw_mask           = None
+    board_surface_z    = 0.0
+    raw_pixels         = 0
+    cavities           = []      # list of component dicts
+    cavities_meta      = []      # list of per-cavity metadata dicts (for summary)
+    active_camera_pose = None    # populated after Step 1; recorded in metadata
+    board_dict         = {}      # detect_board() result (or empty on legacy path)
 
     try:
         # ── Step 1: Camera ────────────────────────────────────────────────────
@@ -906,17 +1308,62 @@ async def main():
         print("\n--- Step 2: Capture RGB + depth ---")
         rgb, depth = await capture_rgb_depth()
 
-        # ── Step 3: Board surface estimation ─────────────────────────────────
-        print("\n--- Step 3: Estimate board surface depth ---")
-        board_surface_z = estimate_board_surface_depth(depth)
+        # ── Step 3: Board detection or legacy ROI ─────────────────────────────
+        board_mask_for_surface = None    # passed to estimate_board_surface_depth
+        board_region_for_cavities = None # passed to segment_cavities_from_depth
 
-        # ── Step 4: Cavity segmentation ───────────────────────────────────────
-        print("\n--- Step 4: Segment cavities ---")
-        raw_mask   = segment_cavities_from_depth(depth, board_surface_z)
+        if AUTO_DETECT_BOARD:
+            print("\n--- Step 3a: Estimate table/background depth ---")
+            table_depth_m = estimate_table_or_background_depth(depth)
+
+            print("\n--- Step 3b: Detect board ---")
+            board_dict = detect_board(depth, table_depth_m)
+
+            # Always write board debug images (even on failure — helps diagnosis)
+            save_board_debug_images(OUT_DIR, rgb, depth, board_dict)
+
+            if not board_dict["success"]:
+                raise RuntimeError(
+                    "[board_detect] Board detection FAILED — no candidate passed "
+                    f"area and rectangularity filters.  "
+                    f"table_depth={table_depth_m:.4f} m  "
+                    f"candidates_total={board_dict['candidates_total']}  "
+                    f"candidates_passing={board_dict['candidates_passing']}  "
+                    f"Tune BOARD_ABOVE_TABLE_MARGIN (currently "
+                    f"{BOARD_ABOVE_TABLE_MARGIN*1000:.0f} mm), "
+                    f"BOARD_MIN_AREA_PX ({BOARD_MIN_AREA_PX}), "
+                    f"BOARD_MAX_AREA_PX ({BOARD_MAX_AREA_PX}), or "
+                    f"BOARD_RECTANGULARITY_MIN ({BOARD_RECTANGULARITY_MIN}).  "
+                    f"Inspect board_roi_auto_debug.png."
+                )
+
+            board_mask_for_surface    = board_dict["board_mask"]
+            board_region_for_cavities = board_dict["board_region_mask"]
+            print(f"[board_detect] board detected — "
+                  f"area={board_dict['area_px']} px  "
+                  f"rect={board_dict['rectangularity']:.3f}  "
+                  f"region_pixels={int(board_region_for_cavities.sum())}")
+        else:
+            print("\n--- Step 3: Legacy path (AUTO_DETECT_BOARD=False) ---")
+            board_dict = {"success": False, "table_depth_m": None}
+            print("[board] AUTO_DETECT_BOARD=False — using BOARD_ROI_ENABLED "
+                  f"= {BOARD_ROI_ENABLED} path for surface estimation; "
+                  "no board-region restriction on cavity search.")
+
+        # ── Step 4: Board surface estimation ─────────────────────────────────
+        print("\n--- Step 4: Estimate board surface depth ---")
+        board_surface_z = estimate_board_surface_depth(
+            depth, board_mask=board_mask_for_surface)
+
+        # ── Step 5: Cavity segmentation ───────────────────────────────────────
+        print("\n--- Step 5: Segment cavities ---")
+        raw_mask   = segment_cavities_from_depth(
+            depth, board_surface_z,
+            board_region_mask=board_region_for_cavities)
         raw_pixels = int(raw_mask.sum())
 
-        # ── Step 5: Connected components ──────────────────────────────────────
-        print("\n--- Step 5: Find cavity components ---")
+        # ── Step 6: Connected components ──────────────────────────────────────
+        print("\n--- Step 6: Find cavity components ---")
         cavities = find_cavity_components(raw_mask)
 
         if not cavities:
@@ -928,8 +1375,8 @@ async def main():
                 "CC_MIN_AREA_PX too large."
             )
 
-        # ── Step 6: Per-cavity processing ────────────────────────────────────
-        print(f"\n--- Step 6: Process {len(cavities)} cavity/cavities ---")
+        # ── Step 7: Per-cavity processing ────────────────────────────────────
+        print(f"\n--- Step 7: Process {len(cavities)} cavity/cavities ---")
 
         # Build the labeled image once so we can extract individual masks
         import cv2 as _cv2
@@ -973,15 +1420,24 @@ async def main():
         traceback.print_exc()
 
     finally:
-        # ── Step 7: Save global outputs ───────────────────────────────────────
-        print("\n--- Step 7: Save global outputs ---")
+        # ── Step 8: Save global outputs ───────────────────────────────────────
+        print("\n--- Step 8: Save global outputs ---")
+
+        # Board debug images may already exist (written above) but save_global
+        # writes the shared ones; call only if we haven't already written them
+        # (board_roi_auto_debug is always written inside detect path above).
+        if AUTO_DETECT_BOARD and board_dict.get("board_mask") is None:
+            # Detection failed before save_board_debug_images was called;
+            # write what we can now (depth and rgb may still be available).
+            save_board_debug_images(OUT_DIR, rgb, depth, board_dict)
 
         save_global_outputs(OUT_DIR, rgb, depth, raw_mask, cavities)
 
         save_summary_metadata(
             OUT_DIR, success, board_surface_z, raw_pixels,
             cavities_meta, camera_pose=active_camera_pose,
-            error_msg=error_msg)
+            error_msg=error_msg,
+            board_dict=board_dict)
 
         print("\n[main] Files written to:", OUT_DIR)
         if OUT_DIR.exists():
