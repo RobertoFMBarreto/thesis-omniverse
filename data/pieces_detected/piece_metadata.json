@@ -1,6 +1,113 @@
 {
   "script": "capture_piece_detection.py",
-  "timestamp": "2026-05-01T13:39:10",
+  "timestamp": "2026-05-01T14:11:36",
+  "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
+  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/pieces_detected",
+  "camera_pose": {
+    "x": -0.25,
+    "y": 0.45,
+    "z": 0.58,
+    "rot_z_deg": 0.0
+  },
+  "image_resolution": {
+    "width": 640,
+    "height": 480
+  },
+  "surface_depth_m": 0.17950000000000008,
+  "n_valid_components": 4,
+  "multiple_valid_components": true,
+  "piece_selection_mode": "largest",
+  "manual_component_index": 0,
+  "selected_component_rank_or_index": 0,
+  "all_valid_components": [
+    {
+      "area_px": 4590,
+      "centroid_px": {
+        "x": 349.5,
+        "y": 220.0
+      },
+      "bbox_px": {
+        "x": 305,
+        "y": 195,
+        "w": 90,
+        "h": 51
+      }
+    },
+    {
+      "area_px": 4022,
+      "centroid_px": {
+        "x": 606.9443063152661,
+        "y": 363.44803580308303
+      },
+      "bbox_px": {
+        "x": 571,
+        "y": 333,
+        "w": 69,
+        "h": 67
+      }
+    },
+    {
+      "area_px": 3498,
+      "centroid_px": {
+        "x": 153.6986849628359,
+        "y": 406.1152086906804
+      },
+      "bbox_px": {
+        "x": 118,
+        "y": 370,
+        "w": 73,
+        "h": 73
+      }
+    },
+    {
+      "area_px": 2759,
+      "centroid_px": {
+        "x": 47.24827836172526,
+        "y": 322.62885103298294
+      },
+      "bbox_px": {
+        "x": 3,
+        "y": 295,
+        "w": 87,
+        "h": 55
+      }
+    }
+  ],
+  "selected_component": {
+    "area_px": 4590,
+    "centroid_px": [
+      349.5,
+      220.0
+    ],
+    "bbox_px": [
+      305,
+      195,
+      90,
+      51
+    ],
+    "centroid_world_m": [
+      -0.2375892578125,
+      0.4578374628205201
+    ],
+    "surface_depth_m": 0.17950000000000008,
+    "point_count": 2048,
+    "height_range_m": [
+      0.029500024393200874,
+      0.029500054195523262
+    ],
+    "xy_span_m": [
+      0.03744257986545563,
+      0.019593657925724983
+    ]
+  },
+  "pointcloud_bounds": {
+    "x_min": -0.018721289932727814,
+    "x_max": 0.018721289932727814,
+    "y_min": -0.009796828962862492,
+    "y_max": 0.009796828962862492,
+    "z_min": 0.029500024393200874,
+    "z_max": 0.029500054195523262
+  },
   "parameters": {
     "camera_prim": "/World/Camera",
     "cam_xyz": [
@@ -36,32 +143,5 @@
     "piece_metadata.json"
   ],
   "success": true,
-  "error": null,
-  "piece_metrics": {
-    "area_px": 4590,
-    "centroid_px": [
-      349.5,
-      220.0
-    ],
-    "bbox_px": [
-      305,
-      195,
-      90,
-      51
-    ],
-    "centroid_world_m": [
-      -0.2375892578125,
-      0.4578374628205201
-    ],
-    "surface_depth_m": 0.17950000000000008,
-    "point_count": 2048,
-    "height_range_m": [
-      0.029500024393200874,
-      0.029500054195523262
-    ],
-    "xy_span_m": [
-      0.03744257986545563,
-      0.019593657925724983
-    ]
-  }
+  "error": null
 }
