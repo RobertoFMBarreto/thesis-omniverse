@@ -52,11 +52,21 @@ OUT_DIR = PROJECT_ROOT / "data" / "cavities_detected"
 # requested.  Both refer to the same concept.)
 CAMERA_PATH = "/World/Camera"
 
-# Camera pose — default matches the working piece-capture configuration.
-CAM_X        =  -0.25
-CAM_Y        =   0.45
-CAM_Z        =   0.58   # height above world origin (metres)
-CAM_ROT_Z_DEG = 0.0    # rotation around world Z (degrees); 0 = lens in -Y dir
+# Camera pose override.
+#
+# The cavity board is captured by a different camera placement than the
+# piece-table workflow.  By default we DO NOT move the camera: the script
+# uses whatever pose is already authored on the stage.  Set
+# SET_CAMERA_POSE = True to programmatically override the camera pose
+# using the (CAM_X, CAM_Y, CAM_Z, CAM_ROT_Z_DEG) constants below.
+#
+# The defaults below correspond to the cavity-capture configuration —
+# they are NOT the piece-table pose (which was ~(-0.25, 0.45, 0.58)).
+SET_CAMERA_POSE = False
+CAM_X         =  0.2885
+CAM_Y         =  0.0020
+CAM_Z         =  1.00    # height above world origin (metres)
+CAM_ROT_Z_DEG = -90.0    # rotation around world Z (degrees)
 
 # Render resolution
 IMAGE_WIDTH  = 640
@@ -160,6 +170,26 @@ def setup_camera(x: float, y: float, z: float, rot_z_deg: float = 0.0) -> None:
               "orientation unchanged")
 
     print(f"[setup_camera] pos=({x}, {y}, {z})  rotZ={rot_z_deg}°")
+
+
+def get_camera_world_pose():
+    """
+    Read the current world translate of the camera prim.  Returns (x, y, z)
+    in metres.  Used when SET_CAMERA_POSE=False so that downstream
+    back-projection uses the actual stage pose, not the config constants.
+    """
+    import omni.usd
+    from pxr import UsdGeom
+
+    stage    = omni.usd.get_context().get_stage()
+    cam_prim = stage.GetPrimAtPath(CAMERA_PATH)
+    if not cam_prim.IsValid():
+        raise RuntimeError(f"[camera] prim not found: {CAMERA_PATH}")
+
+    xformable = UsdGeom.Xformable(cam_prim)
+    world_xf  = xformable.ComputeLocalToWorldTransform(0)
+    t         = world_xf.ExtractTranslation()
+    return float(t[0]), float(t[1]), float(t[2])
 
 
 # ── CAPTURE ───────────────────────────────────────────────────────────────────
@@ -420,6 +450,7 @@ def compute_intrinsics(cam_z: float):
 # ── POINT CLOUD ───────────────────────────────────────────────────────────────
 
 def build_cavity_pointcloud(depth, mask, intrinsics, board_surface_z: float,
+                             cam_xy: tuple,
                              n_samples: int = N_POINTS):
     """
     Back-project masked depth pixels into a cavity-local 3-D point cloud.
@@ -452,9 +483,10 @@ def build_cavity_pointcloud(depth, mask, intrinsics, board_surface_z: float,
     cy_px = intrinsics["cy_px"]
 
     # Back-project to world XY using pinhole model.
-    # Camera world position is (CAM_X, CAM_Y); pixel offset scales by mpp.
-    world_x = CAM_X + (xs.astype(np.float64) - cx_px) * mpp_x
-    world_y = CAM_Y - (ys.astype(np.float64) - cy_px) * mpp_y  # image V flips Y
+    # Camera world position is cam_xy = (cam_x, cam_y); pixel offset scales by mpp.
+    cam_x, cam_y = cam_xy
+    world_x = cam_x + (xs.astype(np.float64) - cx_px) * mpp_x
+    world_y = cam_y - (ys.astype(np.float64) - cy_px) * mpp_y  # image V flips Y
 
     # Z: how deep the pixel is below the board top surface.
     # depth[y,x] is the camera-to-surface distance; board_surface_z is the
@@ -743,6 +775,7 @@ def save_cavity_outputs(out_dir: Path, cavity_id: int, cavity_dict: dict,
 
 def save_summary_metadata(out_dir: Path, success: bool, board_surface_z: float,
                            raw_pixels: int, cavities_meta: list,
+                           camera_pose: dict = None,
                            error_msg=None):
     """
     Write cavities_summary.json.  Always called, even on failure.
@@ -755,12 +788,10 @@ def save_summary_metadata(out_dir: Path, success: bool, board_surface_z: float,
         "project_root":     str(PROJECT_ROOT),
         "output_dir":       str(out_dir),
         "success":          success,
-        "camera_pose": {
-            "x":          CAM_X,
-            "y":          CAM_Y,
-            "z":          CAM_Z,
-            "rot_z_deg":  CAM_ROT_Z_DEG,
+        "camera_pose": camera_pose if camera_pose is not None else {
+            "x": None, "y": None, "z": None, "rot_z_deg": None,
         },
+        "camera_pose_overridden": bool(SET_CAMERA_POSE),
         "image_resolution": {
             "width":  IMAGE_WIDTH,
             "height": IMAGE_HEIGHT,
@@ -843,11 +874,33 @@ async def main():
     raw_pixels      = 0
     cavities        = []        # list of component dicts
     cavities_meta   = []        # list of per-cavity metadata dicts (for summary)
+    active_camera_pose = None   # populated after Step 1; recorded in metadata
 
     try:
         # ── Step 1: Camera ────────────────────────────────────────────────────
         print("\n--- Step 1: Camera setup ---")
-        setup_camera(CAM_X, CAM_Y, CAM_Z, CAM_ROT_Z_DEG)
+
+        # Warn if the configured override pose still looks like the old
+        # piece-table pose (CAM_X<0 and CAM_Y>0.2 was the working piece pose).
+        if CAM_X < 0.0 and CAM_Y > 0.2:
+            print(f"[camera] WARNING: configured CAM_X={CAM_X}, CAM_Y={CAM_Y} "
+                  f"look like the piece-table pose, not a cavity-board pose. "
+                  f"Update the constants if SET_CAMERA_POSE=True.")
+
+        if SET_CAMERA_POSE:
+            print("[camera] overriding stage camera pose")
+            setup_camera(CAM_X, CAM_Y, CAM_Z, CAM_ROT_Z_DEG)
+        else:
+            print("[camera] using existing stage camera pose")
+
+        cam_x, cam_y, cam_z = get_camera_world_pose()
+        print(f"[camera] active world pos = ({cam_x:.4f}, {cam_y:.4f}, {cam_z:.4f}) m")
+        active_cam_xy = (cam_x, cam_y)
+        active_camera_pose = {
+            "x": cam_x, "y": cam_y, "z": cam_z,
+            "rot_z_deg": CAM_ROT_Z_DEG if SET_CAMERA_POSE else None,
+            "source": "config_override" if SET_CAMERA_POSE else "stage",
+        }
 
         # ── Step 2: Capture ───────────────────────────────────────────────────
         print("\n--- Step 2: Capture RGB + depth ---")
@@ -898,7 +951,8 @@ async def main():
 
             # Point cloud
             points, centroid_world = build_cavity_pointcloud(
-                depth, cav_mask, intrinsics, board_surface_z, N_POINTS)
+                depth, cav_mask, intrinsics, board_surface_z,
+                cam_xy=active_cam_xy, n_samples=N_POINTS)
 
             # Footprint
             footprint_bgr = make_cavity_footprint(points)
@@ -926,7 +980,8 @@ async def main():
 
         save_summary_metadata(
             OUT_DIR, success, board_surface_z, raw_pixels,
-            cavities_meta, error_msg)
+            cavities_meta, camera_pose=active_camera_pose,
+            error_msg=error_msg)
 
         print("\n[main] Files written to:", OUT_DIR)
         if OUT_DIR.exists():
