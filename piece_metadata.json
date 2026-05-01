@@ -1,0 +1,41 @@
+{
+  "script": "capture_piece_detection.py",
+  "timestamp": "2026-05-01T11:54:37",
+  "parameters": {
+    "camera_prim": "/World/Camera",
+    "cam_xyz": [
+      -0.25,
+      0.45,
+      0.58
+    ],
+    "cam_rot_z_deg": 0.0,
+    "resolution": [
+      640,
+      480
+    ],
+    "focal_mm": 24.0,
+    "aperture_mm": 36.0,
+    "surface_depth_range": [
+      0.1,
+      0.5
+    ],
+    "surface_tolerance_m": 0.004,
+    "cc_min_area_px": 300,
+    "cc_max_area_px": 50000,
+    "n_points": 2048
+  },
+  "input_files": [],
+  "output_files": [
+    "rgb.png",
+    "depth_vis.png",
+    "raw_piece_mask.png",
+    "piece_mask.png",
+    "piece_debug.png",
+    "piece_footprint.png",
+    "piece_pointcloud.npy",
+    "piece_metadata.json"
+  ],
+  "success": false,
+  "error": "module 'omni.replicator.core.scripts.orchestrator' has no attribute 'initialize_async'",
+  "piece_metrics": {}
+}
