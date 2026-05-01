@@ -589,15 +589,18 @@ def segment_cavities_from_depth(depth, board_surface_z: float,
 def find_cavity_components(raw_mask):
     """
     Run connected-components analysis on raw_mask, filter blobs by area, and
-    return a deterministically sorted list of cavity dicts.
+    return:
+      cavities          — deterministically sorted list of accepted cavity dicts
+      all_components    — list of every component (accepted + rejected) with
+                          label, area_px, centroid, bbox, status, reason
+      rejected          — components that did NOT pass the filter, same shape
 
-    Sort order (documented so callers can rely on cavity_00, cavity_01, ...):
+    Sort order for accepted cavities (documented so callers can rely on
+    cavity_00, cavity_01, ...):
       1. Bin centroid_y into rows of ROW_BIN_PX pixels.
       2. Sort by (row_bin, centroid_x) — top row, left to right; then next row.
 
     This order is stable across runs as long as the camera does not move.
-
-    Each dict: {label, area_px, centroid (x,y), bbox (x,y,w,h)}
     """
     import numpy as np
     import cv2
@@ -605,28 +608,57 @@ def find_cavity_components(raw_mask):
     binary   = (raw_mask.astype(np.uint8)) * 255
     n, labels, stats, centroids = cv2.connectedComponentsWithStats(binary)
 
-    cavities = []
+    cavities       = []
+    all_components = []
+    rejected       = []
+
     for i in range(1, n):   # 0 = background
         area = int(stats[i, cv2.CC_STAT_AREA])
-        if CC_MIN_AREA_PX <= area <= CC_MAX_AREA_PX:
-            cavities.append({
-                "label":    i,
-                "area_px":  area,
-                "centroid": (float(centroids[i][0]), float(centroids[i][1])),
-                "bbox":     (int(stats[i, cv2.CC_STAT_LEFT]),
-                             int(stats[i, cv2.CC_STAT_TOP]),
-                             int(stats[i, cv2.CC_STAT_WIDTH]),
-                             int(stats[i, cv2.CC_STAT_HEIGHT])),
-            })
+        comp = {
+            "label":    i,
+            "area_px":  area,
+            "centroid": (float(centroids[i][0]), float(centroids[i][1])),
+            "bbox":     (int(stats[i, cv2.CC_STAT_LEFT]),
+                         int(stats[i, cv2.CC_STAT_TOP]),
+                         int(stats[i, cv2.CC_STAT_WIDTH]),
+                         int(stats[i, cv2.CC_STAT_HEIGHT])),
+        }
+
+        if area < CC_MIN_AREA_PX:
+            comp["status"] = "rejected"
+            comp["reason"] = f"area<{CC_MIN_AREA_PX} (CC_MIN_AREA_PX)"
+            rejected.append(comp)
+        elif area > CC_MAX_AREA_PX:
+            comp["status"] = "rejected"
+            comp["reason"] = f"area>{CC_MAX_AREA_PX} (CC_MAX_AREA_PX)"
+            rejected.append(comp)
+        else:
+            comp["status"] = "accepted"
+            comp["reason"] = None
+            cavities.append(comp)
+
+        all_components.append(comp)
 
     print(f"[cc] total components (excl. background): {n - 1}  "
-          f"valid [{CC_MIN_AREA_PX}–{CC_MAX_AREA_PX} px]: {len(cavities)}")
+          f"accepted [{CC_MIN_AREA_PX}–{CC_MAX_AREA_PX} px]: {len(cavities)}  "
+          f"rejected: {len(rejected)}")
+
+    if all_components:
+        print("[cc] all components (label, area, centroid, bbox, status):")
+        for c in all_components:
+            cx, cy = c["centroid"]
+            bx, by, bw, bh = c["bbox"]
+            tag = "ACCEPT" if c["status"] == "accepted" else "REJECT"
+            extra = "" if c["status"] == "accepted" else f"  reason={c['reason']}"
+            print(f"  [{tag}] label={c['label']:>3d}  area={c['area_px']:>6d}  "
+                  f"centroid=({cx:6.1f}, {cy:6.1f})  "
+                  f"bbox=({bx}, {by}, {bw}, {bh}){extra}")
 
     if not cavities:
-        print("[cc] WARNING: no valid cavity components found. "
+        print("[cc] WARNING: no accepted cavity components. "
               "Check CAVITY_DEPTH_MARGIN, MAX_CAVITY_DEPTH, CC_MIN_AREA_PX, "
               "and inspect raw_cavity_mask.png.")
-        return cavities
+        return cavities, all_components, rejected
 
     # Deterministic sort: row_bin (top first) then centroid_x (left first).
     cavities.sort(key=lambda c: (
@@ -643,7 +675,7 @@ def find_cavity_components(raw_mask):
               f"centroid=({cx:.1f}, {cy:.1f})  row_bin={row_bin}  "
               f"bbox=({bx}, {by}, {bw}, {bh})")
 
-    return cavities
+    return cavities, all_components, rejected
 
 
 # ── CAMERA INTRINSICS ─────────────────────────────────────────────────────────
@@ -1138,11 +1170,30 @@ def save_cavity_outputs(out_dir: Path, cavity_id: int, cavity_dict: dict,
 
 # ── SUMMARY METADATA ──────────────────────────────────────────────────────────
 
+def _components_to_json(components: list) -> list:
+    """Flatten the in-memory component dicts (with tuples) into JSON-friendly form."""
+    out = []
+    for c in components:
+        cx, cy = c["centroid"]
+        bx, by, bw, bh = c["bbox"]
+        out.append({
+            "label":       c["label"],
+            "area_px":     c["area_px"],
+            "centroid_px": {"x": cx, "y": cy},
+            "bbox_px":     {"x": bx, "y": by, "w": bw, "h": bh},
+            "status":      c.get("status"),
+            "reason":      c.get("reason"),
+        })
+    return out
+
+
 def save_summary_metadata(out_dir: Path, success: bool, board_surface_z: float,
                            raw_pixels: int, cavities_meta: list,
                            camera_pose: dict = None,
                            error_msg=None,
-                           board_dict: dict = None):
+                           board_dict: dict = None,
+                           all_components: list = None,
+                           rejected_components: list = None):
     """
     Write cavities_summary.json.  Always called, even on failure.
 
@@ -1215,6 +1266,9 @@ def save_summary_metadata(out_dir: Path, success: bool, board_surface_z: float,
         "raw_cavity_pixels":     raw_pixels,
         "n_detected_cavities":   len(cavities_meta),
         "cavities":              cavities_meta,
+        "all_components":        _components_to_json(all_components or []),
+        "rejected_components":   _components_to_json(rejected_components or []),
+        "n_rejected_components": len(rejected_components or []),
         "error":                 error_msg,
     }
 
@@ -1273,8 +1327,10 @@ async def main():
     raw_mask           = None
     board_surface_z    = 0.0
     raw_pixels         = 0
-    cavities           = []      # list of component dicts
+    cavities           = []      # list of component dicts (accepted only)
     cavities_meta      = []      # list of per-cavity metadata dicts (for summary)
+    all_components     = []      # all CC components (accepted + rejected)
+    rejected_components = []     # components that failed the area filter
     active_camera_pose = None    # populated after Step 1; recorded in metadata
     board_dict         = {}      # detect_board() result (or empty on legacy path)
 
@@ -1364,7 +1420,7 @@ async def main():
 
         # ── Step 6: Connected components ──────────────────────────────────────
         print("\n--- Step 6: Find cavity components ---")
-        cavities = find_cavity_components(raw_mask)
+        cavities, all_components, rejected_components = find_cavity_components(raw_mask)
 
         if not cavities:
             raise RuntimeError(
@@ -1437,7 +1493,9 @@ async def main():
             OUT_DIR, success, board_surface_z, raw_pixels,
             cavities_meta, camera_pose=active_camera_pose,
             error_msg=error_msg,
-            board_dict=board_dict)
+            board_dict=board_dict,
+            all_components=all_components,
+            rejected_components=rejected_components)
 
         print("\n[main] Files written to:", OUT_DIR)
         if OUT_DIR.exists():
