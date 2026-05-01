@@ -60,11 +60,28 @@ DEPTH_MIN_VALID = 0.02
 CC_MIN_AREA_PX =  300   # discard blobs smaller than this
 CC_MAX_AREA_PX = 50000  # discard blobs suspiciously large (probably table leak)
 
+# Piece selection mode — used after connected-component filtering.
+#   "largest"            — pick the valid component with largest area (default)
+#   "closest_to_center"  — pick the valid component whose centroid is nearest
+#                           to the image centre. Use this with the camera
+#                           re-aimed at a specific piece to capture it
+#                           deterministically without classifying.
+#   "manual_index"       — pick MANUAL_COMPONENT_INDEX from the deterministic
+#                           sort order (area DESC, ties broken by centroid_x ASC).
+PIECE_SELECTION_MODE   = "largest"
+MANUAL_COMPONENT_INDEX = 0
+
 # Point cloud sampling target
 N_POINTS = 2048
 
-# Output directory
-OUT_DIR = Path("/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/pieces_detected")
+# Output directory.
+# Resolved relative to this script file so it always lands in the repo
+# (data/pieces_detected/) regardless of whether the script runs on the Mac
+# or inside the Isaac Sim container — no hardcoded absolute paths needed.
+# Outputs can then be inspected, committed, or pulled to a developer machine
+# without docker cp + scp.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+OUT_DIR   = REPO_ROOT / "data" / "pieces_detected"
 
 # ── END CONFIG ────────────────────────────────────────────────────────────────
 
@@ -248,13 +265,18 @@ def segment_piece(depth, surface_z):
 def select_best_component(raw_mask):
     """
     Run connected-components analysis on raw_mask, filter blobs by area, and
-    return (best_mask, stats_list).
+    return (best_mask, sorted_blobs, selected_rank).
 
-    best_mask:  H×W bool, only the largest valid blob set to True
-    stats_list: list of dicts with per-blob info, sorted by area descending
+    Sorting is deterministic: area DESC, ties broken by centroid_x ASC.
 
-    Returns (None, stats_list) if no valid blob is found.
+    Selection is controlled by PIECE_SELECTION_MODE:
+      "largest"           — rank 0 of the sorted list (largest area).
+      "closest_to_center" — component whose centroid is nearest to (IMG_W/2, IMG_H/2).
+      "manual_index"      — MANUAL_COMPONENT_INDEX in the sorted list.
+
+    Returns (None, sorted_blobs, -1) if no valid blob is found.
     """
+    import math as _math
     import numpy as np
     import cv2
 
@@ -275,27 +297,72 @@ def select_best_component(raw_mask):
                              int(stats[i, cv2.CC_STAT_HEIGHT])),
             })
 
-    blobs.sort(key=lambda b: b["area_px"], reverse=True)
+    # Deterministic sort: area DESC, ties broken by centroid_x ASC
+    blobs.sort(key=lambda b: (-b["area_px"], b["centroid"][0]))
 
     print(f"[cc] total components (excl. background): {n - 1}  "
           f"valid [{CC_MIN_AREA_PX}–{CC_MAX_AREA_PX} px]: {len(blobs)}")
-    for idx, b in enumerate(blobs):
-        print(f"  blob {idx}: area={b['area_px']}px  "
-              f"centroid=({b['centroid'][0]:.1f},{b['centroid'][1]:.1f})  "
-              f"bbox={b['bbox']}")
 
     if not blobs:
         print("[cc] WARNING: no valid blob found. "
               "Check CC_MIN_AREA_PX, SURFACE_TOLERANCE, and inspect "
               "raw_piece_mask.png.")
-        return None, blobs
+        return None, blobs, -1
 
-    best = blobs[0]
+    # ── Console listing ───────────────────────────────────────────────────────
+    print(f"[select] mode = {PIECE_SELECTION_MODE}")
+    print("[select] valid components (sorted area DESC, centroid_x ASC):")
+    for k, b in enumerate(blobs):
+        cx, cy = b["centroid"]
+        bx, by, bw, bh = b["bbox"]
+        print(f"  [{k}] area={b['area_px']}  "
+              f"centroid=({cx:.1f}, {cy:.1f})  "
+              f"bbox=({bx}, {by}, {bw}, {bh})")
+
+    # ── Selection ─────────────────────────────────────────────────────────────
+    img_cx = IMG_W / 2.0
+    img_cy = IMG_H / 2.0
+
+    if PIECE_SELECTION_MODE == "largest":
+        selected_rank = 0
+        reason = "largest area"
+
+    elif PIECE_SELECTION_MODE == "closest_to_center":
+        best_dist = float("inf")
+        selected_rank = 0
+        for k, b in enumerate(blobs):
+            cx, cy = b["centroid"]
+            dist = _math.hypot(cx - img_cx, cy - img_cy)
+            if dist < best_dist:
+                best_dist = dist
+                selected_rank = k
+        reason = f"closest to image centre (dist={best_dist:.1f}px)"
+
+    elif PIECE_SELECTION_MODE == "manual_index":
+        if MANUAL_COMPONENT_INDEX >= len(blobs):
+            listing = "  ".join(
+                f"[{k}] area={b['area_px']} centroid=({b['centroid'][0]:.1f}, "
+                f"{b['centroid'][1]:.1f}) bbox={b['bbox']}"
+                for k, b in enumerate(blobs)
+            )
+            raise IndexError(
+                f"MANUAL_COMPONENT_INDEX={MANUAL_COMPONENT_INDEX} is out of range "
+                f"for {len(blobs)} valid component(s). Valid entries:  {listing}"
+            )
+        selected_rank = MANUAL_COMPONENT_INDEX
+        reason = f"MANUAL_COMPONENT_INDEX={MANUAL_COMPONENT_INDEX}"
+
+    else:
+        raise ValueError(
+            f"Unknown PIECE_SELECTION_MODE={PIECE_SELECTION_MODE!r}. "
+            f"Supported: 'largest', 'closest_to_center', 'manual_index'."
+        )
+
+    best = blobs[selected_rank]
     best_mask = (labels == best["label"])
-    print(f"[cc] selected blob 0: area={best['area_px']}px  "
-          f"centroid={best['centroid']}")
+    print(f"[select] picked rank={selected_rank}  reason={reason}")
 
-    return best_mask, blobs
+    return best_mask, blobs, selected_rank
 
 
 # ── CAMERA INTRINSICS ─────────────────────────────────────────────────────────
@@ -526,35 +593,77 @@ def save_debug_outputs(out_dir, rgb, depth, raw_mask, best_mask,
 
 
 def save_metadata(out_dir, success, best_mask, blob_stats, points,
-                  centroid_world, surface_z, error_msg=None):
+                  centroid_world, surface_z, n_valid_components=0,
+                  selected_rank=-1, error_msg=None):
     """
     Write piece_metadata.json conforming to the experiments.md conventions.
+
+    n_valid_components: count of blobs that passed the area filter
+                        (always >= 1 when success=True; used to flag ambiguity).
+    selected_rank:      index of the selected blob in the deterministic sort order
+                        (area DESC, ties broken by centroid_x ASC).
     """
     import numpy as np
 
     ts = time.strftime("%Y-%m-%dT%H:%M:%S")
 
-    piece_metrics = {}
+    # ── Selected component block ───────────────────────────────────────────────
+    selected_component = {}
+    pointcloud_bounds  = {}
     if success and best_mask is not None and blob_stats:
         b = blob_stats[0]
-        ys, xs = __import__('numpy').where(best_mask)
-        depth_values_placeholder = []   # actual heights stored in point cloud Z
-        piece_metrics = {
-            "area_px":           b["area_px"],
-            "centroid_px":       b["centroid"],
-            "bbox_px":           b["bbox"],
-            "centroid_world_m":  list(centroid_world),
-            "surface_depth_m":   float(surface_z),
-            "point_count":       int(len(points)),
-            "height_range_m":    [float(points[:, 2].min()),
-                                  float(points[:, 2].max())],
-            "xy_span_m":         [float((points[:, 0].max() - points[:, 0].min())),
-                                  float((points[:, 1].max() - points[:, 1].min()))],
+        selected_component = {
+            "area_px":          b["area_px"],
+            "centroid_px":      list(b["centroid"]),
+            "bbox_px":          list(b["bbox"]),   # (x, y, w, h)
+            "centroid_world_m": list(centroid_world),
+            "surface_depth_m":  float(surface_z),
+            "point_count":      int(len(points)),
+            "height_range_m":   [float(points[:, 2].min()),
+                                 float(points[:, 2].max())],
+            "xy_span_m":        [float(points[:, 0].max() - points[:, 0].min()),
+                                 float(points[:, 1].max() - points[:, 1].min())],
+        }
+        pointcloud_bounds = {
+            "x_min": float(points[:, 0].min()),
+            "x_max": float(points[:, 0].max()),
+            "y_min": float(points[:, 1].min()),
+            "y_max": float(points[:, 1].max()),
+            "z_min": float(points[:, 2].min()),
+            "z_max": float(points[:, 2].max()),
         }
 
     metadata = {
-        "script":      "capture_piece_detection.py",
-        "timestamp":   ts,
+        "script":     "capture_piece_detection.py",
+        "timestamp":  ts,
+        "output_dir": str(out_dir),
+        "camera_pose": {
+            "x":          CAM_X,
+            "y":          CAM_Y,
+            "z":          CAM_Z,
+            "rot_z_deg":  CAM_ROT_Z_DEG,
+        },
+        "image_resolution": {
+            "width":  IMG_W,
+            "height": IMG_H,
+        },
+        "surface_depth_m":           float(surface_z),
+        "n_valid_components":        n_valid_components,
+        "multiple_valid_components": n_valid_components > 1,
+        "piece_selection_mode":      PIECE_SELECTION_MODE,
+        "manual_component_index":    MANUAL_COMPONENT_INDEX,
+        "selected_component_rank_or_index": selected_rank,
+        "all_valid_components": [
+            {
+                "area_px":     b["area_px"],
+                "centroid_px": {"x": b["centroid"][0], "y": b["centroid"][1]},
+                "bbox_px":     {"x": b["bbox"][0], "y": b["bbox"][1],
+                                "w": b["bbox"][2], "h": b["bbox"][3]},
+            }
+            for b in blob_stats
+        ],
+        "selected_component":        selected_component,
+        "pointcloud_bounds":         pointcloud_bounds,
         "parameters": {
             "camera_prim":         CAMERA_PRIM_PATH,
             "cam_xyz":             [CAM_X, CAM_Y, CAM_Z],
@@ -574,9 +683,8 @@ def save_metadata(out_dir, success, best_mask, blob_stats, points,
             "piece_mask.png", "piece_debug.png", "piece_footprint.png",
             "piece_pointcloud.npy", "piece_metadata.json",
         ],
-        "success":       success,
-        "error":         error_msg,
-        "piece_metrics": piece_metrics,
+        "success": success,
+        "error":   error_msg,
     }
 
     meta_path = out_dir / "piece_metadata.json"
@@ -610,17 +718,18 @@ async def main():
             _p.unlink()
             print(f"[main] removed stale: {_p.name}")
 
-    error_msg    = None
-    success      = False
-    best_mask    = None
-    blob_stats   = []
-    points       = np.zeros((N_POINTS, 3), dtype=np.float32)
-    centroid_w   = (0.0, 0.0)
-    surface_z    = 0.0
-    rgb          = None
-    depth        = None
-    raw_mask     = None
-    footprint_bgr = None
+    error_msg      = None
+    success        = False
+    best_mask      = None
+    blob_stats     = []
+    selected_rank  = -1
+    points         = np.zeros((N_POINTS, 3), dtype=np.float32)
+    centroid_w     = (0.0, 0.0)
+    surface_z      = 0.0
+    rgb            = None
+    depth          = None
+    raw_mask       = None
+    footprint_bgr  = None
 
     try:
         # ── Step 1: Camera setup ──────────────────────────────────────────────
@@ -641,7 +750,7 @@ async def main():
 
         # ── Step 5: Connected components ──────────────────────────────────────
         print("\n--- Step 5: Select best component ---")
-        best_mask, blob_stats = select_best_component(raw_mask)
+        best_mask, blob_stats, selected_rank = select_best_component(raw_mask)
 
         if best_mask is None:
             raise RuntimeError(
@@ -705,9 +814,14 @@ async def main():
             print(f"[save] Skipping piece_mask, piece_debug, piece_footprint, "
                   f"piece_pointcloud — not produced before failure.")
 
-        # Metadata is always written (success or failure)
+        # Metadata is always written (success or failure).
+        # len(blob_stats) is the count of components that passed the area
+        # filter; this is the n_valid_components value.
         save_metadata(OUT_DIR, success, best_mask, blob_stats, points,
-                      centroid_w, surface_z, error_msg=error_msg)
+                      centroid_w, surface_z,
+                      n_valid_components=len(blob_stats),
+                      selected_rank=selected_rank,
+                      error_msg=error_msg)
 
         print("\n" + "=" * 60)
         print(f"  success={success}")
