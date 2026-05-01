@@ -136,7 +136,6 @@ async def capture_rgb_depth():
     rgb_an.attach([rp])
 
     print(f"[capture] stepping simulation ({RT_SUBFRAMES} rt_subframes) ...")
-    await rep.orchestrator.initialize_async()
     await rep.orchestrator.step_async(rt_subframes=RT_SUBFRAMES)
 
     raw_depth = depth_an.get_data()
@@ -146,16 +145,26 @@ async def capture_rgb_depth():
         raise RuntimeError("[capture] Annotator returned None — check camera prim "
                            "and render product")
 
+    # rgb: may be ndarray or dict{"data": flat array}
+    print(f"[capture] rgb returned {type(raw_rgb)}")
     if isinstance(raw_rgb, dict):
         raw_rgb = np.asarray(raw_rgb["data"]).reshape(IMG_H, IMG_W, -1)
-    depth = np.nan_to_num(raw_depth.astype(np.float32), nan=0.0,
-                          posinf=0.0, neginf=0.0)
-    rgb   = raw_rgb[:, :, :3]   # drop alpha if present; keep H×W×3
+    print(f"[capture] rgb shape={raw_rgb.shape}")
+    rgb = raw_rgb[:, :, :3]   # drop alpha if present; keep H×W×3
 
-    print(f"[capture] depth shape={depth.shape}  "
-          f"valid range [{depth[depth > DEPTH_MIN_VALID].min():.4f}, "
-          f"{depth[depth > DEPTH_MIN_VALID].max():.4f}] m")
-    print(f"[capture] rgb shape={rgb.shape}")
+    # depth: may be ndarray or dict{"data": flat array}
+    print(f"[capture] depth returned {type(raw_depth)}")
+    if isinstance(raw_depth, dict):
+        raw_depth = np.asarray(raw_depth["data"]).reshape(IMG_H, IMG_W)
+    raw_depth = raw_depth.astype(np.float32)
+    print(f"[capture] depth shape={raw_depth.shape}")
+    depth = np.nan_to_num(raw_depth, nan=0.0, posinf=0.0, neginf=0.0)
+
+    valid_d = depth[depth > DEPTH_MIN_VALID]
+    if valid_d.size > 0:
+        print(f"[capture] depth valid range [{valid_d.min():.4f}, {valid_d.max():.4f}] m")
+    else:
+        print("[capture] WARNING: no valid depth pixels above DEPTH_MIN_VALID")
 
     return rgb, depth
 
@@ -587,6 +596,20 @@ async def main():
     print("=" * 60)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Remove stale outputs from the previous run so a failed run never leaves
+    # old images sitting around that could be mistaken for current results.
+    _stale_files = [
+        "rgb.png", "depth_vis.png", "raw_piece_mask.png",
+        "piece_mask.png", "piece_debug.png", "piece_footprint.png",
+        "piece_pointcloud.npy", "piece_metadata.json",
+    ]
+    for _fname in _stale_files:
+        _p = OUT_DIR / _fname
+        if _p.exists():
+            _p.unlink()
+            print(f"[main] removed stale: {_p.name}")
+
     error_msg    = None
     success      = False
     best_mask    = None
@@ -650,23 +673,39 @@ async def main():
         # ── Step 8: Save outputs ──────────────────────────────────────────────
         print("\n--- Step 8: Save debug outputs ---")
 
-        import numpy as np
+        if success:
+            # All intermediates are guaranteed non-None when success=True
+            save_debug_outputs(OUT_DIR, rgb, depth, raw_mask, best_mask,
+                               footprint_bgr, points, blob_stats,
+                               centroid_w, surface_z)
+        else:
+            # On failure: only save the files we actually have; never write
+            # zero-filled placeholders that look like real captures.
+            import numpy as np
+            import cv2
+            OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Provide safe fallbacks for failed intermediates
-        if rgb is None:
-            rgb   = np.zeros((IMG_H, IMG_W, 3), dtype=np.uint8)
-            depth = np.zeros((IMG_H, IMG_W),    dtype=np.float32)
-        if raw_mask is None:
-            raw_mask = np.zeros((IMG_H, IMG_W), dtype=bool)
-        if best_mask is None:
-            best_mask = np.zeros((IMG_H, IMG_W), dtype=bool)
-        if footprint_bgr is None:
-            footprint_bgr = np.zeros((256, 256, 3), dtype=np.uint8)
+            if rgb is not None and depth is not None:
+                rgb_bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+                cv2.imwrite(str(OUT_DIR / "rgb.png"), rgb_bgr)
+                valid_d = depth[depth > DEPTH_MIN_VALID]
+                d_min = float(valid_d.min()) if valid_d.size > 0 else 0.0
+                d_max = float(valid_d.max()) if valid_d.size > 0 else 1.0
+                d_norm = np.clip((depth - d_min) / (d_max - d_min + 1e-8), 0.0, 1.0)
+                depth_vis = cv2.applyColorMap((d_norm * 255).astype(np.uint8),
+                                             cv2.COLORMAP_VIRIDIS)
+                cv2.imwrite(str(OUT_DIR / "depth_vis.png"), depth_vis)
+                print("[save] rgb.png and depth_vis.png written (capture succeeded)")
 
-        save_debug_outputs(OUT_DIR, rgb, depth, raw_mask, best_mask,
-                           footprint_bgr, points, blob_stats,
-                           centroid_w, surface_z)
+            if raw_mask is not None:
+                cv2.imwrite(str(OUT_DIR / "raw_piece_mask.png"),
+                            (raw_mask.astype(np.uint8) * 255))
+                print("[save] raw_piece_mask.png written")
 
+            print(f"[save] Skipping piece_mask, piece_debug, piece_footprint, "
+                  f"piece_pointcloud — not produced before failure.")
+
+        # Metadata is always written (success or failure)
         save_metadata(OUT_DIR, success, best_mask, blob_stats, points,
                       centroid_w, surface_z, error_msg=error_msg)
 
