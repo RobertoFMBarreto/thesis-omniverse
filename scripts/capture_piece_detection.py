@@ -64,7 +64,7 @@ CC_MAX_AREA_PX = 50000  # discard blobs suspiciously large (probably table leak)
 N_POINTS = 2048
 
 # Output directory
-OUT_DIR = Path("/workspace/Tese_Roberto/shape_insertion/thesis-omniverse")
+OUT_DIR = Path("/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/pieces_detected")
 
 # ── END CONFIG ────────────────────────────────────────────────────────────────
 
