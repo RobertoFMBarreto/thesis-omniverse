@@ -1,0 +1,38 @@
+{
+  "script": "capture_cavity_detection.py",
+  "timestamp": "2026-05-01T15:15:17",
+  "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
+  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected",
+  "success": false,
+  "camera_pose": {
+    "x": -0.25,
+    "y": 0.45,
+    "z": 0.58,
+    "rot_z_deg": 0.0
+  },
+  "image_resolution": {
+    "width": 640,
+    "height": 480
+  },
+  "parameters": {
+    "focal_mm": 24.0,
+    "aperture_mm": 36.0,
+    "board_roi_enabled": false,
+    "board_roi_fraction": 0.6,
+    "surface_depth_min": 0.1,
+    "surface_depth_max": 0.5,
+    "cavity_depth_margin": 0.003,
+    "max_cavity_depth": 0.03,
+    "cc_min_area_px": 200,
+    "cc_max_area_px": 30000,
+    "n_points": 2048,
+    "footprint_res_m_per_px": 0.0005,
+    "footprint_canvas_px": 256,
+    "row_bin_px": 30
+  },
+  "board_surface_depth_m": 0.18050000000000008,
+  "raw_cavity_pixels": 0,
+  "n_detected_cavities": 0,
+  "cavities": [],
+  "error": "No cavity components found after connected-component analysis. Inspect raw_cavity_mask.png and depth_vis.png. Typical causes: CAVITY_DEPTH_MARGIN too large, MAX_CAVITY_DEPTH too small, board surface estimate wrong, CC_MIN_AREA_PX too large."
+}
