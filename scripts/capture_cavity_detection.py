@@ -28,6 +28,7 @@ import math
 import json
 import os
 import shutil
+import sys
 import time
 import traceback
 from pathlib import Path
@@ -129,7 +130,11 @@ CAVITY_DEPTH_MARGIN = 0.003   # 3 mm
 MAX_CAVITY_DEPTH    = 0.030   # 30 mm
 
 # ── Connected-component filters ───────────────────────────────────────────────
-CC_MIN_AREA_PX =   200   # discard blobs smaller than this (noise)
+# Must be low enough to keep small cavities such as the star, but high enough
+# to reject isolated depth noise.  A previous run had the star cavity rejected
+# at area=114 px under CC_MIN_AREA_PX=200; 80 keeps it while staying well
+# above typical depth-noise speckle.
+CC_MIN_AREA_PX =    80   # discard blobs smaller than this (noise)
 CC_MAX_AREA_PX = 30000   # discard blobs suspiciously large (board bleed)
 
 # ── Point cloud ───────────────────────────────────────────────────────────────
@@ -1221,6 +1226,7 @@ def save_summary_metadata(out_dir: Path, success: bool, board_surface_z: float,
         "timestamp":        ts,
         "project_root":     str(PROJECT_ROOT),
         "output_dir":       str(out_dir),
+        "run_log_path":     str(out_dir / "run_log.txt"),
         "success":          success,
         "camera_pose": camera_pose if camera_pose is not None else {
             "x": None, "y": None, "z": None, "rot_z_deg": None,
@@ -1305,17 +1311,98 @@ def _cleanup_stale(out_dir: Path) -> None:
             print(f"[cleanup] removed stale: {subdir.name}/")
 
 
+# ── RUN LOG (tee stdout/stderr to a file) ─────────────────────────────────────
+
+class _TeeStream:
+    """Write to both the original stream and a file.  Marked with
+    `_is_run_logger` so repeated calls to setup_run_logging() don't stack
+    wrappers across consecutive runs in the same Script Editor process."""
+    _is_run_logger = True
+
+    def __init__(self, original, fileobj):
+        self.original = original
+        self.fileobj  = fileobj
+
+    def write(self, data):
+        try:
+            self.original.write(data)
+        except Exception:
+            pass
+        try:
+            self.fileobj.write(data)
+            self.fileobj.flush()
+        except Exception:
+            pass
+
+    def flush(self):
+        try: self.original.flush()
+        except Exception: pass
+        try: self.fileobj.flush()
+        except Exception: pass
+
+    def isatty(self):
+        return getattr(self.original, "isatty", lambda: False)()
+
+
+_RUN_LOG_STATE = {"file": None}
+
+
+def teardown_run_logging():
+    """Restore original sys.stdout/sys.stderr and close the log file.
+    Idempotent: safe to call when no logging is active."""
+    if getattr(sys.stdout, "_is_run_logger", False):
+        sys.stdout = sys.stdout.original
+    if getattr(sys.stderr, "_is_run_logger", False):
+        sys.stderr = sys.stderr.original
+    f = _RUN_LOG_STATE.get("file")
+    if f is not None:
+        try: f.flush()
+        except Exception: pass
+        try: f.close()
+        except Exception: pass
+        _RUN_LOG_STATE["file"] = None
+
+
+def setup_run_logging(out_dir: Path) -> Path:
+    """Tee stdout and stderr to `<out_dir>/run_log.txt`.  The file is
+    overwritten each run.  Returns the log file path.
+
+    Always tears down any previous run-logger first to avoid stacking
+    multiple TeeStream wrappers when the script is re-run inside the same
+    Isaac Sim Script Editor process."""
+    teardown_run_logging()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    log_path = out_dir / "run_log.txt"
+    f = open(str(log_path), "w", buffering=1)   # text-mode, line-buffered
+
+    ts = time.strftime("%Y-%m-%dT%H:%M:%S")
+    f.write("# capture_cavity_detection.py — run log\n")
+    f.write(f"# timestamp:  {ts}\n")
+    f.write(f"# output_dir: {out_dir}\n")
+    f.write("# This file is OVERWRITTEN at the beginning of every run.\n")
+    f.write("=" * 60 + "\n")
+    f.flush()
+
+    _RUN_LOG_STATE["file"] = f
+    sys.stdout = _TeeStream(sys.stdout, f)
+    sys.stderr = _TeeStream(sys.stderr, f)
+    return log_path
+
+
 # ── MAIN PIPELINE ─────────────────────────────────────────────────────────────
 
 async def main():
     import numpy as np
 
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = setup_run_logging(OUT_DIR)
+
     print("=" * 60)
     print("capture_cavity_detection.py — Phase 2")
     print("=" * 60)
     print(f"[main] output_dir = {OUT_DIR}")
+    print(f"[main] run_log    = {log_path}")
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
     _cleanup_stale(OUT_DIR)
 
     # State variables — kept at function scope so the finally block
@@ -1508,6 +1595,8 @@ async def main():
         if not success:
             print(f"  error:  {error_msg}")
         print("=" * 60)
+
+        teardown_run_logging()
 
 
 asyncio.ensure_future(main())
