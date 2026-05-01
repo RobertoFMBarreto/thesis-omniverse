@@ -1,0 +1,159 @@
+# capture_cavity_detection.py — run log
+# timestamp:  2026-05-01T16:14:26
+# output_dir: /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected
+# This file is OVERWRITTEN at the beginning of every run.
+============================================================
+============================================================
+capture_cavity_detection.py — Phase 2
+============================================================
+[main] output_dir = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected
+[main] run_log    = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/run_log.txt
+[cleanup] removed stale: rgb.png
+[cleanup] removed stale: depth_vis.png
+[cleanup] removed stale: raw_cavity_mask.png
+[cleanup] removed stale: cavities_debug.png
+[cleanup] removed stale: cavities_summary.json
+[cleanup] removed stale: board_mask.png
+[cleanup] removed stale: board_region_mask.png
+[cleanup] removed stale: board_debug.png
+[cleanup] removed stale: board_roi_auto_debug.png
+[cleanup] removed stale: cavity_00/
+[cleanup] removed stale: cavity_01/
+[cleanup] removed stale: cavity_02/
+
+--- Step 1: Camera setup ---
+[camera] using existing stage camera pose
+[camera] active world pos = (0.2880, 0.0003, 0.8000) m
+
+--- Step 2: Capture RGB + depth ---
+[capture] creating render product 640x480 on /World/Camera
+[capture] stepping simulation (8 rt_subframes) ...
+[capture] rgb type = <class 'numpy.ndarray'>
+[capture] rgb shape = (480, 640, 4)
+[capture] depth type = <class 'numpy.ndarray'>
+[capture] depth shape = (480, 640)
+[capture] depth valid range [0.3800, 0.8000] m  (307200 px)
+
+--- Step 3a: Estimate table/background depth ---
+[table_depth] full-image dominant depth = 0.4005 m  (91.6% of valid pixels)  — interpreted as table/background
+
+--- Step 3b: Detect board ---
+[board_detect] table_depth=0.4005 m  candidate pixels (closer by >5 mm): 9122
+[board_detect] components total=1  passing area+rect filters: 1
+[board_detect] selected component  area=9122 px  rect=0.841  centroid=(315.8, 238.6)  bbox=(270,183,96,113)
+[board_detect] fill mode=contour  region pixels=10848
+[board_debug] board_mask.png
+[board_debug] board_region_mask.png
+[board_debug] board_debug.png
+[board_debug] board_roi_auto_debug.png
+[board_detect] board detected — area=9122 px  rect=0.841  region_pixels=10848
+
+--- Step 4: Estimate board surface depth ---
+[surface_est] using board surface mask  (9122 board pixels)
+[surface_est] board surface depth = 0.3795 m  (97.5% of analysed pixels at peak bin)
+
+--- Step 5: Segment cavities ---
+[segment] cavity search restricted to board region mask  (10848 region pixels)
+[segment] board_surface_z=0.3795 m  cavity band=[0.3825, 0.4095] m  raw cavity pixels: 1923
+[segment] after morph open+close: 1900 pixels (removed 23 noise pixels)
+
+--- Step 6: Find cavity components ---
+[cc] total components (excl. background): 4  accepted [80–30000 px]: 4  rejected: 0
+[cc] all components (label, area, centroid, bbox, status):
+  [ACCEPT] label=  1  area=   897  centroid=( 337.0,  219.0)  bbox=(326, 200, 23, 39)
+  [ACCEPT] label=  2  area=   114  centroid=( 298.1,  216.8)  bbox=(292, 210, 13, 14)
+  [ACCEPT] label=  3  area=   383  centroid=( 298.0,  266.8)  bbox=(288, 256, 22, 22)
+  [ACCEPT] label=  4  area=   506  centroid=( 337.0,  266.5)  bbox=(326, 256, 23, 22)
+[cc] sorted cavities (top-to-bottom, left-to-right):
+  cavity_00  area=114 px  centroid=(298.1, 216.8)  row_bin=7  bbox=(292, 210, 13, 14)
+  cavity_01  area=897 px  centroid=(337.0, 219.0)  row_bin=7  bbox=(326, 200, 23, 39)
+  cavity_02  area=383 px  centroid=(298.0, 266.8)  row_bin=8  bbox=(288, 256, 22, 22)
+  cavity_03  area=506 px  centroid=(337.0, 266.5)  row_bin=8  bbox=(326, 256, 23, 22)
+
+--- Step 7: Process 4 cavity/cavities ---
+[intrinsics] mpp_x=0.889 mm/px  mpp_y=0.829 mm/px  (at board surface depth 0.3795 m)
+
+  [cavity_00] label=2  area=114 px  centroid=(298.1, 216.8)
+[pointcloud] raw pixels=114  sampled=2048  (replace=True)
+  X=[-0.0054, 0.0053] m
+  Y=[-0.0051, 0.0056] m
+  Z=[0.0005, 0.0205] m  (depth below board surface)
+  centroid_world=(0.2685, 0.0195)
+[footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
+[save_cavity] cavity_00  z_range=[0.0005, 0.0205] m  xy_span=(0.0107, 0.0108) m  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_00
+
+  [cavity_01] label=1  area=897 px  centroid=(337.0, 219.0)
+[pointcloud] raw pixels=897  sampled=2048  (replace=True)
+  X=[-0.0098, 0.0098] m
+  Y=[-0.0157, 0.0157] m
+  Z=[0.0044, 0.0205] m  (depth below board surface)
+  centroid_world=(0.3031, 0.0177)
+[footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
+[save_cavity] cavity_01  z_range=[0.0044, 0.0205] m  xy_span=(0.0196, 0.0315) m  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_01
+
+  [cavity_02] label=3  area=383 px  centroid=(298.0, 266.8)
+[pointcloud] raw pixels=383  sampled=2048  (replace=True)
+  X=[-0.0089, 0.0097] m
+  Y=[-0.0084, 0.0090] m
+  Z=[0.0032, 0.0205] m  (depth below board surface)
+  centroid_world=(0.2685, -0.0219)
+[footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
+[save_cavity] cavity_02  z_range=[0.0032, 0.0205] m  xy_span=(0.0187, 0.0174) m  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_02
+
+  [cavity_03] label=4  area=506 px  centroid=(337.0, 266.5)
+[pointcloud] raw pixels=506  sampled=2048  (replace=True)
+  X=[-0.0098, 0.0098] m
+  Y=[-0.0087, 0.0087] m
+  Z=[0.0065, 0.0205] m  (depth below board surface)
+  centroid_world=(0.3031, -0.0217)
+[footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
+[save_cavity] cavity_03  z_range=[0.0065, 0.0205] m  xy_span=(0.0196, 0.0174) m  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_03
+
+[main] Pipeline completed successfully.  Detected 4 cavities.
+
+--- Step 8: Save global outputs ---
+[save_global] rgb.png
+[save_global] depth_vis.png
+[save_global] raw_cavity_mask.png
+[save_global] cavities_debug.png  (4 cavities)
+[summary] saved → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavities_summary.json
+
+[main] Files written to: /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected
+  board_debug.png
+  board_mask.png
+  board_region_mask.png
+  board_roi_auto_debug.png
+  cavities_debug.png
+  cavities_summary.json
+  cavity_00
+  cavity_00/cavity_debug.png
+  cavity_00/cavity_footprint.png
+  cavity_00/cavity_mask.png
+  cavity_00/cavity_metadata.json
+  cavity_00/cavity_pointcloud.npy
+  cavity_01
+  cavity_01/cavity_debug.png
+  cavity_01/cavity_footprint.png
+  cavity_01/cavity_mask.png
+  cavity_01/cavity_metadata.json
+  cavity_01/cavity_pointcloud.npy
+  cavity_02
+  cavity_02/cavity_debug.png
+  cavity_02/cavity_footprint.png
+  cavity_02/cavity_mask.png
+  cavity_02/cavity_metadata.json
+  cavity_02/cavity_pointcloud.npy
+  cavity_03
+  cavity_03/cavity_debug.png
+  cavity_03/cavity_footprint.png
+  cavity_03/cavity_mask.png
+  cavity_03/cavity_metadata.json
+  cavity_03/cavity_pointcloud.npy
+  depth_vis.png
+  raw_cavity_mask.png
+  rgb.png
+  run_log.txt
+
+============================================================
+  success=True  cavities=4
+============================================================
