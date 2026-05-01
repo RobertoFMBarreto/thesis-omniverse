@@ -1,6 +1,6 @@
 {
   "script": "capture_piece_detection.py",
-  "timestamp": "2026-05-01T12:05:04",
+  "timestamp": "2026-05-01T13:39:10",
   "parameters": {
     "camera_prim": "/World/Camera",
     "cam_xyz": [
