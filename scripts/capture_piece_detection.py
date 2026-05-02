@@ -54,10 +54,24 @@ APERTURE_MM = 36.0
 
 # Surface estimation: look for the dominant depth peak in this range [m].
 # Should bracket the table/board surface for the active camera height.
-# Defaults below assume camera at z ≈ 1 m (cavity-camera pose).
-SURFACE_DEPTH_MIN = 0.70
-SURFACE_DEPTH_MAX = 1.20
+#
+# Recommended camera heights (when SET_CAMERA_POSE=False, the camera pose
+# is set in the Isaac Sim stage):
+#   - z ≈ 0.7 m : preferred for piece capture — narrower field of view,
+#                 reduces the chance of capturing the side table as a false
+#                 piece.  With this height, the support surface lands near
+#                 0.7 m depth and a 105 mm-tall piece top near 0.595 m.
+#   - z ≈ 0.8 m : working setting for board/cavity capture (different
+#                 script, different aperture trade-off).
+#
+# Defaults below match the recommended z ≈ 0.7 m piece-camera height.
+SURFACE_DEPTH_MIN = 0.50
+SURFACE_DEPTH_MAX = 0.90
 SURFACE_HIST_BIN  = 0.001   # 1 mm bins
+# Margin used by the surface estimator's bound-saturation warning:
+# warns if the estimated surface depth is within this many metres of the
+# search bounds (likely indicating a pinned histogram / wrong window).
+SURFACE_BOUND_WARN_M = 0.005   # 5 mm
 
 # Segmentation: a pixel belongs to the piece if its depth is MORE than this
 # margin below the surface estimate.  Too small → table noise bleeds in.
@@ -346,6 +360,20 @@ def estimate_support_surface_depth(depth, roi: tuple = None):
     if peak_fraction < 0.05:
         print("[surface_est] WARNING: peak fraction < 5% — depth histogram is "
               "noisy; surface estimate may be unreliable. Inspect depth_vis.png.")
+
+    # Bound-saturation warning: if the estimate landed within
+    # SURFACE_BOUND_WARN_M of either bound, the histogram is probably pinned
+    # and the search window is wrong (or a near-field intruder is winning).
+    if (surface_d - SURFACE_DEPTH_MIN) < SURFACE_BOUND_WARN_M:
+        print(f"[surface_est] WARNING: estimate {surface_d:.4f} m is within "
+              f"{SURFACE_BOUND_WARN_M*1000:.0f} mm of SURFACE_DEPTH_MIN "
+              f"({SURFACE_DEPTH_MIN}). Likely a near-field intruder is winning "
+              f"the histogram; widen SURFACE_DEPTH_MIN or tighten the piece ROI.")
+    if (SURFACE_DEPTH_MAX - surface_d) < SURFACE_BOUND_WARN_M:
+        print(f"[surface_est] WARNING: estimate {surface_d:.4f} m is within "
+              f"{SURFACE_BOUND_WARN_M*1000:.0f} mm of SURFACE_DEPTH_MAX "
+              f"({SURFACE_DEPTH_MAX}). The true surface may be beyond the "
+              f"search window; widen SURFACE_DEPTH_MAX.")
 
     return surface_d
 
