@@ -1,6 +1,6 @@
 {
   "script": "capture_cavity_detection.py",
-  "timestamp": "2026-05-02T14:10:00",
+  "timestamp": "2026-05-02T14:57:06",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
   "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected",
   "run_log_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/run_log.txt",

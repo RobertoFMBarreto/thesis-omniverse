@@ -1,5 +1,5 @@
 # capture_cavity_detection.py — run log
-# timestamp:  2026-05-02T14:09:59
+# timestamp:  2026-05-02T14:57:05
 # output_dir: /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected
 # This file is OVERWRITTEN at the beginning of every run.
 ============================================================
@@ -12,6 +12,7 @@ capture_cavity_detection.py — Phase 2
 [cleanup] removed stale: depth_vis.png
 [cleanup] removed stale: raw_cavity_mask.png
 [cleanup] removed stale: cavity_opening_mask.png
+[cleanup] removed stale: cavity_depth_mask.png
 [cleanup] removed stale: depth_band_cavity_mask.png
 [cleanup] removed stale: board_surface_mask.png
 [cleanup] removed stale: board_region_mask.png
@@ -190,6 +191,8 @@ capture_cavity_detection.py — Phase 2
   cavity_03/cavity_opening_pointcloud.npy
   cavity_03/cavity_pointcloud.npy
   cavity_depth_mask.png
+  cavity_diagnostic_report.md
+  cavity_diagnostic_report.png
   cavity_opening_mask.png
   depth_band_cavity_mask.png
   depth_vis.png
