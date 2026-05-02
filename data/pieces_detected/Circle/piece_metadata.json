@@ -1,10 +1,10 @@
 {
   "script": "capture_piece_detection.py",
-  "timestamp": "2026-05-02T12:29:59",
+  "timestamp": "2026-05-02T12:44:20",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
-  "capture_name": "Circle",
+  "capture_name": "circle",
   "use_capture_subdir": true,
-  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/pieces_detected/Circle",
+  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/pieces_detected/circle",
   "visible_piece_assumption": "single visible piece",
   "camera_pose": {
     "x": -0.25,
@@ -59,6 +59,13 @@
   "raw_piece_mask_area": 9380,
   "expanded_roi_area": 139072,
   "raw_piece_mask_area_ratio": 0.06744707777266452,
+  "projection_depth_mode": "per_pixel_depth",
+  "support_surface_depth_m": 0.2994999928474427,
+  "piece_depth_median_m": 0.19500002264976501,
+  "piece_height_min_m": 0.10449995529651651,
+  "piece_height_max_m": 0.10450000000000009,
+  "piece_height_median_m": 0.1044999701976777,
+  "xy_projection_note": "world_x = cam_x + (u - cx)/fx_px * depth_px; world_y = cam_y - (v - cy)/fy_px * depth_px; depth_px is the per-pixel distance_to_image_plane value.",
   "n_valid_components": 1,
   "multiple_valid_components": false,
   "piece_selection_mode": "largest",
@@ -92,8 +99,8 @@
       110
     ],
     "centroid_world_m": [
-      -0.25035486797859874,
-      0.4503269247992602
+      -0.250231049294202,
+      0.4502128559058165
     ],
     "surface_depth_m": 0.2994999928474427,
     "point_count": 2048,
@@ -102,15 +109,15 @@
       0.10450000315904617
     ],
     "xy_span_m": [
-      0.07581093907356262,
-      0.070615753531456
+      0.04935938119888306,
+      0.045976877212524414
     ]
   },
   "pointcloud_bounds": {
-    "x_min": -0.03825255483388901,
-    "x_max": 0.037558384239673615,
-    "y_min": -0.034980952739715576,
-    "y_max": 0.035634804517030716,
+    "x_min": -0.024905674159526825,
+    "x_max": 0.02445370890200138,
+    "y_min": -0.02277558296918869,
+    "y_max": 0.023201294243335724,
     "z_min": 0.10449995845556259,
     "z_max": 0.10450000315904617
   },
