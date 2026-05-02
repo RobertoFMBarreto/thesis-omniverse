@@ -1,6 +1,6 @@
 {
   "script": "capture_cavity_detection.py",
-  "timestamp": "2026-05-02T13:41:47",
+  "timestamp": "2026-05-02T14:00:25",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
   "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected",
   "run_log_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/run_log.txt",
@@ -33,6 +33,7 @@
   "board_region_pixels": 60260,
   "table_or_background_depth_m": 0.40050000000000024,
   "cavity_detection_restricted_to_board_region": true,
+  "cavity_detection_mode": "opening_from_board_region",
   "intrinsics_model": "pinhole_tangent_aspect_corrected",
   "fx_px": 426.6666666666667,
   "fy_px": 426.6666666666667,
@@ -59,43 +60,48 @@
     "board_fill_mode": "contour"
   },
   "board_surface_depth_m": 0.3245000000000002,
-  "raw_cavity_pixels": 3226,
+  "raw_cavity_pixels": 11224,
   "n_detected_cavities": 4,
   "cavities": [
     {
       "cavity_id": 0,
-      "area_px": 1074,
+      "cavity_detection_mode": "opening_from_board_region",
+      "footprint_source": "opening_from_board_region",
+      "xy_projection_depth_mode": "board_surface_depth",
+      "depth_band_mask_area_px": 0,
+      "opening_mask_area_px": 4260,
+      "area_px": 4260,
       "centroid_px": {
-        "x": 256.2486033519553,
-        "y": 169.66480446927375
+        "x": 278.5,
+        "y": 198.5
       },
       "bbox_px": {
-        "x": 239,
-        "y": 141,
-        "w": 66,
-        "h": 99
+        "x": 253,
+        "y": 158,
+        "w": 52,
+        "h": 82
       },
       "centroid_world_m": {
-        "x": 0.25151407450244406,
-        "y": 0.05349321316340785
+        "x": 0.2684373046875,
+        "y": 0.03156269531250002
       },
       "board_surface_depth_m": 0.3245000000000002,
       "point_count": 2048,
       "xy_span_m": {
-        "x": 0.04943554848432541,
-        "y": 0.07453359663486481
+        "x": 0.03878789022564888,
+        "y": 0.061604298651218414
       },
       "z_depth_range_m": {
-        "min": 0.004704738035798073,
-        "max": 0.0298899058252573
+        "min": 0.0733732208609581,
+        "max": 0.07550009340047836
       },
       "pointcloud_bounds_m": {
-        "x_min": -0.013118371367454529,
-        "x_max": 0.03631717711687088,
-        "y_min": -0.052732665091753006,
-        "y_max": 0.021800927817821503,
-        "z_min": 0.004704738035798073,
-        "z_max": 0.0298899058252573
+        "x_min": -0.01939394511282444,
+        "x_max": 0.01939394511282444,
+        "y_min": -0.030802149325609207,
+        "y_max": 0.030802149325609207,
+        "z_min": 0.0733732208609581,
+        "z_max": 0.07550009340047836
       },
       "files": {
         "footprint": "cavity_footprint.png",
@@ -106,38 +112,43 @@
     },
     {
       "cavity_id": 1,
-      "area_px": 421,
+      "cavity_detection_mode": "opening_from_board_region",
+      "footprint_source": "opening_from_board_region",
+      "xy_projection_depth_mode": "board_surface_depth",
+      "depth_band_mask_area_px": 0,
+      "opening_mask_area_px": 1299,
+      "area_px": 1299,
       "centroid_px": {
-        "x": 382.7125890736342,
-        "y": 194.82185273159146
+        "x": 361.1916859122402,
+        "y": 209.49422632794457
       },
       "bbox_px": {
-        "x": 366,
-        "y": 163,
-        "w": 35,
-        "h": 64
+        "x": 337,
+        "y": 177,
+        "w": 50,
+        "h": 50
       },
       "centroid_world_m": {
-        "x": 0.34769586364311167,
-        "y": 0.03436009872327792
+        "x": 0.3313282079965358,
+        "y": 0.023201070835739045
       },
       "board_surface_depth_m": 0.3245000000000002,
       "point_count": 2048,
       "xy_span_m": {
-        "x": 0.025858592242002487,
-        "y": 0.047914452850818634
+        "x": 0.037266798317432404,
+        "y": 0.037266798317432404
       },
       "z_depth_range_m": {
-        "min": 0.0030245427042245865,
-        "max": 0.029932672157883644
+        "min": 0.0710725411772728,
+        "max": 0.07550009340047836
       },
       "pointcloud_bounds_m": {
-        "x_min": -0.012710707262158394,
-        "x_max": 0.013147885911166668,
-        "y_min": -0.023712443187832832,
-        "y_max": 0.02420201152563095,
-        "z_min": 0.0030245427042245865,
-        "z_max": 0.029932672157883644
+        "x_min": -0.018398910760879517,
+        "x_max": 0.018867885693907738,
+        "y_min": -0.012553414329886436,
+        "y_max": 0.024713382124900818,
+        "z_min": 0.0710725411772728,
+        "z_max": 0.07550009340047836
       },
       "files": {
         "footprint": "cavity_footprint.png",
@@ -148,38 +159,43 @@
     },
     {
       "cavity_id": 2,
-      "area_px": 876,
+      "cavity_detection_mode": "opening_from_board_region",
+      "footprint_source": "opening_from_board_region",
+      "xy_projection_depth_mode": "board_surface_depth",
+      "depth_band_mask_area_px": 0,
+      "opening_mask_area_px": 2544,
+      "area_px": 2544,
       "centroid_px": {
-        "x": 259.5821917808219,
-        "y": 320.3904109589041
+        "x": 278.5,
+        "y": 296.0
       },
       "bbox_px": {
-        "x": 239,
+        "x": 253,
         "y": 272,
-        "w": 66,
-        "h": 66
+        "w": 52,
+        "h": 49
       },
       "centroid_world_m": {
-        "x": 0.2540494247645548,
-        "y": -0.061140675834760315
+        "x": 0.2684373046875,
+        "y": -0.042590625000000014
       },
       "board_surface_depth_m": 0.3245000000000002,
       "point_count": 2048,
       "xy_span_m": {
-        "x": 0.04943554848432541,
-        "y": 0.04943554475903511
+        "x": 0.03878789022564888,
+        "y": 0.036506250500679016
       },
       "z_depth_range_m": {
-        "min": 0.0037050489336252213,
-        "max": 0.029091203585267067
+        "min": 0.07301544398069382,
+        "max": 0.07550009340047836
       },
       "pointcloud_bounds_m": {
-        "x_min": -0.01565372198820114,
-        "x_max": 0.03378182649612427,
-        "y_min": -0.012632370926439762,
-        "y_max": 0.03680317476391792,
-        "z_min": 0.0037050489336252213,
-        "z_max": 0.029091203585267067
+        "x_min": -0.01939394511282444,
+        "x_max": 0.01939394511282444,
+        "y_min": -0.018253125250339508,
+        "y_max": 0.018253125250339508,
+        "z_min": 0.07301544398069382,
+        "z_max": 0.07550009340047836
       },
       "files": {
         "footprint": "cavity_footprint.png",
@@ -190,38 +206,43 @@
     },
     {
       "cavity_id": 3,
-      "area_px": 855,
+      "cavity_detection_mode": "opening_from_board_region",
+      "footprint_source": "opening_from_board_region",
+      "xy_projection_depth_mode": "board_surface_depth",
+      "depth_band_mask_area_px": 0,
+      "opening_mask_area_px": 3121,
+      "area_px": 3121,
       "centroid_px": {
-        "x": 383.1906432748538,
-        "y": 324.4011695906433
+        "x": 361.7926946491509,
+        "y": 295.87952579301503
       },
       "bbox_px": {
-        "x": 335,
-        "y": 279,
-        "w": 74,
-        "h": 66
+        "x": 329,
+        "y": 265,
+        "w": 65,
+        "h": 62
       },
       "centroid_world_m": {
-        "x": 0.3480594462719299,
-        "y": -0.0641910457785088
+        "x": 0.33178530331324096,
+        "y": -0.04249899871835952
       },
       "board_surface_depth_m": 0.3245000000000002,
       "point_count": 2048,
       "xy_span_m": {
-        "x": 0.05551992356777191,
-        "y": 0.04943554848432541
+        "x": 0.04867500066757202,
+        "y": 0.04639335721731186
       },
       "z_depth_range_m": {
-        "min": 0.0030089858919382095,
-        "max": 0.029906952753663063
+        "min": 0.07100116461515427,
+        "max": 0.07550009340047836
       },
       "pointcloud_bounds_m": {
-        "x_min": -0.03665124252438545,
-        "x_max": 0.01886867918074131,
-        "y_min": -0.014905828982591629,
-        "y_max": 0.03452971950173378,
-        "z_min": 0.0030089858919382095,
-        "z_max": 0.029906952753663063
+        "x_min": -0.024940380826592445,
+        "x_max": 0.023734617978334427,
+        "y_min": -0.022908031940460205,
+        "y_max": 0.023485327139496803,
+        "z_min": 0.07100116461515427,
+        "z_max": 0.07550009340047836
       },
       "files": {
         "footprint": "cavity_footprint.png",
@@ -234,64 +255,64 @@
   "all_components": [
     {
       "label": 1,
-      "area_px": 1074,
+      "area_px": 4260,
       "centroid_px": {
-        "x": 256.2486033519553,
-        "y": 169.66480446927375
+        "x": 278.5,
+        "y": 198.5
       },
       "bbox_px": {
-        "x": 239,
-        "y": 141,
-        "w": 66,
-        "h": 99
+        "x": 253,
+        "y": 158,
+        "w": 52,
+        "h": 82
       },
       "status": "accepted",
       "reason": null
     },
     {
       "label": 2,
-      "area_px": 421,
+      "area_px": 1299,
       "centroid_px": {
-        "x": 382.7125890736342,
-        "y": 194.82185273159146
+        "x": 361.1916859122402,
+        "y": 209.49422632794457
       },
       "bbox_px": {
-        "x": 366,
-        "y": 163,
-        "w": 35,
-        "h": 64
+        "x": 337,
+        "y": 177,
+        "w": 50,
+        "h": 50
       },
       "status": "accepted",
       "reason": null
     },
     {
       "label": 3,
-      "area_px": 876,
+      "area_px": 3121,
       "centroid_px": {
-        "x": 259.5821917808219,
-        "y": 320.3904109589041
+        "x": 361.7926946491509,
+        "y": 295.87952579301503
       },
       "bbox_px": {
-        "x": 239,
-        "y": 272,
-        "w": 66,
-        "h": 66
+        "x": 329,
+        "y": 265,
+        "w": 65,
+        "h": 62
       },
       "status": "accepted",
       "reason": null
     },
     {
       "label": 4,
-      "area_px": 855,
+      "area_px": 2544,
       "centroid_px": {
-        "x": 383.1906432748538,
-        "y": 324.4011695906433
+        "x": 278.5,
+        "y": 296.0
       },
       "bbox_px": {
-        "x": 335,
-        "y": 279,
-        "w": 74,
-        "h": 66
+        "x": 253,
+        "y": 272,
+        "w": 52,
+        "h": 49
       },
       "status": "accepted",
       "reason": null
