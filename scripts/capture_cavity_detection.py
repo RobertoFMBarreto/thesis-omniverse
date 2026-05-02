@@ -804,70 +804,44 @@ def compute_intrinsics(cam_z: float):
 
 # ── POINT CLOUD ───────────────────────────────────────────────────────────────
 
-def build_cavity_pointcloud(depth, mask, intrinsics, board_surface_z: float,
-                             cam_xy: tuple,
-                             n_samples: int = N_POINTS):
+def build_cavity_opening_pointcloud(opening_mask, intrinsics,
+                                     board_surface_z: float,
+                                     cam_xy: tuple,
+                                     n_samples: int = N_POINTS):
     """
-    Back-project masked depth pixels into a cavity-local 3-D point cloud.
+    PRIMARY representation for Baseline 1 footprint matching.
 
-    Coordinate convention (output):
-      X, Y : world-plane position centred on the cavity centroid (metres).
-              Real metric scale is preserved; points are only translated, not
-              scaled.
-      Z    : depth BELOW the board top surface (metres, positive = deeper).
-              Z = depth[y,x] - board_surface_z
-              Z is NOT centred — its absolute magnitude encodes cavity depth.
-
-    This is geometrically opposite to the piece point cloud, where
-    Z = surface_z - depth (height above the table).
+    Build a flat (Z = 0) point cloud representing the cavity OPENING on the
+    board top plane.  XY are projected via the pinhole model evaluated at
+    board_surface_z (the depth of the board top), so the footprint's metric
+    scale corresponds to the aperture on that plane — independent of how
+    much of the cavity floor the camera can see.
 
     Returns:
-      points         — (N_POINTS, 3) float32
-      centroid_world — (cx_world, cy_world) in metres, for metadata
+      points         — (N_POINTS, 3) float32, Z all zero
+      centroid_world — (cx_world, cy_world) in metres
     """
     import numpy as np
 
-    ys, xs = np.where(mask)
+    ys, xs = np.where(opening_mask)
     if len(xs) == 0:
-        raise RuntimeError("[pointcloud] cavity mask is empty — "
-                           "cannot build point cloud")
+        raise RuntimeError("[pointcloud] opening mask is empty — "
+                           "cannot build opening point cloud")
 
-    mpp_x = intrinsics["mpp_x"]
-    mpp_y = intrinsics["mpp_y"]
     cx_px = intrinsics["cx_px"]
     cy_px = intrinsics["cy_px"]
-
-    # Back-project to world XY using a pinhole model.
-    # Camera world position is cam_xy = (cam_x, cam_y).
-    #
-    # *** Important for cavity FOOTPRINT XY ***
-    # We project at the BOARD TOP plane (board_surface_z), not at the per-pixel
-    # depth.  The cavity opening sits ON the board top, and the metric scale
-    # of the opening silhouette is determined by board_surface_z.  Sampling
-    # XY scale at the cavity floor (deeper) would inflate the footprint.
     fx_px = intrinsics["fx_px"]
     fy_px = intrinsics["fy_px"]
     cam_x, cam_y = cam_xy
     z_for_xy = float(board_surface_z)
     world_x = cam_x + (xs.astype(np.float64) - cx_px) / fx_px * z_for_xy
     world_y = cam_y - (ys.astype(np.float64) - cy_px) / fy_px * z_for_xy
+    world_z = np.zeros_like(world_x)   # opening lives on the board top plane
 
-    # Z: depth below the board top surface.  This uses the per-pixel depth
-    # (not board_surface_z) because Z is meant to encode actual cavity depth.
-    # For the new "opening_from_board_region" mode, many opening pixels won't
-    # have a meaningful cavity-floor depth (the camera may not see the floor);
-    # those pixels contribute z = 0 after the clip.  This is acceptable for
-    # the footprint (XY-only); it just means Z is a partial diagnostic, not
-    # a full cavity-floor reconstruction.
-    world_z = depth[ys, xs].astype(np.float64) - board_surface_z
-    world_z = np.clip(world_z, 0.0, None)   # clip numerical noise above board
-
-    # Centre XY on the cavity centroid (world frame).
     cx_world = float(world_x.mean())
     cy_world = float(world_y.mean())
     world_x -= cx_world
     world_y -= cy_world
-    # Z is NOT centred — absolute depth below board surface is meaningful.
 
     points = np.stack([world_x, world_y, world_z], axis=1).astype(np.float32)
 
@@ -877,15 +851,79 @@ def build_cavity_pointcloud(depth, mask, intrinsics, board_surface_z: float,
     idx     = rng.choice(n_raw, size=n_samples, replace=replace)
     points  = points[idx]
 
-    print(f"[pointcloud] raw pixels={n_raw}  sampled={n_samples}  "
+    print(f"[opening_pc] raw pixels={n_raw}  sampled={n_samples}  "
           f"(replace={replace})")
     print(f"  X=[{points[:, 0].min():.4f}, {points[:, 0].max():.4f}] m")
     print(f"  Y=[{points[:, 1].min():.4f}, {points[:, 1].max():.4f}] m")
-    print(f"  Z=[{points[:, 2].min():.4f}, {points[:, 2].max():.4f}] m  "
-          f"(depth below board surface)")
+    print(f"  Z=0 (board top plane)")
     print(f"  centroid_world=({cx_world:.4f}, {cy_world:.4f})")
 
     return points, (cx_world, cy_world)
+
+
+def build_cavity_depth_pointcloud(depth, depth_mask, intrinsics,
+                                   board_surface_z: float,
+                                   cam_xy: tuple,
+                                   n_samples: int = N_POINTS):
+    """
+    AUXILIARY representation for cavity-depth diagnostics.
+
+    Back-project the visible deeper pixels inside the cavity opening using
+    per-pixel depth.  Z = depth_px - board_surface_z (positive = deeper into
+    the cavity).  Use to estimate / confirm cavity depth; do NOT use as the
+    primary footprint source.
+
+    Returns (points, centroid_world).  If depth_mask is empty, returns
+    (zeros((n_samples, 3)), (0.0, 0.0)) and emits a warning so the per-cavity
+    write path stays uniform.
+    """
+    import numpy as np
+
+    ys, xs = np.where(depth_mask)
+    if len(xs) == 0:
+        print("[depth_pc] WARNING: depth mask empty for this cavity — "
+              "writing zero-filled point cloud as auxiliary placeholder.")
+        zeros = np.zeros((n_samples, 3), dtype=np.float32)
+        return zeros, (0.0, 0.0)
+
+    cx_px = intrinsics["cx_px"]
+    cy_px = intrinsics["cy_px"]
+    fx_px = intrinsics["fx_px"]
+    fy_px = intrinsics["fy_px"]
+    cam_x, cam_y = cam_xy
+
+    # Per-pixel depth → proper pinhole back-projection.
+    z_px    = depth[ys, xs].astype(np.float64)
+    world_x = cam_x + (xs.astype(np.float64) - cx_px) / fx_px * z_px
+    world_y = cam_y - (ys.astype(np.float64) - cy_px) / fy_px * z_px
+    world_z = z_px - board_surface_z          # positive into the cavity
+    world_z = np.clip(world_z, 0.0, None)
+
+    cx_world = float(world_x.mean())
+    cy_world = float(world_y.mean())
+    world_x -= cx_world
+    world_y -= cy_world
+
+    points = np.stack([world_x, world_y, world_z], axis=1).astype(np.float32)
+
+    n_raw   = len(points)
+    replace = n_raw < n_samples
+    rng     = np.random.default_rng(0)
+    idx     = rng.choice(n_raw, size=n_samples, replace=replace)
+    points  = points[idx]
+
+    print(f"[depth_pc] raw pixels={n_raw}  sampled={n_samples}  "
+          f"(replace={replace})")
+    print(f"  Z=[{points[:, 2].min():.4f}, {points[:, 2].max():.4f}] m  "
+          f"median={float(np.median(points[:, 2])):.4f} m  "
+          f"(depth below board surface)")
+
+    return points, (cx_world, cy_world)
+
+
+# Note: the legacy `build_cavity_pointcloud(depth, mask, intrinsics, ...)`
+# was renamed to `build_cavity_opening_pointcloud(opening_mask, intrinsics,
+# ...)` because its semantics changed.  Callers must use the new name.
 
 
 # ── FOOTPRINT IMAGE ───────────────────────────────────────────────────────────
@@ -1090,8 +1128,10 @@ def save_board_debug_images(out_dir: Path, rgb, depth, board_dict: dict) -> None
 
 def save_global_outputs(out_dir: Path, rgb, depth, raw_mask, cavities,
                          board_surface_mask=None,
+                         board_region_mask=None,
                          opening_mask=None,
-                         depth_band_mask=None):
+                         depth_band_mask=None,
+                         cavity_depth_mask=None):
     """
     Write the global output images.  Skips any that are None.
 
@@ -1130,20 +1170,36 @@ def save_global_outputs(out_dir: Path, rgb, depth, raw_mask, cavities,
                     (board_surface_mask.astype(np.uint8) * 255))
         print(f"[save_global] board_surface_mask.png")
 
-    # 4. Cavity opening mask (PRIMARY in opening_from_board_region mode)
+    # 4. Board region mask (filled board footprint, cavities included)
+    if board_region_mask is not None:
+        cv2.imwrite(str(out_dir / "board_region_mask.png"),
+                    (board_region_mask.astype(np.uint8) * 255))
+        print(f"[save_global] board_region_mask.png")
+
+    # 5. Cavity opening mask (PRIMARY in opening_from_board_region mode)
     if opening_mask is not None:
         cv2.imwrite(str(out_dir / "cavity_opening_mask.png"),
                     (opening_mask.astype(np.uint8) * 255))
         print(f"[save_global] cavity_opening_mask.png")
 
-    # 5. Depth-band cavity mask (DIAGNOSTIC — legacy method)
+    # 6. Cavity depth mask (visible deep pixels INSIDE the opening regions —
+    #    auxiliary, used to estimate cavity depth).
+    if cavity_depth_mask is not None:
+        cv2.imwrite(str(out_dir / "cavity_depth_mask.png"),
+                    (cavity_depth_mask.astype(np.uint8) * 255))
+        print(f"[save_global] cavity_depth_mask.png")
+
+    # 7. Depth-band cavity mask (DIAGNOSTIC — legacy method, raw depth band
+    #    not restricted to the opening; usually equal to or larger than
+    #    cavity_depth_mask).
     if depth_band_mask is not None:
         cv2.imwrite(str(out_dir / "depth_band_cavity_mask.png"),
                     (depth_band_mask.astype(np.uint8) * 255))
         print(f"[save_global] depth_band_cavity_mask.png")
 
-    # 6. Raw cavity mask (the mask actually used by find_cavity_components,
-    #    selected by CAVITY_DETECTION_MODE)
+    # 8. Raw cavity mask (the mask actually used by find_cavity_components,
+    #    selected by CAVITY_DETECTION_MODE — equal to opening_mask in the
+    #    default mode).
     if raw_mask is not None:
         cv2.imwrite(str(out_dir / "raw_cavity_mask.png"),
                     (raw_mask.astype(np.uint8) * 255))
@@ -1198,18 +1254,32 @@ def save_global_outputs(out_dir: Path, rgb, depth, raw_mask, cavities,
 # ── PER-CAVITY OUTPUTS ────────────────────────────────────────────────────────
 
 def save_cavity_outputs(out_dir: Path, cavity_id: int, cavity_dict: dict,
-                        cavity_mask, points, footprint_bgr,
-                        rgb, board_surface_z: float, centroid_world,
-                        cavity_detection_mode: str = "opening_from_board_region",
-                        depth_band_mask_area_px: int = 0,
-                        opening_mask_area_px: int = 0):
+                        cavity_opening_mask, opening_points, opening_footprint,
+                        cavity_depth_mask, depth_points,
+                        rgb, board_surface_z: float,
+                        opening_centroid_world,
+                        cavity_detection_mode: str = "opening_from_board_region"):
     """
-    Write all per-cavity files into out_dir / f"cavity_{cavity_id:02d}".
+    Write all per-cavity files (dual representation) into
+    out_dir / f"cavity_{cavity_id:02d}".
 
-    cavity_mask : H×W bool array for this specific cavity
-    points      : (N, 3) float32 point cloud
-    footprint_bgr : colourmap footprint image
-    rgb         : H×W×3 uint8 RGB image (used for debug overlay)
+    PRIMARY (matching) outputs — opening on the board top plane:
+      cavity_opening_mask.png
+      cavity_opening_pointcloud.npy
+      cavity_opening_footprint.png
+
+    AUXILIARY (depth) outputs — visible deeper pixels inside the cavity:
+      cavity_depth_mask.png
+      cavity_depth_pointcloud.npy
+
+    Backward-compat aliases (= primary):
+      cavity_mask.png       (= cavity_opening_mask.png)
+      cavity_footprint.png  (= cavity_opening_footprint.png)
+      cavity_pointcloud.npy (= cavity_opening_pointcloud.npy)
+
+    Other outputs:
+      cavity_debug.png       (RGB overlay highlighting the opening)
+      cavity_metadata.json
     """
     import numpy as np
     import cv2
@@ -1217,53 +1287,85 @@ def save_cavity_outputs(out_dir: Path, cavity_id: int, cavity_dict: dict,
     cav_dir = out_dir / f"cavity_{cavity_id:02d}"
     cav_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Cavity mask ───────────────────────────────────────────────────────────
-    cv2.imwrite(str(cav_dir / "cavity_mask.png"),
-                (cavity_mask.astype(np.uint8) * 255))
+    # ── PRIMARY: opening mask + opening pointcloud + opening footprint ────────
+    opening_u8 = (cavity_opening_mask.astype(np.uint8) * 255)
+    cv2.imwrite(str(cav_dir / "cavity_opening_mask.png"), opening_u8)
+    cv2.imwrite(str(cav_dir / "cavity_mask.png"),         opening_u8)  # alias
 
-    # ── Per-cavity debug overlay ──────────────────────────────────────────────
+    cv2.imwrite(str(cav_dir / "cavity_opening_footprint.png"), opening_footprint)
+    cv2.imwrite(str(cav_dir / "cavity_footprint.png"),         opening_footprint)
+
+    np.save(str(cav_dir / "cavity_opening_pointcloud.npy"), opening_points)
+    np.save(str(cav_dir / "cavity_pointcloud.npy"),         opening_points)
+
+    # ── AUXILIARY: depth mask + depth pointcloud ──────────────────────────────
+    if cavity_depth_mask is not None:
+        cv2.imwrite(str(cav_dir / "cavity_depth_mask.png"),
+                    (cavity_depth_mask.astype(np.uint8) * 255))
+    if depth_points is not None:
+        np.save(str(cav_dir / "cavity_depth_pointcloud.npy"), depth_points)
+
+    # ── Per-cavity debug overlay (uses the opening mask) ──────────────────────
     if rgb is not None:
         debug = rgb.copy()
-        debug[cavity_mask] = (debug[cavity_mask].astype(np.float32) * 0.3
-                               + np.array([60, 180, 255], np.float32) * 0.7
-                               ).astype(np.uint8)
+        debug[cavity_opening_mask] = (
+            debug[cavity_opening_mask].astype(np.float32) * 0.3
+            + np.array([60, 180, 255], np.float32) * 0.7
+        ).astype(np.uint8)
         cx, cy = int(cavity_dict["centroid"][0]), int(cavity_dict["centroid"][1])
         bx, by, bw, bh = cavity_dict["bbox"]
         cv2.circle(debug, (cx, cy), 6, (255, 255, 0), -1)
         cv2.rectangle(debug, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
         label_str = (f"cavity_{cavity_id:02d}  "
-                     f"({cx},{cy})  {cavity_dict['area_px']} px")
+                     f"({cx},{cy})  {cavity_dict['area_px']} px (opening)")
         cv2.putText(debug, label_str, (bx, max(by - 6, 12)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 0), 1,
                     cv2.LINE_AA)
         cv2.imwrite(str(cav_dir / "cavity_debug.png"),
                     cv2.cvtColor(debug, cv2.COLOR_RGB2BGR))
 
-    # ── Footprint ─────────────────────────────────────────────────────────────
-    cv2.imwrite(str(cav_dir / "cavity_footprint.png"), footprint_bgr)
-
-    # ── Point cloud ───────────────────────────────────────────────────────────
-    np.save(str(cav_dir / "cavity_pointcloud.npy"), points)
-
     # ── Per-cavity metadata ───────────────────────────────────────────────────
-    cx_w, cy_w = centroid_world
-    xy_span_x  = float(points[:, 0].max() - points[:, 0].min())
-    xy_span_y  = float(points[:, 1].max() - points[:, 1].min())
-    z_min      = float(points[:, 2].min())
-    z_max      = float(points[:, 2].max())
+    cx_w, cy_w   = opening_centroid_world
+    op_xy_span_x = float(opening_points[:, 0].max() - opening_points[:, 0].min())
+    op_xy_span_y = float(opening_points[:, 1].max() - opening_points[:, 1].min())
+
+    opening_area_px = int(cavity_opening_mask.sum())
+    depth_area_px   = int(cavity_depth_mask.sum()) if cavity_depth_mask is not None else 0
+
+    if depth_points is not None and depth_area_px > 0:
+        dz_min    = float(depth_points[:, 2].min())
+        dz_max    = float(depth_points[:, 2].max())
+        dz_med    = float(np.median(depth_points[:, 2]))
+        dp_xy_x   = float(depth_points[:, 0].max() - depth_points[:, 0].min())
+        dp_xy_y   = float(depth_points[:, 1].max() - depth_points[:, 1].min())
+    else:
+        dz_min = dz_max = dz_med = 0.0
+        dp_xy_x = dp_xy_y = 0.0
 
     cavity_meta = {
-        "cavity_id":              cavity_id,
-        "cavity_detection_mode":  cavity_detection_mode,
-        "footprint_source":       (
-            "opening_from_board_region"
-            if cavity_detection_mode == "opening_from_board_region"
-            else "depth_band"
-        ),
+        "cavity_id":                cavity_id,
+        "cavity_detection_mode":    cavity_detection_mode,
+        "primary_matching_representation": "cavity_opening_pointcloud",
+        "footprint_source":         "opening_from_board_region",
         "xy_projection_depth_mode": "board_surface_depth",
-        "depth_band_mask_area_px":  int(depth_band_mask_area_px),
-        "opening_mask_area_px":     int(opening_mask_area_px),
-        "area_px":           cavity_dict["area_px"],
+        "board_surface_depth_m":    float(board_surface_z),
+
+        "opening_area_px":          opening_area_px,
+        "opening_xy_span_m": {
+            "x": op_xy_span_x,
+            "y": op_xy_span_y,
+        },
+
+        "depth_area_px":            depth_area_px,
+        "depth_xy_span_m": {
+            "x": dp_xy_x,
+            "y": dp_xy_y,
+        },
+        "z_depth_min_m":            dz_min,
+        "z_depth_max_m":            dz_max,
+        "z_depth_median_m":         dz_med,
+
+        "area_px":                  cavity_dict["area_px"],
         "centroid_px": {
             "x": cavity_dict["centroid"][0],
             "y": cavity_dict["centroid"][1],
@@ -1278,29 +1380,20 @@ def save_cavity_outputs(out_dir: Path, cavity_id: int, cavity_dict: dict,
             "x": cx_w,
             "y": cy_w,
         },
-        "board_surface_depth_m": float(board_surface_z),
-        "point_count":       N_POINTS,
-        "xy_span_m": {
-            "x": xy_span_x,
-            "y": xy_span_y,
-        },
-        "z_depth_range_m": {
-            "min": z_min,
-            "max": z_max,
-        },
-        "pointcloud_bounds_m": {
-            "x_min": float(points[:, 0].min()),
-            "x_max": float(points[:, 0].max()),
-            "y_min": float(points[:, 1].min()),
-            "y_max": float(points[:, 1].max()),
-            "z_min": z_min,
-            "z_max": z_max,
-        },
+        "point_count":              N_POINTS,
         "files": {
-            "footprint":   "cavity_footprint.png",
-            "mask":        "cavity_mask.png",
-            "pointcloud":  "cavity_pointcloud.npy",
-            "debug":       "cavity_debug.png",
+            # Primary
+            "opening_mask":         "cavity_opening_mask.png",
+            "opening_footprint":    "cavity_opening_footprint.png",
+            "opening_pointcloud":   "cavity_opening_pointcloud.npy",
+            # Auxiliary
+            "depth_mask":           "cavity_depth_mask.png",
+            "depth_pointcloud":     "cavity_depth_pointcloud.npy",
+            # Backward-compat aliases (= primary)
+            "footprint":            "cavity_footprint.png",
+            "mask":                 "cavity_mask.png",
+            "pointcloud":           "cavity_pointcloud.npy",
+            "debug":                "cavity_debug.png",
         },
     }
 
@@ -1309,8 +1402,9 @@ def save_cavity_outputs(out_dir: Path, cavity_id: int, cavity_dict: dict,
         json.dump(cavity_meta, f, indent=2)
 
     print(f"[save_cavity] cavity_{cavity_id:02d}  "
-          f"z_range=[{z_min:.4f}, {z_max:.4f}] m  "
-          f"xy_span=({xy_span_x:.4f}, {xy_span_y:.4f}) m  → {cav_dir}")
+          f"opening_area={opening_area_px} px  depth_area={depth_area_px} px  "
+          f"opening_xy=({op_xy_span_x*1000:.1f}, {op_xy_span_y*1000:.1f}) mm  "
+          f"z_depth_median={dz_med*1000:.1f} mm  → {cav_dir}")
 
     return cavity_meta
 
@@ -1448,8 +1542,9 @@ def _cleanup_stale(out_dir: Path) -> None:
     """
     _global_files = [
         "rgb.png", "depth_vis.png", "raw_cavity_mask.png",
-        "cavity_opening_mask.png", "depth_band_cavity_mask.png",
-        "board_surface_mask.png",
+        "cavity_opening_mask.png", "cavity_depth_mask.png",
+        "depth_band_cavity_mask.png",
+        "board_surface_mask.png", "board_region_mask.png",
         "cavities_debug.png", "cavities_summary.json",
         "board_mask.png", "board_region_mask.png",
         "board_debug.png", "board_roi_auto_debug.png",
@@ -1735,29 +1830,37 @@ async def main():
                   f"area={cav['area_px']} px  "
                   f"centroid=({cav['centroid'][0]:.1f}, {cav['centroid'][1]:.1f})")
 
+            # cav_mask = pixels of THIS cavity in the active mask
+            # (= opening_mask in the new default mode).
             cav_mask = (labels_img == cav["label"])
 
-            # Point cloud
-            points, centroid_world = build_cavity_pointcloud(
-                depth, cav_mask, intrinsics, board_surface_z,
+            # PRIMARY: opening pointcloud (Z = 0 on board top plane)
+            opening_points, opening_centroid = build_cavity_opening_pointcloud(
+                cav_mask, intrinsics, board_surface_z,
                 cam_xy=active_cam_xy, n_samples=N_POINTS)
 
-            # Footprint
-            footprint_bgr = make_cavity_footprint(points)
+            # AUXILIARY: depth pointcloud (per-pixel Z below board top).
+            # Restrict the depth-band mask to this cavity's opening so we
+            # only sample the visible deeper pixels that belong to this
+            # specific cavity; pixels outside the cavity opening cannot
+            # contribute, even if they fall in the depth band globally.
+            cav_depth_mask = (depth_band_mask & cav_mask
+                              if depth_band_mask is not None else None)
+            depth_points, _depth_centroid = build_cavity_depth_pointcloud(
+                depth, cav_depth_mask, intrinsics, board_surface_z,
+                cam_xy=active_cam_xy, n_samples=N_POINTS)
 
-            # Per-cavity opening/depth-band area diagnostics
-            cav_opening_area = (int((cav_mask & opening_mask).sum())
-                                if opening_mask is not None else 0)
-            cav_depth_band_area = (int((cav_mask & depth_band_mask).sum())
-                                   if depth_band_mask is not None else 0)
+            # Footprint = primary (opening) by definition.
+            opening_footprint = make_cavity_footprint(opening_points)
 
             # Save per-cavity files and collect metadata
             cav_meta = save_cavity_outputs(
-                OUT_DIR, k, cav, cav_mask, points, footprint_bgr,
-                rgb, board_surface_z, centroid_world,
-                cavity_detection_mode=CAVITY_DETECTION_MODE,
-                depth_band_mask_area_px=cav_depth_band_area,
-                opening_mask_area_px=cav_opening_area)
+                OUT_DIR, k, cav,
+                cav_mask, opening_points, opening_footprint,
+                cav_depth_mask, depth_points,
+                rgb, board_surface_z,
+                opening_centroid_world=opening_centroid,
+                cavity_detection_mode=CAVITY_DETECTION_MODE)
             cavities_meta.append(cav_meta)
 
         success = True
@@ -1781,10 +1884,20 @@ async def main():
             # write what we can now (depth and rgb may still be available).
             save_board_debug_images(OUT_DIR, rgb, depth, board_dict)
 
+        # Compute the global cavity_depth_mask = depth_band_mask AND opening_mask
+        # (i.e. only the deep pixels that fall inside actual cavity openings;
+        # cleaner than depth_band_mask which can include rim noise outside the
+        # detected cavities).
+        _global_cavity_depth_mask = None
+        if depth_band_mask is not None and opening_mask is not None:
+            _global_cavity_depth_mask = depth_band_mask & opening_mask
+
         save_global_outputs(OUT_DIR, rgb, depth, raw_mask, cavities,
                              board_surface_mask=board_mask_for_surface,
+                             board_region_mask=board_region_for_cavities,
                              opening_mask=opening_mask,
-                             depth_band_mask=depth_band_mask)
+                             depth_band_mask=depth_band_mask,
+                             cavity_depth_mask=_global_cavity_depth_mask)
 
         save_summary_metadata(
             OUT_DIR, success, board_surface_z, raw_pixels,
