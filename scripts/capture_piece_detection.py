@@ -53,9 +53,10 @@ FOCAL_MM    = 24.0
 APERTURE_MM = 36.0
 
 # Surface estimation: look for the dominant depth peak in this range [m].
-# Should bracket the table/board surface.
-SURFACE_DEPTH_MIN = 0.10
-SURFACE_DEPTH_MAX = 0.50
+# Should bracket the table/board surface for the active camera height.
+# Defaults below assume camera at z ≈ 1 m (cavity-camera pose).
+SURFACE_DEPTH_MIN = 0.70
+SURFACE_DEPTH_MAX = 1.20
 SURFACE_HIST_BIN  = 0.001   # 1 mm bins
 
 # Segmentation: a pixel belongs to the piece if its depth is MORE than this
@@ -69,6 +70,33 @@ DEPTH_MIN_VALID = 0.02
 # Connected-component filters
 CC_MIN_AREA_PX =  300   # discard blobs smaller than this
 CC_MAX_AREA_PX = 50000  # discard blobs suspiciously large (probably table leak)
+
+# ── PIECE ROI ────────────────────────────────────────────────────────────────
+# Restrict surface estimation (and optionally segmentation) to a region of
+# interest around the piece capture area.  This avoids unrelated surfaces in
+# the scene (e.g. another table in the corner) hijacking the depth histogram.
+#
+# Three modes when PIECE_ROI_ENABLED=True:
+#   1. If all four PIECE_ROI_X1/Y1/X2/Y2 are not None → explicit pixel ROI.
+#   2. Else if PIECE_ROI_MODE == "center_fraction" → centred box covering
+#      PIECE_ROI_FRACTION of the image width and height.
+#   3. Otherwise → full image (same as PIECE_ROI_ENABLED=False).
+PIECE_ROI_ENABLED  = True
+PIECE_ROI_MODE     = "center_fraction"
+PIECE_ROI_FRACTION = 0.60
+
+# Explicit pixel ROI fallback (used only if all four are not None).
+PIECE_ROI_X1 = None
+PIECE_ROI_Y1 = None
+PIECE_ROI_X2 = None
+PIECE_ROI_Y2 = None
+
+# When True, the raw piece mask is also restricted to the (expanded) ROI so
+# that connected components from objects outside the ROI cannot enter the
+# selection at all.  EXPAND_PX widens the ROI for segmentation only, leaving
+# the surface-estimation ROI tighter.
+RESTRICT_PIECE_MASK_TO_ROI = True
+PIECE_MASK_ROI_EXPAND_PX   = 20
 
 # Piece selection mode — used after connected-component filtering.
 #   "largest"            — pick the valid component with largest area (default)
@@ -240,26 +268,68 @@ async def capture_rgb_depth():
 
 # ── SURFACE ESTIMATION ────────────────────────────────────────────────────────
 
-def estimate_support_surface_depth(depth):
+def compute_piece_roi(img_w: int, img_h: int) -> tuple:
+    """
+    Resolve the piece ROI based on config.  Returns (x1, y1, x2, y2, source)
+    where source is one of {"explicit", "center_fraction", "full"}.
+
+    The returned box uses pixel coords with x2/y2 EXCLUSIVE (slice convention).
+    """
+    if not PIECE_ROI_ENABLED:
+        return 0, 0, img_w, img_h, "full"
+
+    if (PIECE_ROI_X1 is not None and PIECE_ROI_Y1 is not None and
+            PIECE_ROI_X2 is not None and PIECE_ROI_Y2 is not None):
+        x1 = max(0, int(PIECE_ROI_X1));  y1 = max(0, int(PIECE_ROI_Y1))
+        x2 = min(img_w, int(PIECE_ROI_X2));  y2 = min(img_h, int(PIECE_ROI_Y2))
+        return x1, y1, x2, y2, "explicit"
+
+    if PIECE_ROI_MODE == "center_fraction":
+        f = max(0.05, min(1.0, float(PIECE_ROI_FRACTION)))
+        rw = int(round(img_w * f));  rh = int(round(img_h * f))
+        x1 = (img_w - rw) // 2;      y1 = (img_h - rh) // 2
+        return x1, y1, x1 + rw, y1 + rh, "center_fraction"
+
+    # Unknown mode → full image
+    return 0, 0, img_w, img_h, "full"
+
+
+def expand_roi(roi: tuple, expand_px: int, img_w: int, img_h: int) -> tuple:
+    """Expand (x1, y1, x2, y2) by `expand_px` pixels on every side, clipped
+    to the image."""
+    x1, y1, x2, y2 = roi[:4]
+    return (max(0, x1 - expand_px),
+            max(0, y1 - expand_px),
+            min(img_w, x2 + expand_px),
+            min(img_h, y2 + expand_px))
+
+
+def estimate_support_surface_depth(depth, roi: tuple = None):
     """
     Estimate the depth (distance to camera) of the support surface by finding
     the dominant peak in a histogram of valid depth values within the configured
-    range.
+    range.  If `roi` is provided as (x1, y1, x2, y2), the histogram only uses
+    pixels inside that ROI — used to ignore unrelated surfaces elsewhere in
+    the frame.
 
     Returns the estimated surface depth in metres, or raises if not found.
-
-    Risk: if the piece covers most of the frame (very close camera) the piece
-    itself may dominate the histogram and be mis-identified as the surface.
-    Mitigation: keep the camera far enough that the surrounding table is visible.
     """
     import numpy as np
 
-    valid = depth[(depth > SURFACE_DEPTH_MIN) & (depth < SURFACE_DEPTH_MAX)]
+    if roi is not None:
+        x1, y1, x2, y2 = roi[:4]
+        depth_region = depth[y1:y2, x1:x2]
+        print(f"[surface_est] using piece ROI for support surface estimation")
+    else:
+        depth_region = depth
+
+    valid = depth_region[(depth_region > SURFACE_DEPTH_MIN) &
+                         (depth_region < SURFACE_DEPTH_MAX)]
     if valid.size == 0:
         raise RuntimeError(
             f"[surface_est] No valid depth pixels in range "
-            f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m. "
-            f"Check CAM_Z and SURFACE_DEPTH_MIN/MAX.")
+            f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m within the ROI. "
+            f"Check camera Z, SURFACE_DEPTH_MIN/MAX, and PIECE_ROI_*.")
 
     bins = np.arange(SURFACE_DEPTH_MIN, SURFACE_DEPTH_MAX + SURFACE_HIST_BIN,
                      SURFACE_HIST_BIN)
@@ -282,23 +352,31 @@ def estimate_support_surface_depth(depth):
 
 # ── SEGMENTATION ──────────────────────────────────────────────────────────────
 
-def segment_piece(depth, surface_z):
+def segment_piece(depth, surface_z, roi: tuple = None):
     """
     Return a raw boolean mask of pixels that are above the support surface by
-    more than SURFACE_TOLERANCE metres.
+    more than SURFACE_TOLERANCE metres.  If `roi` is provided as
+    (x1, y1, x2, y2), pixels outside the ROI are forced to False so that
+    unrelated objects elsewhere in the frame cannot enter the connected-
+    component selection.
 
     Pixels closer to the camera than DEPTH_MIN_VALID are ignored (near-field
     sensor noise in Isaac Sim).
-
-    depth:     H×W float32, metres
-    surface_z: estimated surface distance in metres
     """
     import numpy as np
 
-    # Piece pixels are CLOSER to the camera than the surface
-    # (smaller distance_to_image_plane value)
     threshold = surface_z - SURFACE_TOLERANCE
     mask = (depth > DEPTH_MIN_VALID) & (depth < threshold)
+
+    if roi is not None:
+        x1, y1, x2, y2 = roi[:4]
+        roi_mask = np.zeros_like(mask, dtype=bool)
+        roi_mask[y1:y2, x1:x2] = True
+        before = int(mask.sum())
+        mask = mask & roi_mask
+        after = int(mask.sum())
+        print(f"[segment] restricted to ROI [{x1}:{x2}, {y1}:{y2}]: "
+              f"{before} → {after} pixels")
 
     n_pixels = int(mask.sum())
     print(f"[segment] surface_z={surface_z:.4f}m  threshold={threshold:.4f}m  "
@@ -307,7 +385,8 @@ def segment_piece(depth, surface_z):
     if n_pixels == 0:
         print("[segment] WARNING: zero pixels above surface. "
               "Possible causes: piece is flush with table, camera too high, "
-              "SURFACE_TOLERANCE too small, depth units mismatch.")
+              "SURFACE_TOLERANCE too small, depth units mismatch, "
+              "or PIECE_ROI excludes the piece.")
 
     return mask
 
@@ -577,6 +656,33 @@ def make_footprint_image(points, resolution_m=0.0005, canvas_px=256):
 
 # ── DEBUG OUTPUTS ─────────────────────────────────────────────────────────────
 
+def save_piece_roi_debug(out_dir, rgb, roi: tuple, expanded_roi: tuple = None):
+    """Render piece_roi_debug.png: RGB with the ROI rectangle (cyan) and,
+    if RESTRICT_PIECE_MASK_TO_ROI is on, the expanded segmentation ROI
+    (yellow, dashed)."""
+    if rgb is None or roi is None:
+        return
+    import cv2
+    import numpy as np
+
+    debug = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR).copy()
+    x1, y1, x2, y2 = roi[:4]
+    source = roi[4] if len(roi) > 4 else "unknown"
+    cv2.rectangle(debug, (x1, y1), (x2 - 1, y2 - 1), (255, 255, 0), 2)   # cyan
+    cv2.putText(debug, f"piece ROI ({source})", (x1, max(15, y1 - 6)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1, cv2.LINE_AA)
+
+    if expanded_roi is not None:
+        ex1, ey1, ex2, ey2 = expanded_roi
+        cv2.rectangle(debug, (ex1, ey1), (ex2 - 1, ey2 - 1), (0, 255, 255), 1)
+        cv2.putText(debug, "segmentation ROI (expanded)",
+                    (ex1, min(rgb.shape[0] - 5, ey2 + 14)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1, cv2.LINE_AA)
+
+    cv2.imwrite(str(out_dir / "piece_roi_debug.png"), debug)
+    print(f"[save] piece_roi_debug.png written")
+
+
 def save_debug_outputs(out_dir, rgb, depth, raw_mask, best_mask,
                        footprint_bgr, points, blob_stats, centroid_world,
                        surface_z):
@@ -649,7 +755,8 @@ def save_debug_outputs(out_dir, rgb, depth, raw_mask, best_mask,
 
 def save_metadata(out_dir, success, best_mask, blob_stats, points,
                   centroid_world, surface_z, n_valid_components=0,
-                  selected_rank=-1, error_msg=None, camera_pose: dict = None):
+                  selected_rank=-1, error_msg=None, camera_pose: dict = None,
+                  piece_roi: tuple = None, piece_roi_expanded: tuple = None):
     """
     Write piece_metadata.json conforming to the experiments.md conventions.
 
@@ -703,6 +810,22 @@ def save_metadata(out_dir, success, best_mask, blob_stats, points,
         "camera_pose_source":     (camera_pose or {}).get("source", "unknown"),
         "camera_pose_overridden": bool(SET_CAMERA_POSE),
         "set_camera_pose":        bool(SET_CAMERA_POSE),
+        "piece_roi_enabled":           bool(PIECE_ROI_ENABLED),
+        "piece_roi_mode":              PIECE_ROI_MODE,
+        "piece_roi_fraction":          float(PIECE_ROI_FRACTION),
+        "piece_roi_px": (
+            {"x1": piece_roi[0], "y1": piece_roi[1],
+             "x2": piece_roi[2], "y2": piece_roi[3],
+             "source": piece_roi[4] if len(piece_roi) > 4 else None}
+            if piece_roi is not None else None
+        ),
+        "restrict_piece_mask_to_roi":  bool(RESTRICT_PIECE_MASK_TO_ROI),
+        "piece_mask_roi_expand_px":    int(PIECE_MASK_ROI_EXPAND_PX),
+        "expanded_piece_roi_px": (
+            {"x1": piece_roi_expanded[0], "y1": piece_roi_expanded[1],
+             "x2": piece_roi_expanded[2], "y2": piece_roi_expanded[3]}
+            if piece_roi_expanded is not None else None
+        ),
         "image_resolution": {
             "width":  IMG_W,
             "height": IMG_H,
@@ -774,6 +897,7 @@ async def main():
         "rgb.png", "depth_vis.png", "raw_piece_mask.png",
         "piece_mask.png", "piece_debug.png", "piece_footprint.png",
         "piece_pointcloud.npy", "piece_metadata.json",
+        "piece_roi_debug.png",
     ]
     for _fname in _stale_files:
         _p = OUT_DIR / _fname
@@ -795,6 +919,8 @@ async def main():
     footprint_bgr  = None
     active_camera_pose = None    # populated after Step 1; recorded in metadata
     active_cam_xy      = (0.0, 0.0)
+    piece_roi          = None    # (x1, y1, x2, y2, source)
+    piece_roi_expanded = None    # ROI used for mask restriction
 
     try:
         # ── Step 1: Camera setup ──────────────────────────────────────────────
@@ -827,13 +953,30 @@ async def main():
         print("\n--- Step 2: Capture RGB + depth ---")
         rgb, depth = await capture_rgb_depth()
 
-        # ── Step 3: Surface estimation ────────────────────────────────────────
+        # ── Step 3a: Resolve piece ROI ───────────────────────────────────────
+        x1, y1, x2, y2, roi_source = compute_piece_roi(IMG_W, IMG_H)
+        piece_roi = (x1, y1, x2, y2, roi_source)
+        print(f"[piece_roi] enabled={PIECE_ROI_ENABLED}  source={roi_source}")
+        print(f"[piece_roi] x=[{x1}:{x2}] y=[{y1}:{y2}]")
+
+        if RESTRICT_PIECE_MASK_TO_ROI:
+            ex1, ey1, ex2, ey2 = expand_roi(piece_roi,
+                                            PIECE_MASK_ROI_EXPAND_PX,
+                                            IMG_W, IMG_H)
+            piece_roi_expanded = (ex1, ey1, ex2, ey2)
+            print(f"[piece_roi] segmentation ROI (expanded by "
+                  f"{PIECE_MASK_ROI_EXPAND_PX} px) = [{ex1}:{ex2}, {ey1}:{ey2}]")
+
+        # ── Step 3b: Surface estimation ──────────────────────────────────────
         print("\n--- Step 3: Estimate support surface depth ---")
-        surface_z = estimate_support_surface_depth(depth)
+        surface_estimation_roi = (x1, y1, x2, y2) if PIECE_ROI_ENABLED else None
+        surface_z = estimate_support_surface_depth(depth,
+                                                    roi=surface_estimation_roi)
 
         # ── Step 4: Segmentation ──────────────────────────────────────────────
         print("\n--- Step 4: Segment piece ---")
-        raw_mask = segment_piece(depth, surface_z)
+        seg_roi = piece_roi_expanded if RESTRICT_PIECE_MASK_TO_ROI else None
+        raw_mask = segment_piece(depth, surface_z, roi=seg_roi)
 
         # ── Step 5: Connected components ──────────────────────────────────────
         print("\n--- Step 5: Select best component ---")
@@ -876,6 +1019,12 @@ async def main():
         # ── Step 8: Save outputs ──────────────────────────────────────────────
         print("\n--- Step 8: Save debug outputs ---")
 
+        # Always write the ROI debug image whenever RGB is available, on both
+        # success and failure paths.  Helps diagnosing ROI mis-placement.
+        if rgb is not None and piece_roi is not None:
+            OUT_DIR.mkdir(parents=True, exist_ok=True)
+            save_piece_roi_debug(OUT_DIR, rgb, piece_roi, piece_roi_expanded)
+
         if success:
             # All intermediates are guaranteed non-None when success=True
             save_debug_outputs(OUT_DIR, rgb, depth, raw_mask, best_mask,
@@ -916,7 +1065,9 @@ async def main():
                       n_valid_components=len(blob_stats),
                       selected_rank=selected_rank,
                       error_msg=error_msg,
-                      camera_pose=active_camera_pose)
+                      camera_pose=active_camera_pose,
+                      piece_roi=piece_roi,
+                      piece_roi_expanded=piece_roi_expanded)
 
         print("\n" + "=" * 60)
         print(f"  success={success}")

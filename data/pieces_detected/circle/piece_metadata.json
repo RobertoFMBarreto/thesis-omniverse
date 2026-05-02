@@ -1,10 +1,10 @@
 {
   "script": "capture_piece_detection.py",
-  "timestamp": "2026-05-01T14:40:02",
+  "timestamp": "2026-05-02T11:24:15",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
-  "capture_name": "circle",
+  "capture_name": "Circle",
   "use_capture_subdir": true,
-  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/pieces_detected/circle",
+  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/pieces_detected/Circle",
   "visible_piece_assumption": "single visible piece",
   "camera_pose": {
     "x": -0.25,
@@ -16,62 +16,15 @@
     "width": 640,
     "height": 480
   },
-  "surface_depth_m": 0.18050000000000008,
-  "n_valid_components": 1,
+  "surface_depth_m": 0.17950000000000008,
+  "n_valid_components": 0,
   "multiple_valid_components": false,
   "piece_selection_mode": "largest",
   "manual_component_index": 0,
-  "selected_component_rank_or_index": 0,
-  "all_valid_components": [
-    {
-      "area_px": 2042,
-      "centroid_px": {
-        "x": 304.718903036239,
-        "y": 245.80950048971596
-      },
-      "bbox_px": {
-        "x": 280,
-        "y": 221,
-        "w": 51,
-        "h": 51
-      }
-    }
-  ],
-  "selected_component": {
-    "area_px": 2042,
-    "centroid_px": [
-      304.718903036239,
-      245.80950048971596
-    ],
-    "bbox_px": [
-      280,
-      221,
-      51,
-      51
-    ],
-    "centroid_world_m": [
-      -0.25646462031709105,
-      0.44771072985822946
-    ],
-    "surface_depth_m": 0.18050000000000008,
-    "point_count": 2048,
-    "height_range_m": [
-      0.030499905347824097,
-      0.030499905347824097
-    ],
-    "xy_span_m": [
-      0.021152343600988388,
-      0.019702814519405365
-    ]
-  },
-  "pointcloud_bounds": {
-    "x_min": -0.010457254946231842,
-    "x_max": 0.010695088654756546,
-    "y_min": -0.009926474653184414,
-    "y_max": 0.009776339866220951,
-    "z_min": 0.030499905347824097,
-    "z_max": 0.030499905347824097
-  },
+  "selected_component_rank_or_index": -1,
+  "all_valid_components": [],
+  "selected_component": {},
+  "pointcloud_bounds": {},
   "parameters": {
     "camera_prim": "/World/Camera",
     "cam_xyz": [
@@ -106,6 +59,6 @@
     "piece_pointcloud.npy",
     "piece_metadata.json"
   ],
-  "success": true,
-  "error": null
+  "success": false,
+  "error": "No valid piece component found. Inspect raw_piece_mask.png and depth_vis.png. Typical causes: piece flush with table, wrong CAM_Z, SURFACE_TOLERANCE too tight, or multiple pieces all filtered out."
 }
