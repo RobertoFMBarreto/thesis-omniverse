@@ -88,6 +88,15 @@ PIECE_MAX_PEAK_FRACTION       = 0.08     # closer peaks up to this fraction are
 MIN_PIECE_ABOVE_SURFACE_M     = 0.004    # min depth gap between piece-top peak
                                           # and support peak (sanity check)
 
+# Adaptive depth bounds for auto_depth_layers.  When True, the estimator
+# computes the histogram bounds from the actual ROI depth distribution
+# (p01, p99) instead of the fixed [SURFACE_DEPTH_MIN, SURFACE_DEPTH_MAX].
+# This avoids the failure mode where useful layers fall outside the static
+# safety bounds and only the background remains visible to the histogram.
+# SURFACE_DEPTH_MIN/MAX are still used by the legacy "dominant_depth" path.
+AUTO_SURFACE_DEPTH_BOUNDS = True
+SURFACE_DEPTH_MARGIN_M    = 0.005   # padding added below p01 and above p99
+
 # Segmentation: a pixel belongs to the piece if its depth is MORE than this
 # margin below the surface estimate.  Too small → table noise bleeds in.
 # Too large → thin/flat pieces disappear.
@@ -461,15 +470,45 @@ def estimate_support_surface_depth(depth, roi: tuple = None):
     else:
         depth_region = depth
 
-    valid = depth_region[(depth_region >= SURFACE_DEPTH_MIN) &
-                         (depth_region <= SURFACE_DEPTH_MAX)]
+    print(f"[surface_est] mode={SURFACE_ESTIMATION_MODE}")
+
+    # Resolve the depth bounds used for histogram + peak detection.  In
+    # auto_depth_layers + AUTO_SURFACE_DEPTH_BOUNDS, ignore the static
+    # SURFACE_DEPTH_MIN/MAX as filters and derive bounds from the actual
+    # ROI distribution (p01, p99 ± SURFACE_DEPTH_MARGIN_M).  The static
+    # bounds remain in use for the legacy "dominant_depth" path.
+    use_adaptive = (SURFACE_ESTIMATION_MODE == "auto_depth_layers"
+                    and AUTO_SURFACE_DEPTH_BOUNDS)
+
+    if use_adaptive:
+        # Only "physically valid" filter: positive + finite.
+        raw = depth_region[np.isfinite(depth_region) & (depth_region > 0.0)]
+        if raw.size == 0:
+            raise RuntimeError(
+                "[surface_est] No finite, positive depth pixels in ROI. "
+                "Check camera, depth annotator, or PIECE_ROI_*.")
+        roi_dmin = float(raw.min())
+        roi_dmax = float(raw.max())
+        p01      = float(np.percentile(raw, 1.0))
+        p99      = float(np.percentile(raw, 99.0))
+        lower    = max(1e-3, p01 - SURFACE_DEPTH_MARGIN_M)
+        upper    = max(lower + SURFACE_HIST_BIN_M, p99 + SURFACE_DEPTH_MARGIN_M)
+        print(f"[surface_est] ROI depth raw range = [{roi_dmin:.4f}, {roi_dmax:.4f}] m")
+        print(f"[surface_est] ROI depth p01/p99   = [{p01:.4f}, {p99:.4f}] m")
+        print(f"[surface_est] adaptive bounds     = [{lower:.4f}, {upper:.4f}] m")
+        valid = raw[(raw >= lower) & (raw <= upper)]
+        # Guard for the few-peaks warning below.
+        roi_depth_span_m = roi_dmax - roi_dmin
+    else:
+        valid = depth_region[(depth_region >= SURFACE_DEPTH_MIN) &
+                             (depth_region <= SURFACE_DEPTH_MAX)]
+        roi_depth_span_m = 0.0  # unused on this path
+
     if valid.size == 0:
         raise RuntimeError(
-            f"[surface_est] No valid depth pixels in range "
-            f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m within the ROI. "
-            f"Check camera Z, SURFACE_DEPTH_MIN/MAX, and PIECE_ROI_*.")
-
-    print(f"[surface_est] mode={SURFACE_ESTIMATION_MODE}")
+            f"[surface_est] No valid depth pixels for histogram. "
+            f"adaptive={use_adaptive}; static range "
+            f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m.")
 
     # Always extract peaks for diagnostic logging, even in legacy mode.
     peaks = _extract_depth_peaks(valid, SURFACE_HIST_BIN_M,
@@ -479,6 +518,14 @@ def estimate_support_surface_depth(depth, roi: tuple = None):
     for k, p in enumerate(peaks, start=1):
         print(f"[surface_est] peak {k}: depth={p['depth_m']:.4f} m  "
               f"count={p['count_px']} px  fraction={p['fraction']*100:.1f}%")
+
+    # Few-peaks warning: a 5+ cm spread but only 0–1 peaks suggests the
+    # extractor is missing real layers (e.g. histogram binning too coarse,
+    # peaks too close, or the smoothing collapsed them).
+    if use_adaptive and len(peaks) < 2 and roi_depth_span_m > 0.05:
+        print(f"[WARNING] depth range suggests multiple layers, but peak "
+              f"detector found fewer than 2 peaks. Check histogram binning/"
+              f"peak extraction. (raw range span = {roi_depth_span_m*100:.1f} cm)")
 
     if SURFACE_ESTIMATION_MODE == "auto_depth_layers":
         sel, sel_rank, reason, is_farthest = _select_support_peak(peaks)
@@ -1256,6 +1303,40 @@ async def main():
         print("\n--- Step 4: Segment piece ---")
         seg_roi = piece_roi_expanded if RESTRICT_PIECE_MASK_TO_ROI else None
         raw_mask = segment_piece(depth, surface_z, roi=seg_roi)
+
+        # Fallback: if the chosen support gave a mask covering >50% of the
+        # expanded ROI, the support estimate is almost certainly too far
+        # (everything in front of it gets classified as "above support").
+        # Try CLOSER peaks (smaller depth than the current pick) in order,
+        # re-segmenting each time, and keep the first that produces a mask
+        # under the 50% ratio.
+        if seg_roi is not None and surface_info is not None:
+            ex1, ey1, ex2, ey2 = seg_roi
+            roi_area = max(1, (ex2 - ex1) * (ey2 - ey1))
+            ratio = int(raw_mask.sum()) / float(roi_area)
+            if ratio > 0.50:
+                _peaks    = surface_info.get("peaks", [])
+                _cur_rank = surface_info.get("selected_rank", -1)
+                # Closer = lower index (peaks are sorted depth-ASC).
+                _candidates = [i for i in range(_cur_rank - 1, -1, -1)]
+                for _i in _candidates:
+                    _alt_z = _peaks[_i]["depth_m"]
+                    print(f"[surface_est] reselecting support because initial "
+                          f"mask was too large (ratio={ratio*100:.1f}%); "
+                          f"trying peak rank={_i+1} depth={_alt_z:.4f} m")
+                    _alt_mask = segment_piece(depth, _alt_z, roi=seg_roi)
+                    _alt_ratio = int(_alt_mask.sum()) / float(roi_area)
+                    if 0.0 < _alt_ratio <= 0.50:
+                        raw_mask  = _alt_mask
+                        surface_z = _alt_z
+                        surface_info["selected_rank"] = _i
+                        surface_info["reason"] = (
+                            surface_info.get("reason", "")
+                            + " | RESELECTED (initial mask >50% of ROI)")
+                        print(f"[surface_est] reselection accepted: "
+                              f"new ratio={_alt_ratio*100:.1f}%")
+                        break
+                    ratio = _alt_ratio  # update for next-iteration log
 
         # ── Step 5: Connected components ──────────────────────────────────────
         print("\n--- Step 5: Select best component ---")
