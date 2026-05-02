@@ -1,5 +1,5 @@
 # capture_cavity_detection.py — run log
-# timestamp:  2026-05-02T14:00:25
+# timestamp:  2026-05-02T14:09:59
 # output_dir: /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected
 # This file is OVERWRITTEN at the beginning of every run.
 ============================================================
@@ -11,10 +11,13 @@ capture_cavity_detection.py — Phase 2
 [cleanup] removed stale: rgb.png
 [cleanup] removed stale: depth_vis.png
 [cleanup] removed stale: raw_cavity_mask.png
+[cleanup] removed stale: cavity_opening_mask.png
+[cleanup] removed stale: depth_band_cavity_mask.png
+[cleanup] removed stale: board_surface_mask.png
+[cleanup] removed stale: board_region_mask.png
 [cleanup] removed stale: cavities_debug.png
 [cleanup] removed stale: cavities_summary.json
 [cleanup] removed stale: board_mask.png
-[cleanup] removed stale: board_region_mask.png
 [cleanup] removed stale: board_debug.png
 [cleanup] removed stale: board_roi_auto_debug.png
 [cleanup] removed stale: cavity_00/
@@ -81,40 +84,44 @@ capture_cavity_detection.py — Phase 2
 [intrinsics] mpp_x=0.761 mm/px  mpp_y=0.761 mm/px  (at board surface depth 0.3245 m)
 
   [cavity_00] label=1  area=4260 px  centroid=(278.5, 198.5)
-[pointcloud] raw pixels=4260  sampled=2048  (replace=False)
+[opening_pc] raw pixels=4260  sampled=2048  (replace=False)
   X=[-0.0194, 0.0194] m
   Y=[-0.0308, 0.0308] m
-  Z=[0.0734, 0.0755] m  (depth below board surface)
+  Z=0 (board top plane)
   centroid_world=(0.2684, 0.0316)
+[depth_pc] WARNING: depth mask empty for this cavity — writing zero-filled point cloud as auxiliary placeholder.
 [footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
-[save_cavity] cavity_00  z_range=[0.0734, 0.0755] m  xy_span=(0.0388, 0.0616) m  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_00
+[save_cavity] cavity_00  opening_area=4260 px  depth_area=0 px  opening_xy=(38.8, 61.6) mm  z_depth_median=0.0 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_00
 
   [cavity_01] label=2  area=1299 px  centroid=(361.2, 209.5)
-[pointcloud] raw pixels=1299  sampled=2048  (replace=True)
+[opening_pc] raw pixels=1299  sampled=2048  (replace=True)
   X=[-0.0184, 0.0189] m
   Y=[-0.0126, 0.0247] m
-  Z=[0.0711, 0.0755] m  (depth below board surface)
+  Z=0 (board top plane)
   centroid_world=(0.3313, 0.0232)
+[depth_pc] WARNING: depth mask empty for this cavity — writing zero-filled point cloud as auxiliary placeholder.
 [footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
-[save_cavity] cavity_01  z_range=[0.0711, 0.0755] m  xy_span=(0.0373, 0.0373) m  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_01
+[save_cavity] cavity_01  opening_area=1299 px  depth_area=0 px  opening_xy=(37.3, 37.3) mm  z_depth_median=0.0 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_01
 
   [cavity_02] label=4  area=2544 px  centroid=(278.5, 296.0)
-[pointcloud] raw pixels=2544  sampled=2048  (replace=False)
+[opening_pc] raw pixels=2544  sampled=2048  (replace=False)
   X=[-0.0194, 0.0194] m
   Y=[-0.0183, 0.0183] m
-  Z=[0.0730, 0.0755] m  (depth below board surface)
+  Z=0 (board top plane)
   centroid_world=(0.2684, -0.0426)
+[depth_pc] WARNING: depth mask empty for this cavity — writing zero-filled point cloud as auxiliary placeholder.
 [footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
-[save_cavity] cavity_02  z_range=[0.0730, 0.0755] m  xy_span=(0.0388, 0.0365) m  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_02
+[save_cavity] cavity_02  opening_area=2544 px  depth_area=0 px  opening_xy=(38.8, 36.5) mm  z_depth_median=0.0 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_02
 
   [cavity_03] label=3  area=3121 px  centroid=(361.8, 295.9)
-[pointcloud] raw pixels=3121  sampled=2048  (replace=False)
+[opening_pc] raw pixels=3121  sampled=2048  (replace=False)
   X=[-0.0249, 0.0237] m
   Y=[-0.0229, 0.0235] m
-  Z=[0.0710, 0.0755] m  (depth below board surface)
+  Z=0 (board top plane)
   centroid_world=(0.3318, -0.0425)
+[depth_pc] WARNING: depth mask empty for this cavity — writing zero-filled point cloud as auxiliary placeholder.
 [footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
-[save_cavity] cavity_03  z_range=[0.0710, 0.0755] m  xy_span=(0.0487, 0.0464) m  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_03
+[save_cavity] cavity_03  opening_area=3121 px  depth_area=0 px  opening_xy=(48.7, 46.4) mm  z_depth_median=0.0 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_03
 
 [main] Pipeline completed successfully.  Detected 4 cavities.
 
@@ -122,7 +129,9 @@ capture_cavity_detection.py — Phase 2
 [save_global] rgb.png
 [save_global] depth_vis.png
 [save_global] board_surface_mask.png
+[save_global] board_region_mask.png
 [save_global] cavity_opening_mask.png
+[save_global] cavity_depth_mask.png
 [save_global] depth_band_cavity_mask.png
 [save_global] raw_cavity_mask.png
 [save_global] cavities_debug.png  (4 cavities)
@@ -138,28 +147,49 @@ capture_cavity_detection.py — Phase 2
   cavities_summary.json
   cavity_00
   cavity_00/cavity_debug.png
+  cavity_00/cavity_depth_mask.png
+  cavity_00/cavity_depth_pointcloud.npy
   cavity_00/cavity_footprint.png
   cavity_00/cavity_mask.png
   cavity_00/cavity_metadata.json
+  cavity_00/cavity_opening_footprint.png
+  cavity_00/cavity_opening_mask.png
+  cavity_00/cavity_opening_pointcloud.npy
   cavity_00/cavity_pointcloud.npy
   cavity_01
   cavity_01/cavity_debug.png
+  cavity_01/cavity_depth_mask.png
+  cavity_01/cavity_depth_pointcloud.npy
   cavity_01/cavity_footprint.png
   cavity_01/cavity_mask.png
   cavity_01/cavity_metadata.json
+  cavity_01/cavity_opening_footprint.png
+  cavity_01/cavity_opening_mask.png
+  cavity_01/cavity_opening_pointcloud.npy
   cavity_01/cavity_pointcloud.npy
   cavity_02
   cavity_02/cavity_debug.png
+  cavity_02/cavity_depth_mask.png
+  cavity_02/cavity_depth_pointcloud.npy
   cavity_02/cavity_footprint.png
   cavity_02/cavity_mask.png
   cavity_02/cavity_metadata.json
+  cavity_02/cavity_opening_footprint.png
+  cavity_02/cavity_opening_mask.png
+  cavity_02/cavity_opening_pointcloud.npy
   cavity_02/cavity_pointcloud.npy
   cavity_03
   cavity_03/cavity_debug.png
+  cavity_03/cavity_depth_mask.png
+  cavity_03/cavity_depth_pointcloud.npy
   cavity_03/cavity_footprint.png
   cavity_03/cavity_mask.png
   cavity_03/cavity_metadata.json
+  cavity_03/cavity_opening_footprint.png
+  cavity_03/cavity_opening_mask.png
+  cavity_03/cavity_opening_pointcloud.npy
   cavity_03/cavity_pointcloud.npy
+  cavity_depth_mask.png
   cavity_opening_mask.png
   depth_band_cavity_mask.png
   depth_vis.png
