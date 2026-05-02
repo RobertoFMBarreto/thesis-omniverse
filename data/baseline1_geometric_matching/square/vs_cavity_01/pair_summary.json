@@ -1,0 +1,19 @@
+{
+  "piece": "square",
+  "cavity": "cavity_01",
+  "best_rotation_deg": 90,
+  "best_score": 0.675383,
+  "best_inside": 0.998833,
+  "best_outside": 0.001167,
+  "best_iou": 0.592561,
+  "area_ratio": 0.411636,
+  "suspicious_scale": true,
+  "low_raw_support": false,
+  "convex_hull_fallback_piece": false,
+  "convex_hull_fallback_cavity": false,
+  "p_area_at_best_px": 6858,
+  "c_undilated_area_px": 2823,
+  "c_dilated_area_px": 11552,
+  "failed": false,
+  "failure_reason": ""
+}

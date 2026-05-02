@@ -1,0 +1,37 @@
+{
+  "script": "baseline1_geometric_matching.py",
+  "timestamp": "2026-05-01T17:58:21.112858",
+  "duration_s": 5.118184,
+  "inputs": {
+    "pieces": [
+      "rectangle",
+      "square",
+      "circle",
+      "star"
+    ],
+    "cavities": [
+      "cavity_00",
+      "cavity_01",
+      "cavity_02",
+      "cavity_03"
+    ]
+  },
+  "parameters": {
+    "ROTATION_STEP_DEG": 2,
+    "CLEARANCE_DILATION_M": 0.001,
+    "FOOTPRINT_RESOLUTION_M_PER_PX": 0.00025,
+    "WORLD_CANVAS_M": 0.08,
+    "CANVAS_PX": 320,
+    "COMPATIBLE_INSIDE_MIN": 0.8,
+    "COMPATIBLE_OUTSIDE_MAX": 0.2,
+    "COMPATIBLE_IOU_MIN": 0.55,
+    "SUSPICIOUS_AREA_RATIO_MAX": 0.5,
+    "LOW_RAW_SUPPORT_AREA_PX": 200,
+    "TIE_MARGIN": 0.01,
+    "W_IOU": 0.55,
+    "W_INSIDE": 0.35,
+    "W_OUTSIDE": 0.1
+  },
+  "output_root": "/Users/robertofmbarreto/Documents/Mestrado/tese/code/thesis-omniverse/data/baseline1_geometric_matching",
+  "success": true
+}

@@ -281,7 +281,91 @@ propriedade da geometria observada combinada com a precisão do
 
 ---
 
-## 13. Limitações da abordagem atual
+## 13. Problemas encontrados e correções
+
+Esta secção documenta os problemas técnicos efetivamente observados
+durante o desenvolvimento da Fase 1 e as correções aplicadas, para
+que o relatório final possa apresentar o percurso de
+desenvolvimento e não apenas o método final.
+
+1. **Inicialização do orquestrador do Replicator inexistente**.
+   A primeira versão do *script* invocava
+   `rep.orchestrator.initialize_async()` antes do
+   `step_async(...)`. No ambiente Isaac Sim 5.1 utilizado, esse
+   método não existe e a captura falhava com `AttributeError`.
+   *Correção*: remoção da chamada e adoção do padrão já validado
+   nos *scripts* anteriores do projeto: criar *render product*,
+   anexar anotadores, executar `await
+   rep.orchestrator.step_async(rt_subframes=...)` e ler com
+   `get_data()`.
+
+2. **Resolução de caminhos via `__file__` no *Script Editor***.
+   Inicialmente, o diretório de saída era derivado de
+   `Path(__file__).resolve().parent.parent`. Quando o *script* é
+   colado/executado no *Script Editor* do Isaac Sim, `__file__`
+   pode resolver para um caminho temporário do tipo
+   `/tmp/carb.../script_*.py`, fazendo com que as saídas fossem
+   gravadas fora do repositório.
+   *Correção*: definição explícita de `PROJECT_ROOT`, com
+   variável de ambiente opcional `SHAPE_INSERTION_PROJECT_ROOT`
+   para sobreposição em outros ambientes (ex. máquina de
+   desenvolvimento). O caminho passou a ser estável
+   independentemente do contexto de execução.
+
+3. **Múltiplas peças visíveis simultaneamente**.
+   Em capturas iniciais, várias peças permaneciam visíveis na
+   cena. O *pipeline* selecionava o componente ligado de maior
+   área, sem garantia sobre qual peça era escolhida.
+   *Decisão metodológica para esta fase*: ocultar manualmente as
+   peças não pretendidas no Isaac Sim e capturar uma peça de cada
+   vez. Foram acrescentados modos de seleção configuráveis
+   (`largest`, `closest_to_center`, `manual_index`) para tornar a
+   escolha determinística sem recorrer a classificação de forma.
+
+4. **Compatibilidade do formato dos anotadores**.
+   Em diferentes versões do Replicator, `get_data()` pode retornar
+   diretamente um *ndarray* ou um dicionário com chave `"data"`.
+   Nas primeiras execuções obtiveram-se *crashes* do tipo
+   `TypeError` por aplicar fatiamento direto a um dicionário.
+   *Correção*: normalização defensiva — se o retorno for
+   dicionário, converter para *ndarray* via
+   `np.asarray(d["data"]).reshape(IMG_H, IMG_W, -1)` antes de
+   usar; impressão única do tipo e *shape* para diagnóstico.
+
+5. **Saídas espúrias após falha**.
+   Numa versão intermédia, o bloco `finally` produzia *placeholders*
+   com matrizes de zeros para evitar erros de escrita. Isto deixava
+   ficheiros com aspeto de captura válida quando, na realidade, a
+   captura tinha falhado.
+   *Correção*: remoção de *placeholders*; passou a gravar-se apenas
+   os artefactos efetivamente produzidos pela execução atual; o
+   `piece_metadata.json` é sempre escrito, com `success=False` e
+   mensagem de erro quando aplicável; ficheiros de execuções
+   anteriores são removidos no início para não poderem ser
+   confundidos com o resultado atual.
+
+6. **Amplitude Z nula em peças prismáticas**.
+   As peças `rectangle` e `circle` apresentaram amplitude Z
+   exatamente igual a zero. Verificou-se ser uma propriedade
+   conjunta da geometria observada (face superior estritamente
+   plana) e da quantização de `float32` do anotador de
+   profundidade, e não um defeito do *pipeline*. A amplitude Z é
+   informação útil mas, nesta fase, não é estritamente necessária
+   para a baseline geométrica baseada em pegada.
+
+7. **Verificação de escala real**.
+   Nas primeiras execuções, a função de intrínsecos da câmara era
+   alimentada com a altura nominal da câmara em vez da
+   profundidade efetiva da superfície. Isto introduzia um erro
+   sistemático de escala em XY proporcional à diferença entre as
+   duas profundidades.
+   *Correção*: passou a usar-se a profundidade da superfície
+   estimada (`surface_z`) para calcular metros-por-pixel,
+   garantindo coerência métrica entre a *pixel grid* e o mundo.
+
+---
+
+## 14. Limitações da abordagem atual
 
 1. **Vista única e topo plano dominante**: a partir de uma só
    captura *top-down*, peças prismáticas com face superior plana
@@ -315,7 +399,7 @@ propriedade da geometria observada combinada com a precisão do
 
 ---
 
-## 14. Relevância para o objetivo da tese
+## 15. Relevância para o objetivo da tese
 
 O objetivo central da tese é a aprendizagem de relações
 perceção-ação baseadas em geometria, com o caso de estudo da
@@ -347,7 +431,7 @@ futura com captura *multi-view*, fora do âmbito desta fase.
 
 ---
 
-## 15. Figuras a incluir mais tarde em LaTeX
+## 16. Figuras a incluir mais tarde em LaTeX
 
 | Identificador | Caminho atual | Legenda sugerida |
 |---|---|---|

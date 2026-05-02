@@ -1,0 +1,16 @@
+{
+  "piece": "circle",
+  "best_cavity_id": "cavity_02",
+  "best_rotation_deg": 192,
+  "best_score": 0.837246,
+  "best_inside": 0.968862,
+  "best_outside": 0.031138,
+  "best_iou": 0.911378,
+  "area_ratio": 0.315369,
+  "suspicious_scale": true,
+  "low_raw_support": false,
+  "compatible": true,
+  "tie": false,
+  "tie_candidates": [],
+  "failure_reason": ""
+}

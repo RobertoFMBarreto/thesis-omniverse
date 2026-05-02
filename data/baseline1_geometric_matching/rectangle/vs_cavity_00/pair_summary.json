@@ -1,0 +1,19 @@
+{
+  "piece": "rectangle",
+  "cavity": "cavity_00",
+  "best_rotation_deg": 16,
+  "best_score": 0.108913,
+  "best_inside": 0.211571,
+  "best_outside": 0.788429,
+  "best_iou": 0.206738,
+  "area_ratio": 0.057725,
+  "suspicious_scale": true,
+  "low_raw_support": true,
+  "convex_hull_fallback_piece": false,
+  "convex_hull_fallback_cavity": false,
+  "p_area_at_best_px": 7657,
+  "c_undilated_area_px": 442,
+  "c_dilated_area_px": 1799,
+  "failed": false,
+  "failure_reason": ""
+}

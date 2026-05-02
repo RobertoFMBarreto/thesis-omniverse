@@ -1,0 +1,19 @@
+{
+  "piece": "star",
+  "cavity": "cavity_02",
+  "best_rotation_deg": 218,
+  "best_score": 0.562182,
+  "best_inside": 0.998504,
+  "best_outside": 0.001496,
+  "best_iou": 0.387009,
+  "area_ratio": 0.78803,
+  "suspicious_scale": false,
+  "low_raw_support": false,
+  "convex_hull_fallback_piece": false,
+  "convex_hull_fallback_cavity": false,
+  "p_area_at_best_px": 2005,
+  "c_undilated_area_px": 1580,
+  "c_dilated_area_px": 5170,
+  "failed": false,
+  "failure_reason": ""
+}

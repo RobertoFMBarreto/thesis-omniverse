@@ -1,0 +1,16 @@
+{
+  "piece": "star",
+  "best_cavity_id": "cavity_00",
+  "best_rotation_deg": 16,
+  "best_score": 0.662863,
+  "best_inside": 0.803419,
+  "best_outside": 0.196581,
+  "best_iou": 0.72968,
+  "area_ratio": 0.222222,
+  "suspicious_scale": true,
+  "low_raw_support": true,
+  "compatible": true,
+  "tie": false,
+  "tie_candidates": [],
+  "failure_reason": ""
+}

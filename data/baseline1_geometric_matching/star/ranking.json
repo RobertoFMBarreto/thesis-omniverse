@@ -1,0 +1,58 @@
+[
+  {
+    "cavity": "cavity_00",
+    "best_score": 0.662863,
+    "best_rotation_deg": 16,
+    "best_inside": 0.803419,
+    "best_outside": 0.196581,
+    "best_iou": 0.72968,
+    "area_ratio": 0.222222,
+    "suspicious_scale": true,
+    "low_raw_support": true,
+    "compatible": true,
+    "failed": false,
+    "failure_reason": ""
+  },
+  {
+    "cavity": "cavity_02",
+    "best_score": 0.562182,
+    "best_rotation_deg": 218,
+    "best_inside": 0.998504,
+    "best_outside": 0.001496,
+    "best_iou": 0.387009,
+    "area_ratio": 0.78803,
+    "suspicious_scale": false,
+    "low_raw_support": false,
+    "compatible": false,
+    "failed": false,
+    "failure_reason": ""
+  },
+  {
+    "cavity": "cavity_03",
+    "best_score": 0.512919,
+    "best_rotation_deg": 36,
+    "best_inside": 0.998508,
+    "best_outside": 0.001492,
+    "best_iou": 0.297437,
+    "area_ratio": 0.974322,
+    "suspicious_scale": false,
+    "low_raw_support": false,
+    "compatible": false,
+    "failed": false,
+    "failure_reason": ""
+  },
+  {
+    "cavity": "cavity_01",
+    "best_score": 0.445745,
+    "best_rotation_deg": 36,
+    "best_inside": 1.0,
+    "best_outside": 0.0,
+    "best_iou": 0.174082,
+    "area_ratio": 0.712363,
+    "suspicious_scale": false,
+    "low_raw_support": false,
+    "compatible": false,
+    "failed": false,
+    "failure_reason": ""
+  }
+]

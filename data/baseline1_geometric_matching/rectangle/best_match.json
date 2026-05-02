@@ -1,0 +1,16 @@
+{
+  "piece": "rectangle",
+  "best_cavity_id": "cavity_01",
+  "best_rotation_deg": 90,
+  "best_score": 0.70753,
+  "best_inside": 0.908798,
+  "best_outside": 0.091202,
+  "best_iou": 0.724675,
+  "area_ratio": 0.284176,
+  "suspicious_scale": true,
+  "low_raw_support": false,
+  "compatible": true,
+  "tie": false,
+  "tie_candidates": [],
+  "failure_reason": ""
+}

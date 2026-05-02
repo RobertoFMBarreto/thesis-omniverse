@@ -1,0 +1,9 @@
+Baseline 1 — Geometric Matching Summary
+Run: 2026-05-01 17:58:21
+
+piece        best_cavity    rot   score  inside  outside     iou     ar  susp low_raw  compat
+-----------------------------------------------------------------------------------------------
+rectangle    cavity_01       90   0.708   0.909    0.091   0.725  0.284 True  False   True   
+square       cavity_03      180   0.855   0.968    0.032   0.945  0.303 True  False   True   
+circle       cavity_02      192   0.837   0.969    0.031   0.911  0.315 True  False   True   
+star         cavity_00       16   0.663   0.803    0.197   0.730  0.222 True  True    True   

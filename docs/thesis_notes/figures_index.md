@@ -48,12 +48,32 @@ relatório.
 
 ---
 
+## Tabela de figuras — Fase 2: deteção do tabuleiro e das cavidades
+
+| Figure ID | Source file | Suggested LaTeX filename | Suggested caption (pt-PT) | Related section | Notes |
+|---|---|---|---|---|---|
+| `fig:cavity_rgb` | `data/cavities_detected/rgb.png` | `fig10_cavity_rgb.png` | Imagem RGB da cena com o tabuleiro e as cavidades, captada pela câmara virtual. | Fase 2 — secção 4 | Fornece a referência visual da cena antes de qualquer processamento. |
+| `fig:cavity_depth_vis` | `data/cavities_detected/depth_vis.png` | `fig11_cavity_depth_vis.png` | Visualização colorida da imagem de profundidade da mesma cena. | Fase 2 — secção 4 | Permite comentar a ordenação de profundidade entre fundo, tabuleiro e cavidades. |
+| `fig:board_mask` | `data/cavities_detected/board_mask.png` | `fig12_board_mask.png` | Máscara binária da face superior do tabuleiro, com buracos correspondentes às cavidades. | Fase 2 — secção 6 | Mostra que o tabuleiro detetado tem holes geometricamente coerentes com as cavidades. |
+| `fig:board_region_mask` | `data/cavities_detected/board_region_mask.png` | `fig13_board_region_mask.png` | Tabuleiro preenchido (modo `contour`), domínio de pesquisa para a deteção de cavidades. | Fase 2 — secção 6 | Par com `fig:board_mask`: ilustra a diferença entre superfície detetada e domínio de pesquisa preenchido. |
+| `fig:board_debug` | `data/cavities_detected/board_debug.png` | `fig14_board_debug.png` | Sobreposição RGB com o tabuleiro detetado tingido, contorno preenchido, caixa envolvente e centróide. | Fase 2 — secção 6 | Figura síntese da deteção automática do tabuleiro. |
+| `fig:board_roi_auto_debug` | `data/cavities_detected/board_roi_auto_debug.png` | `fig15_board_roi_auto_debug.png` | Diagnóstico do processo de deteção automática do tabuleiro: candidatos de profundidade e parâmetros utilizados. | Fase 2 — secção 6 e 14 | Útil para a discussão dos problemas encontrados e parâmetros sintonizados. |
+| `fig:raw_cavity_mask` | `data/cavities_detected/raw_cavity_mask.png` | `fig16_raw_cavity_mask.png` | Máscara binária após aplicação do critério de profundidade restrito ao domínio do tabuleiro. | Fase 2 — secção 8 | Estado pré-componentes-ligados; útil para discutir limpeza morfológica. |
+| `fig:cavities_debug` | `data/cavities_detected/cavities_debug.png` | `fig17_cavities_debug.png` | Sobreposição RGB com cada cavidade detetada tingida e numerada (cavity_00 a cavity_03). | Fase 2 — secção 9 | Figura de síntese da deteção das cavidades com identificadores espaciais. |
+| `fig:cavities_footprints_grid` | `data/cavities_detected/footprints_grid.png` | `fig18_cavities_footprints_grid.png` | Pegadas 2D *top-down* das cavidades detetadas, em grelha rotulada por identificador. | Fase 2 — secções 12 e 13 | Análogo da figura de Fase 1 para as cavidades. Útil para comparação visual posterior peça vs. cavidade. |
+
+---
+
 ## Fontes de dados (não-figuras) para tabelas e métricas
 
 | ID interno | Source file | Utilização sugerida | Notes |
 |---|---|---|---|
-| `data:validation_csv` | `data/pieces_detected/validation_summary.csv` | Origem da tabela de amplitudes e contagem de pontos no relatório. | Formato plano, fácil de transformar em `\begin{tabular}`. |
-| `data:validation_json` | `data/pieces_detected/validation_summary.json` | Origem detalhada (limites X/Y/Z exatos, *flags* de validação) para tabelas auxiliares ou texto. | Mais completo do que o CSV; preferir como fonte canónica. |
+| `data:validation_csv_pieces` | `data/pieces_detected/validation_summary.csv` | Origem da tabela de amplitudes e contagem de pontos das peças. | Formato plano, fácil de transformar em `\begin{tabular}`. |
+| `data:validation_json_pieces` | `data/pieces_detected/validation_summary.json` | Origem detalhada (limites X/Y/Z exatos, *flags* de validação) para tabelas auxiliares ou texto. | Mais completo do que o CSV; preferir como fonte canónica para Fase 1. |
+| `data:validation_csv_cavities` | `data/cavities_detected/validation_summary.csv` | Origem da tabela de áreas e amplitudes das cavidades. | Formato plano, fácil de transformar em `\begin{tabular}`. |
+| `data:validation_json_cavities` | `data/cavities_detected/validation_summary.json` | Origem detalhada da validação das cavidades (limites X/Y/Z, *flags*). | Mais completo do que o CSV; preferir como fonte canónica para Fase 2. |
+| `data:cavities_summary_json` | `data/cavities_detected/cavities_summary.json` | Origem dos parâmetros do *pipeline* (tabuleiro, profundidade da mesa, *flags* de deteção, lista de componentes rejeitados). | Útil para a secção de problemas encontrados/parâmetros sintonizados. |
+| `data:cavities_run_log` | `data/cavities_detected/run_log.txt` | Registo da consola da execução validada (sobrescrito em cada execução). | Útil para citação literal no relatório, com o cuidado de ficar gravado fora do *log* atual antes de o sobrescrever. |
 
 ---
 
@@ -65,11 +85,15 @@ relatório, a registar quando forem produzidos:
 - Figura comparativa **antes/depois da segmentação** (RGB original
   ao lado da máscara selecionada) por peça.
 - Figura ilustrando a estimação da superfície de suporte
-  (histograma da profundidade com pico anotado).
-- Figura para a Fase 2 (cavidades): saídas de
-  `data/cavities_detected/` ainda não geradas.
-- Figura comparativa peça vs. cavidade correspondente, a ser usada
-  na secção da baseline determinística.
+  (histograma da profundidade com pico anotado), tanto para a
+  Fase 1 (mesa de peças) como para a Fase 2 (mesa/fundo e topo do
+  tabuleiro).
+- Figuras *per-cavity* dedicadas (`cavity_NN/cavity_debug.png` e
+  `cavity_NN/cavity_footprint.png`), a registar quando se decidir
+  destacar uma cavidade individual no relatório.
+- Figura comparativa peça vs. cavidade correspondente, a ser
+  usada na secção da baseline determinística (Fase 3, ainda não
+  implementada).
 - Diagrama do *pipeline* de perceção (a desenhar à parte, por
   exemplo em TikZ ou em ferramenta vetorial), para ser referenciado
   como `fig:pipeline_overview`.

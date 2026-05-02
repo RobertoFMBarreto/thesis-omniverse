@@ -1,0 +1,68 @@
+[log] run_log.txt -> /Users/robertofmbarreto/Documents/Mestrado/tese/code/thesis-omniverse/data/baseline1_geometric_matching/run_log.txt
+======================================================================
+baseline1_geometric_matching.py — Baseline 1: Geometric Matching
+======================================================================
+PROJECT_ROOT : /Users/robertofmbarreto/Documents/Mestrado/tese/code/thesis-omniverse
+OUT_ROOT     : /Users/robertofmbarreto/Documents/Mestrado/tese/code/thesis-omniverse/data/baseline1_geometric_matching
+CANVAS_PX    : 320  (80mm @ 0.250mm/px)
+ROTATIONS    : 180 @ 2deg step
+DIL_RADIUS   : 4 px (1.0mm)
+[load] piece 'rectangle': 2048 points, X=[-0.0188,0.0188] m, Y=[-0.0099,0.0099] m
+[load] piece 'square': 2048 points, X=[-0.0106,0.0106] m, Y=[-0.0100,0.0101] m
+[load] piece 'circle': 2048 points, X=[-0.0105,0.0107] m, Y=[-0.0099,0.0098] m
+[load] piece 'star': 2048 points, X=[-0.0102,0.0097] m, Y=[-0.0081,0.0096] m
+[load] cavity 'cavity_00': 2048 points, X=[-0.0054,0.0053] m, Y=[-0.0051,0.0056] m, area_px=114, low_raw_support=True
+[load] cavity 'cavity_01': 2048 points, X=[-0.0098,0.0098] m, Y=[-0.0157,0.0157] m, area_px=897, low_raw_support=False
+[load] cavity 'cavity_02': 2048 points, X=[-0.0089,0.0097] m, Y=[-0.0084,0.0090] m, area_px=383, low_raw_support=False
+[load] cavity 'cavity_03': 2048 points, X=[-0.0098,0.0098] m, Y=[-0.0087,0.0087] m, area_px=506, low_raw_support=False
+[load] loaded 4 pieces and 4 cavities
+
+[piece] Processing 'rectangle' ...
+  [pair] rectangle vs cavity_00 ... score=0.109 rot=16deg inside=0.212
+  [pair] rectangle vs cavity_01 ... score=0.708 rot=90deg inside=0.909
+  [pair] rectangle vs cavity_02 ... score=0.416 rot=344deg inside=0.526
+  [pair] rectangle vs cavity_03 ... score=0.486 rot=176deg inside=0.616
+
+[piece] Processing 'square' ...
+  [pair] square vs cavity_00 ... score=0.170 rot=218deg inside=0.270
+  [pair] square vs cavity_01 ... score=0.675 rot=90deg inside=0.999
+  [pair] square vs cavity_02 ... score=0.662 rot=220deg inside=0.765
+  [pair] square vs cavity_03 ... score=0.855 rot=180deg inside=0.968
+
+[piece] Processing 'circle' ...
+  [pair] circle vs cavity_00 ... score=0.275 rot=46deg inside=0.375
+  [pair] circle vs cavity_01 ... score=0.592 rot=268deg inside=1.000
+  [pair] circle vs cavity_02 ... score=0.837 rot=192deg inside=0.969
+  [pair] circle vs cavity_03 ... score=0.757 rot=176deg inside=0.997
+
+[piece] Processing 'star' ...
+  [pair] star vs cavity_00 ... score=0.663 rot=16deg inside=0.803
+  [pair] star vs cavity_01 ... score=0.446 rot=36deg inside=1.000
+  [pair] star vs cavity_02 ... score=0.562 rot=218deg inside=0.999
+  [pair] star vs cavity_03 ... score=0.513 rot=36deg inside=0.999
+
+Baseline 1 — Geometric Matching Summary
+Run: 2026-05-01 17:58:21
+
+piece        best_cavity    rot   score  inside  outside     iou     ar  susp low_raw  compat
+-----------------------------------------------------------------------------------------------
+rectangle    cavity_01       90   0.708   0.909    0.091   0.725  0.284 True  False   True   
+square       cavity_03      180   0.855   0.968    0.032   0.945  0.303 True  False   True   
+circle       cavity_02      192   0.837   0.969    0.031   0.911  0.315 True  False   True   
+star         cavity_00       16   0.663   0.803    0.197   0.730  0.222 True  True    True   
+
+[grid] best_match_grid.png -> /Users/robertofmbarreto/Documents/Mestrado/tese/code/thesis-omniverse/data/baseline1_geometric_matching/best_match_grid.png
+
+[outputs] All global outputs written to: /Users/robertofmbarreto/Documents/Mestrado/tese/code/thesis-omniverse/data/baseline1_geometric_matching
+  best_match_grid.png
+  results_all.json
+  results_matrix.csv
+  run_log.txt
+  run_metadata.json
+  score_matrix_heatmap.png
+  summary.txt
+
+======================================================================
+  Run SUCCESS  (5.2s)
+======================================================================
+
