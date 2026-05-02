@@ -1,0 +1,79 @@
+{
+  "units": "metres",
+  "notes": "Reference CAD dimensions for the shape-sorting pieces and cavities. These values are for scale-validation and audit only — they MUST NOT be consumed by any matching, classification, or selection algorithm. The deterministic baseline must continue to discover correspondences from rasterised geometry alone, with no shape-to-cavity mapping hardcoded.",
+  "nominal_clearance_total_m": 0.001,
+  "nominal_clearance_per_side_m": 0.0005,
+  "pieces": {
+    "rectangle": {
+      "long_span_m": 0.075,
+      "short_span_m": 0.050,
+      "x_span_m": 0.075,
+      "y_span_m": 0.050,
+      "height_m": 0.105
+    },
+    "square": {
+      "x_span_m": 0.050,
+      "y_span_m": 0.050,
+      "height_m": 0.105
+    },
+    "circle": {
+      "diameter_m": 0.050,
+      "x_span_m": 0.050,
+      "y_span_m": 0.050,
+      "height_m": 0.105
+    },
+    "triangle": {
+      "base_m": 0.050,
+      "triangle_height_m": 0.050,
+      "x_span_m": 0.050,
+      "y_span_m": 0.050,
+      "height_m": 0.105
+    }
+  },
+  "cavities": {
+    "rectangle": {
+      "long_span_m": 0.076,
+      "short_span_m": 0.051,
+      "x_span_m": 0.076,
+      "y_span_m": 0.051,
+      "depth_m": 0.075,
+      "clearance_total_m": 0.001,
+      "clearance_per_side_m": 0.0005
+    },
+    "square": {
+      "x_span_m": 0.051,
+      "y_span_m": 0.051,
+      "depth_m": 0.075,
+      "clearance_total_m": 0.001,
+      "clearance_per_side_m": 0.0005
+    },
+    "circle": {
+      "diameter_m": 0.051,
+      "x_span_m": 0.051,
+      "y_span_m": 0.051,
+      "depth_m": 0.075,
+      "clearance_total_m": 0.001,
+      "clearance_per_side_m": 0.0005
+    },
+    "triangle": {
+      "base_m": 0.051,
+      "triangle_height_m": 0.051,
+      "x_span_m": 0.051,
+      "y_span_m": 0.051,
+      "depth_m": 0.075,
+      "clearance_total_m": 0.001,
+      "clearance_per_side_m": 0.0005
+    }
+  },
+  "board": {
+    "external_x_m": null,
+    "external_y_m": null,
+    "thickness_m": 0.075
+  },
+  "optional_stress_test_shapes": {
+    "star": {
+      "status": "optional_future_stress_test",
+      "reason": "Concave shape, more sensitive to segmentation and scale."
+    }
+  }
+}

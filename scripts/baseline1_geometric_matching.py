@@ -63,7 +63,11 @@ W_OUTSIDE = 0.10
 
 OVERLAY_SCALE = 4   # 320 → 1280 px upscale for legibility
 
-PIECE_ORDER  = ["rectangle", "square", "circle", "star"]
+# Main experimental shape set. The star was replaced by triangle in the MVP
+# (see docs/thesis_notes/03_geometric_baseline.md, section 11). If a `star/`
+# folder still exists under PIECES_DIR it is intentionally NOT matched here:
+# star is reserved as an optional concave-shape stress test.
+PIECE_ORDER  = ["rectangle", "square", "circle", "triangle"]
 PIECES_DIR   = PROJECT_ROOT / "data" / "pieces_detected"
 CAVITIES_DIR = PROJECT_ROOT / "data" / "cavities_detected"
 OUT_ROOT     = PROJECT_ROOT / "data" / "baseline1_geometric_matching"

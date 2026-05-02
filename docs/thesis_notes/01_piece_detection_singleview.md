@@ -449,14 +449,52 @@ grelha resumo das quatro pegadas. As métricas da Tabela 12.1 e
 
 ---
 
+## 17. Dimensões CAD nominais das peças
+
+Esta secção regista as dimensões CAD finais do conjunto
+experimental utilizado a partir desta versão. Os valores são
+canónicos e estão também armazenados em
+`data/expected_cad_dimensions.json`, ficheiro que serve de
+referência única para auditoria de escala. **Estes valores são
+para validação/relato apenas — não são consumidos pelo algoritmo
+de matching.**
+
+Conjunto principal (após substituição da estrela por triângulo,
+ver doc 03 — secção 11):
+
+| Peça        | XY nominal (mm)            | Altura/extrusão (mm) |
+|-------------|----------------------------|----------------------|
+| quadrado    | 50 × 50                    | 105                  |
+| retângulo   | 50 × 75                    | 105                  |
+| triângulo   | base 50, altura geom. 50   | 105                  |
+| círculo     | diâmetro 50                | 105                  |
+
+A dimensão de extrusão (105 mm) das peças não é usada pela
+Baseline 1, que é puramente baseada em pegada XY (ver
+doc 03 — secção 12). É registada aqui porque será necessária
+para fases futuras de perceção 3D, *multi-view* e execução de
+inserção robotizada (em particular: 105 mm de peça vs. 75 mm
+de profundidade de cavidade implica protrusão de 30 mm acima do
+topo do tabuleiro).
+
+A estrela permanece como caso de *stress* concava reservado para
+futuro trabalho, registada em
+`data/expected_cad_dimensions.json` em
+`optional_stress_test_shapes`.
+
+---
+
 ## Notas para o autor
 
 Itens que devem ser registados manualmente, fora deste documento, e
 que não estão capturados nos ficheiros de validação:
 
-- **Dimensões CAD reais das peças** (em Fusion), para confirmar a
-  escala medida na captura. Verificar pelo menos uma peça
-  independentemente.
+- **Verificação independente de uma peça**: medir fisicamente
+  uma peça (preferencialmente o retângulo) e confirmar que as
+  dimensões CAD da secção 17 estão corretas — esta verificação
+  ancora a auditoria de escala que confronta as dimensões CAD
+  com as amplitudes medidas em
+  `data/pieces_detected/validation_summary.csv`.
 - **Pose física da câmara virtual no USD** (translação e
   orientação) no momento da captura validada.
 - **Versão exata do Isaac Sim** e do contentor usado.

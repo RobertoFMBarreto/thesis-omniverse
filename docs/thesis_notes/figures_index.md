@@ -64,6 +64,27 @@ relatório.
 
 ---
 
+## Tabela de figuras — Baseline 1: correspondência geométrica determinística
+
+> Nota metodológica: a partir da próxima execução o conjunto de
+> peças será `rectangle, square, circle, triangle` — a estrela
+> foi removida da MVP por questões de fragilidade de
+> correspondência (ver Baseline 1 — secção 11). As figuras
+> abaixo são da execução validada com a estrela e devem ser
+> usadas com legendas que reflitam essa decisão experimental.
+
+| Figure ID | Source file | Suggested LaTeX filename | Suggested caption (pt-PT) | Related section | Notes |
+|---|---|---|---|---|---|
+| `fig:baseline1_score_matrix` | `data/baseline1_geometric_matching/score_matrix_heatmap.png` | `fig19_baseline1_score_matrix.png` | Mapa de calor 4 × 4 com o *score* composto entre cada peça e cada cavidade na rotação ótima. | Baseline 1 — secção 9 | Diagonal limpa: prova que a baseline descobre a correspondência sem qualquer mapeamento manual. |
+| `fig:baseline1_best_grid` | `data/baseline1_geometric_matching/best_match_grid.png` | `fig20_baseline1_best_grid.png` | Grelha das correspondências ótimas: para cada peça, máscara da peça, máscara da cavidade e sobreposição na rotação ótima. | Baseline 1 — secção 9 e 10 | Figura síntese para o relatório; ilustra simultaneamente a correspondência e a discrepância de escala. |
+| `fig:baseline1_rectangle_overlay` | `data/baseline1_geometric_matching/rectangle/vs_cavity_01/overlay_best.png` | `fig21_baseline1_rectangle_overlay.png` | Sobreposição peça-cavidade para `rectangle ↔ cavity_01` à rotação ótima de 90°. | Baseline 1 — secção 10 | Caso mais limpo do alinhamento de eixo longo via pesquisa de rotação. |
+| `fig:baseline1_square_overlay` | `data/baseline1_geometric_matching/square/vs_cavity_03/overlay_best.png` | `fig22_baseline1_square_overlay.png` | Sobreposição `square ↔ cavity_03` à rotação ótima de 180°. | Baseline 1 — secção 10 | Caso de IoU mais alto (≈ 0,945). |
+| `fig:baseline1_circle_overlay` | `data/baseline1_geometric_matching/circle/vs_cavity_02/overlay_best.png` | `fig23_baseline1_circle_overlay.png` | Sobreposição `circle ↔ cavity_02` à rotação ótima de 192°. | Baseline 1 — secção 10 | Margem fraca (0,080) sobre o segundo melhor. |
+| `fig:baseline1_star_overlay` | `data/baseline1_geometric_matching/star/vs_cavity_00/overlay_best.png` | `fig24_baseline1_star_overlay.png` | Sobreposição `star ↔ cavity_00` à rotação ótima de 16°: corpo central da estrela dentro da cavidade, pontas fora. | Baseline 1 — secção 10 e 11 | **Figura crítica** para a justificação da decisão de substituir a estrela por triângulo na MVP. |
+| `fig:baseline1_star_all_cavities` | `data/baseline1_geometric_matching/star/all_cavities_comparison.png` | `fig25_baseline1_star_all_cavities.png` | Comparação da estrela contra as quatro cavidades: nas três grandes cabe inteiramente (`inside_ratio = 1,0`) com IoU baixa; em `cavity_00` é correspondência geométrica mas com pontas fora. | Baseline 1 — secção 11 | Imagem-chave para mostrar **por que** o critério `inside_ratio` isolado é insuficiente. |
+
+---
+
 ## Fontes de dados (não-figuras) para tabelas e métricas
 
 | ID interno | Source file | Utilização sugerida | Notes |
@@ -74,6 +95,12 @@ relatório.
 | `data:validation_json_cavities` | `data/cavities_detected/validation_summary.json` | Origem detalhada da validação das cavidades (limites X/Y/Z, *flags*). | Mais completo do que o CSV; preferir como fonte canónica para Fase 2. |
 | `data:cavities_summary_json` | `data/cavities_detected/cavities_summary.json` | Origem dos parâmetros do *pipeline* (tabuleiro, profundidade da mesa, *flags* de deteção, lista de componentes rejeitados). | Útil para a secção de problemas encontrados/parâmetros sintonizados. |
 | `data:cavities_run_log` | `data/cavities_detected/run_log.txt` | Registo da consola da execução validada (sobrescrito em cada execução). | Útil para citação literal no relatório, com o cuidado de ficar gravado fora do *log* atual antes de o sobrescrever. |
+| `data:baseline1_results_matrix` | `data/baseline1_geometric_matching/results_matrix.csv` | Origem da tabela 4 × 4 de *scores* peça × cavidade. | Plano; conversão directa em `\begin{tabular}`. |
+| `data:baseline1_results_all` | `data/baseline1_geometric_matching/results_all.json` | Origem detalhada de todos os pares (rotação ótima, *flags*, *area_ratio*, fallbacks). | Fonte canónica para a discussão de margens, *flags* e diagnósticos. |
+| `data:baseline1_summary_txt` | `data/baseline1_geometric_matching/summary.txt` | Resumo legível por humano da execução validada. | Útil para citação literal do estado da MVP. |
+| `data:baseline1_run_metadata` | `data/baseline1_geometric_matching/run_metadata.json` | Parâmetros usados (canvas, resolução, dilatação, pesos). | Necessário para garantir reprodutibilidade no relatório. |
+| `data:baseline1_run_log` | `data/baseline1_geometric_matching/run_log.txt` | Registo da consola (sobrescrito em cada execução). | Mesmo cuidado de cópia prévia que para a Fase 2. |
+| `data:expected_cad_dimensions` | `data/expected_cad_dimensions.json` | Referência canónica das dimensões CAD nominais (peças, cavidades, tabuleiro, folga). Conjunto principal: quadrado, retângulo, círculo, **triângulo**; estrela em `optional_stress_test_shapes`. | Apenas para validação/relato: **NÃO** é consumido pelo algoritmo de matching. Útil para a auditoria de escala referida no doc 03 — secção 11 e para confronto com `validation_summary.csv` das Fases 1 e 2. |
 
 ---
 
@@ -91,9 +118,18 @@ relatório, a registar quando forem produzidos:
 - Figuras *per-cavity* dedicadas (`cavity_NN/cavity_debug.png` e
   `cavity_NN/cavity_footprint.png`), a registar quando se decidir
   destacar uma cavidade individual no relatório.
-- Figura comparativa peça vs. cavidade correspondente, a ser
-  usada na secção da baseline determinística (Fase 3, ainda não
-  implementada).
+- Figura comparativa peça vs. cavidade correspondente — já
+  parcialmente disponível em `best_match_grid.png` (Baseline 1,
+  execução com estrela). Substituir por execução equivalente
+  com a peça **triângulo** assim que a auditoria de escala
+  CAD-vs-captura estiver feita e a baseline for re-executada
+  (ver Baseline 1 — secção 11).
+- Tabela do *score* matrix com triângulo no lugar da estrela,
+  para confronto direto com a tabela atual (4 × 4) deste
+  documento.
+- Eventual figura de *stress test* da estrela (com cavidade
+  estrelada compatível em escala), reservada para fase
+  posterior à validação da MVP.
 - Diagrama do *pipeline* de perceção (a desenhar à parte, por
   exemplo em TikZ ou em ferramenta vetorial), para ser referenciado
   como `fig:pipeline_overview`.

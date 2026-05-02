@@ -44,7 +44,12 @@ PROJECT_ROOT = Path(
     )
 )
 DATA_DIR = PROJECT_ROOT / "data" / "pieces_detected"
-EXPECTED = ["rectangle", "square", "circle", "star"]
+# Main experimental shape set. The star was replaced by triangle in the MVP
+# (see docs/thesis_notes/03_geometric_baseline.md, section 11). If a `star/`
+# folder still exists in DATA_DIR it is intentionally NOT validated here:
+# star is reserved as an optional concave-shape stress test and is registered
+# in data/expected_cad_dimensions.json under `optional_stress_test_shapes`.
+EXPECTED = ["rectangle", "square", "circle", "triangle"]
 
 PC_MIN_POINTS = 100       # minimum acceptable point count
 FOOTPRINT_GRID_CELL = 256 # pixels per cell in the 2x2 grid

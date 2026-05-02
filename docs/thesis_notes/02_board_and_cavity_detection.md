@@ -469,15 +469,67 @@ Portugal. As figuras mais relevantes desta fase são:
 
 ---
 
+## 18. Dimensões CAD nominais do tabuleiro e das cavidades
+
+Esta secção regista as dimensões CAD finais do tabuleiro e das
+cavidades utilizadas a partir desta versão. Os valores estão
+também armazenados em `data/expected_cad_dimensions.json`, que
+serve de referência única para auditoria de escala. **Estes
+valores são para validação/relato apenas — não são consumidos
+pelo algoritmo de deteção.**
+
+| Cavidade    | XY nominal (mm)            | Profundidade (mm) |
+|-------------|----------------------------|-------------------|
+| quadrada    | 51 × 51                    | 75                |
+| retangular  | 51 × 76                    | 75                |
+| triangular  | base 51, altura geom. 51   | 75                |
+| circular    | diâmetro 51                | 75                |
+
+**Tabuleiro**:
+- espessura/altura: **75 mm** (= profundidade nominal das
+  cavidades, pressupondo cavidades passantes);
+- dimensões externas X / Y: ainda **não registadas**
+  (campos `null` em `expected_cad_dimensions.json`); devem ser
+  obtidas em Fusion e adicionadas a esse ficheiro.
+
+**Folga (clearance) nominal** entre peça e cavidade:
+- folga total: **1 mm**;
+- folga por lado: **0,5 mm**.
+
+Implicações para os parâmetros do *script* de deteção
+(`capture_cavity_detection.py`):
+
+- `BOARD_ABOVE_TABLE_MARGIN = 5 mm` é compatível com tabuleiro
+  de 75 mm, mas o limite inferior efetivo é a margem; valores
+  acima de ~70 mm seriam incompatíveis com a espessura.
+- `MAX_CAVITY_DEPTH = 30 mm` é menor do que a profundidade
+  nominal de cavidade (75 mm). Se as cavidades são passantes e
+  o sensor as observa até ao fundo, este limite truncará a
+  observação. **Reavaliar este parâmetro** assim que a próxima
+  execução estiver feita; subir para 80 mm é defensável.
+- `CAVITY_DEPTH_MARGIN = 3 mm` é geometricamente seguro face à
+  folga de 1 mm.
+
+A estrela permanece como caso de *stress* reservado, registada
+em `data/expected_cad_dimensions.json` em
+`optional_stress_test_shapes` — quando regressar, é provável
+que necessite de uma cavidade dedicada não presente na bancada
+atual.
+
+---
+
 ## Notas para o autor
 
 Itens que devem ser registados manualmente, fora deste documento, e
 que não são captados nos ficheiros de saída:
 
-- Espessura física do tabuleiro modelado em Fusion (para
-  justificar `BOARD_ABOVE_TABLE_MARGIN`).
-- Profundidade física das cavidades (para confirmar a janela
-  `[CAVITY_DEPTH_MARGIN, MAX_CAVITY_DEPTH]`).
+- Dimensões externas X / Y do tabuleiro em Fusion (atualmente
+  `null` em `data/expected_cad_dimensions.json`).
+- Confirmar empiricamente se as cavidades são passantes; se
+  não forem, registar a profundidade real em
+  `expected_cad_dimensions.json` no campo `depth_m` por
+  cavidade (atualmente assume-se 75 mm = espessura do
+  tabuleiro).
 - Pose física da câmara virtual no USD (translação e orientação)
   no momento da captura validada.
 - Versão exata do Isaac Sim e do contentor.
