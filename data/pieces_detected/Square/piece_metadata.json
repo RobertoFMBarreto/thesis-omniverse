@@ -1,10 +1,10 @@
 {
   "script": "capture_piece_detection.py",
-  "timestamp": "2026-05-02T11:52:45",
+  "timestamp": "2026-05-02T11:53:30",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
-  "capture_name": "Circle",
+  "capture_name": "Square",
   "use_capture_subdir": true,
-  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/pieces_detected/Circle",
+  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/pieces_detected/Square",
   "visible_piece_assumption": "single visible piece",
   "camera_pose": {
     "x": -0.25,
