@@ -21,14 +21,23 @@ from pathlib import Path
 # Camera USD path in the stage
 CAMERA_PRIM_PATH = "/World/Camera"
 
-# Camera pose: X, Y, Z in metres (world frame, Z = up)
-# Position the camera above the piece table looking straight down.
+# Camera pose override.
+#
+# By default we DO NOT move the camera: the script uses whatever pose is
+# already authored on the stage.  Set SET_CAMERA_POSE = True to programmatically
+# override the camera pose using the (CAM_X, CAM_Y, CAM_Z, CAM_ROT_Z_DEG)
+# constants below.  This mirrors the convention used by
+# scripts/capture_cavity_detection.py.
+SET_CAMERA_POSE = False
+
+# Camera pose: X, Y, Z in metres (world frame, Z = up).
+# Used ONLY when SET_CAMERA_POSE = True.
 CAM_X = -0.25
 CAM_Y =  0.45
 CAM_Z =  0.58   # height above world origin
 
 # Camera rotation around Z-axis in degrees (0 = looking in -Y, no rotation).
-# If the piece appears rotated or upside-down, adjust this.
+# Used ONLY when SET_CAMERA_POSE = True.
 CAM_ROT_Z_DEG = 0.0
 
 # Render resolution
@@ -152,6 +161,26 @@ def setup_camera(x: float, y: float, z: float, rot_z_deg: float = 0.0) -> None:
               "orientation not changed")
 
     print(f"[setup_camera] pos=({x}, {y}, {z})  rotZ={rot_z_deg}°")
+
+
+def get_camera_world_pose():
+    """
+    Read the current world translate of the camera prim.  Returns (x, y, z)
+    in metres.  Used when SET_CAMERA_POSE=False so that downstream
+    back-projection uses the actual stage pose, not the config constants.
+    """
+    import omni.usd
+    from pxr import UsdGeom
+
+    stage    = omni.usd.get_context().get_stage()
+    cam_prim = stage.GetPrimAtPath(CAMERA_PRIM_PATH)
+    if not cam_prim.IsValid():
+        raise RuntimeError(f"[camera] prim not found: {CAMERA_PRIM_PATH}")
+
+    xformable = UsdGeom.Xformable(cam_prim)
+    world_xf  = xformable.ComputeLocalToWorldTransform(0)
+    t         = world_xf.ExtractTranslation()
+    return float(t[0]), float(t[1]), float(t[2])
 
 
 # ── CAPTURE ───────────────────────────────────────────────────────────────────
@@ -419,7 +448,8 @@ def compute_intrinsics(cam_z: float):
 
 # ── DEPTH TO POINT CLOUD ─────────────────────────────────────────────────────
 
-def depth_to_pointcloud(depth, mask, intrinsics, surface_z, n_samples=N_POINTS):
+def depth_to_pointcloud(depth, mask, intrinsics, surface_z, cam_xy: tuple,
+                         n_samples=N_POINTS):
     """
     Back-project masked depth pixels to 3D world points.
 
@@ -450,9 +480,11 @@ def depth_to_pointcloud(depth, mask, intrinsics, surface_z, n_samples=N_POINTS):
     cam_z  = intrinsics["cam_z"]
 
     # Back-project to world XY using the pinhole model.
-    # Camera X/Y world position is the CONFIG value; pixel offset scales by mpp.
-    world_x = CAM_X + (xs.astype(np.float64) - cx_px) * mpp_x
-    world_y = CAM_Y - (ys.astype(np.float64) - cy_px) * mpp_y  # image V flips Y
+    # Camera X/Y world position is cam_xy (the actually-active stage pose);
+    # pixel offset scales by mpp.
+    cam_x, cam_y = cam_xy
+    world_x = cam_x + (xs.astype(np.float64) - cx_px) * mpp_x
+    world_y = cam_y - (ys.astype(np.float64) - cy_px) * mpp_y  # image V flips Y
 
     # Z = height of piece top above support surface
     # depth[y,x] is distance to camera; surface is at surface_z from camera.
@@ -617,7 +649,7 @@ def save_debug_outputs(out_dir, rgb, depth, raw_mask, best_mask,
 
 def save_metadata(out_dir, success, best_mask, blob_stats, points,
                   centroid_world, surface_z, n_valid_components=0,
-                  selected_rank=-1, error_msg=None):
+                  selected_rank=-1, error_msg=None, camera_pose: dict = None):
     """
     Write piece_metadata.json conforming to the experiments.md conventions.
 
@@ -664,12 +696,13 @@ def save_metadata(out_dir, success, best_mask, blob_stats, points,
         "use_capture_subdir": USE_CAPTURE_SUBDIR,
         "output_dir":         str(out_dir),
         "visible_piece_assumption": "single visible piece",
-        "camera_pose": {
-            "x":          CAM_X,
-            "y":          CAM_Y,
-            "z":          CAM_Z,
-            "rot_z_deg":  CAM_ROT_Z_DEG,
+        "camera_pose": camera_pose if camera_pose is not None else {
+            "x": None, "y": None, "z": None, "rot_z_deg": None,
+            "source": "unknown",
         },
+        "camera_pose_source":     (camera_pose or {}).get("source", "unknown"),
+        "camera_pose_overridden": bool(SET_CAMERA_POSE),
+        "set_camera_pose":        bool(SET_CAMERA_POSE),
         "image_resolution": {
             "width":  IMG_W,
             "height": IMG_H,
@@ -760,11 +793,35 @@ async def main():
     depth          = None
     raw_mask       = None
     footprint_bgr  = None
+    active_camera_pose = None    # populated after Step 1; recorded in metadata
+    active_cam_xy      = (0.0, 0.0)
 
     try:
         # ── Step 1: Camera setup ──────────────────────────────────────────────
         print("\n--- Step 1: Camera setup ---")
-        setup_camera(CAM_X, CAM_Y, CAM_Z, CAM_ROT_Z_DEG)
+
+        # Defensive warning if the configured override pose looks suspicious
+        # (e.g. clearly out of the reachable workspace).  Does not block.
+        if SET_CAMERA_POSE and (abs(CAM_X) > 5.0 or abs(CAM_Y) > 5.0 or
+                                CAM_Z <= 0.0 or CAM_Z > 5.0):
+            print(f"[camera] WARNING: configured pose (CAM_X={CAM_X}, "
+                  f"CAM_Y={CAM_Y}, CAM_Z={CAM_Z}) is outside a typical "
+                  f"workspace; double-check before relying on this run.")
+
+        if SET_CAMERA_POSE:
+            print("[camera] overriding stage camera pose")
+            setup_camera(CAM_X, CAM_Y, CAM_Z, CAM_ROT_Z_DEG)
+        else:
+            print("[camera] using existing stage camera pose")
+
+        cam_x, cam_y, cam_z = get_camera_world_pose()
+        print(f"[camera] active world pos = ({cam_x:.4f}, {cam_y:.4f}, {cam_z:.4f}) m")
+        active_cam_xy = (cam_x, cam_y)
+        active_camera_pose = {
+            "x": cam_x, "y": cam_y, "z": cam_z,
+            "rot_z_deg": CAM_ROT_Z_DEG if SET_CAMERA_POSE else None,
+            "source": "config_override" if SET_CAMERA_POSE else "stage",
+        }
 
         # ── Step 2: Capture ───────────────────────────────────────────────────
         print("\n--- Step 2: Capture RGB + depth ---")
@@ -799,7 +856,8 @@ async def main():
         print("\n--- Step 6: Build point cloud ---")
         intrinsics = compute_intrinsics(surface_z)
         points, centroid_w = depth_to_pointcloud(
-            depth, best_mask, intrinsics, surface_z, n_samples=N_POINTS)
+            depth, best_mask, intrinsics, surface_z,
+            cam_xy=active_cam_xy, n_samples=N_POINTS)
 
         # ── Step 7: Footprint ─────────────────────────────────────────────────
         print("\n--- Step 7: Generate 2D footprint ---")
@@ -857,7 +915,8 @@ async def main():
                       centroid_w, surface_z,
                       n_valid_components=len(blob_stats),
                       selected_rank=selected_rank,
-                      error_msg=error_msg)
+                      error_msg=error_msg,
+                      camera_pose=active_camera_pose)
 
         print("\n" + "=" * 60)
         print(f"  success={success}")
