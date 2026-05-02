@@ -1,6 +1,6 @@
 {
   "script": "capture_piece_detection.py",
-  "timestamp": "2026-05-02T12:45:10",
+  "timestamp": "2026-05-02T13:08:47",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
   "capture_name": "rectangle",
   "use_capture_subdir": true,
@@ -60,6 +60,9 @@
   "expanded_roi_area": 139072,
   "raw_piece_mask_area_ratio": 0.12971698113207547,
   "projection_depth_mode": "per_pixel_depth",
+  "intrinsics_model": "pinhole_tangent_aspect_corrected",
+  "fx_px": 426.6666666666667,
+  "fy_px": 426.6666666666667,
   "support_surface_depth_m": 0.2994999928474427,
   "piece_depth_median_m": 0.19500002264976501,
   "piece_height_min_m": 0.10449995529651651,
@@ -100,7 +103,7 @@
     ],
     "centroid_world_m": [
       -0.25022851564436804,
-      0.45021285590142684
+      0.4502285156432782
     ],
     "surface_depth_m": 0.2994999928474427,
     "point_count": 2048,
@@ -110,14 +113,14 @@
     ],
     "xy_span_m": [
       0.04981641471385956,
-      0.06939102709293365
+      0.07449610531330109
     ]
   },
   "pointcloud_bounds": {
     "x_min": -0.02490820735692978,
     "x_max": 0.02490820549428463,
-    "y_min": -0.03469551354646683,
-    "y_max": 0.034695517271757126,
+    "y_min": -0.03724805265665054,
+    "y_max": 0.03724805265665054,
     "z_min": 0.10449995845556259,
     "z_max": 0.10450000315904617
   },
