@@ -1,5 +1,5 @@
 # capture_cavity_detection.py — run log
-# timestamp:  2026-05-02T14:57:05
+# timestamp:  2026-05-02T14:58:14
 # output_dir: /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected
 # This file is OVERWRITTEN at the beginning of every run.
 ============================================================
@@ -129,6 +129,7 @@ capture_cavity_detection.py — Phase 2
 --- Step 8: Save global outputs ---
 [save_global] rgb.png
 [save_global] depth_vis.png
+[save_global] depth.npy
 [save_global] board_surface_mask.png
 [save_global] board_region_mask.png
 [save_global] cavity_opening_mask.png
@@ -194,6 +195,7 @@ capture_cavity_detection.py — Phase 2
   cavity_diagnostic_report.md
   cavity_diagnostic_report.png
   cavity_opening_mask.png
+  depth.npy
   depth_band_cavity_mask.png
   depth_vis.png
   footprints_grid.png
