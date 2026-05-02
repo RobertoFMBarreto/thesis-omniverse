@@ -146,12 +146,36 @@ MAX_CAVITY_DEPTH    = 0.030   # 30 mm
 # saved as `depth_band_cavity_mask.png` for diagnostic purposes only.
 CAVITY_DETECTION_MODE = "opening_from_board_region"
 
-# Morphological cleanup applied to the opening mask (in pixels).  Small noise
-# from board-edge segmentation can introduce 1-2 px specks inside the board
-# region that aren't real cavities; an opening (erode→dilate) of this radius
-# removes them while preserving the cavity outlines.
-OPENING_MASK_OPEN_RADIUS_PX  = 1
-OPENING_MASK_CLOSE_RADIUS_PX = 1
+# ── Cavity-opening derivation (opening_from_board_region mode) ───────────────
+# The values below were chosen by scripts/sweep_cavity_opening_params.py
+# from a 5×5×3 grid (tolerance × expand × morph).  The winning combo was
+#   tolerance=1mm, expand=0px, morph="none"
+# with score 4.00 (4/4 plausible components, no noisy/over-large blobs).
+#
+# BOARD_SURFACE_DEPTH_TOLERANCE_M was selected because 1 mm preserves the
+# full cavity opening without requiring artificial expansion: pixels whose
+# depth is within ±1 mm of board_surface_depth_m are classified as board top;
+# everything else inside the filled board footprint is the cavity opening.
+# Tighter tolerances start to fragment the board top; looser tolerances eat
+# into the cavity rim and shrink the opening.
+BOARD_SURFACE_DEPTH_TOLERANCE_M = 0.001    # 1 mm
+
+# CAVITY_OPENING_EXPAND_PX = 0 because the sweep showed expansion was not
+# needed at this tolerance.  Increase only if a future capture geometry
+# erodes the rim again.
+CAVITY_OPENING_EXPAND_PX        = 0
+
+# Morphological cleanup of the opening mask before connected components.
+# "none" was preferred by the sweep (no specks at the chosen tolerance);
+# "close_3" or "close_5" can be used if a future scene introduces 1-2 px
+# gaps in the opening boundary.
+CAVITY_OPENING_CLEAN_MORPH      = "none"
+
+# Legacy morphology constants — kept at 0 so the old open+close path is a
+# no-op.  Do not re-enable without re-running the sweep; the sweep checked
+# CLOSE only, not OPEN, which can erode true cavity rims.
+OPENING_MASK_OPEN_RADIUS_PX  = 0
+OPENING_MASK_CLOSE_RADIUS_PX = 0
 
 # ── Connected-component filters ───────────────────────────────────────────────
 # Must be low enough to keep small cavities such as the star, but high enough
@@ -555,32 +579,79 @@ def estimate_board_surface_depth(depth, board_mask=None):
 
 # ── SEGMENTATION ──────────────────────────────────────────────────────────────
 
-def compute_cavity_opening_mask(board_surface_mask, board_region_mask):
+def compute_cavity_opening_mask(board_surface_mask, board_region_mask,
+                                 depth=None, board_surface_z=None):
     """
-    Cavity opening = filled board footprint MINUS the board top surface.
+    Cavity opening = filled board footprint MINUS board top.
 
-    By construction, a pixel inside `board_region_mask` but NOT in
-    `board_surface_mask` cannot be on the board top — therefore it must be
-    inside a cavity opening (or, more precisely, the camera does not see the
-    board top there because there's a hole).  This captures the FULL cavity
-    silhouette on the board top plane, independent of how much of the cavity
-    floor / walls the depth sensor can see.
+    Two derivation paths are supported, controlled by whether `depth` and
+    `board_surface_z` are provided:
 
-    A small morphological open + close cleanup is applied to remove single-
-    pixel specks at the board boundary (often caused by board-mask edge
-    quantisation) without erasing real cavity outlines.
+      A. **Depth-tolerance path** (preferred — validated by
+         scripts/sweep_cavity_opening_params.py):
+            board_surface_at_z = |depth - board_surface_z| <= TOLERANCE
+            opening = board_region_mask AND NOT board_surface_at_z
+         The board surface mask is recomputed locally from the depth image
+         using BOARD_SURFACE_DEPTH_TOLERANCE_M.  This is more selective at
+         the cavity rim than the connected-component-derived
+         `board_surface_mask`, which tended to over-extend into rims and
+         shrink the opening.
 
-    Returns the cleaned opening mask (H×W bool), and the area in pixels.
+      B. **Legacy mask-difference path** (depth/board_surface_z = None):
+         opening = board_region_mask AND NOT board_surface_mask
+         Kept for backward compatibility with diagnostic tools that don't
+         have access to the raw depth array.
+
+    Cleanup applied AFTER the difference:
+      - CAVITY_OPENING_CLEAN_MORPH  ∈ {"none", "close_3", "close_5"}
+      - CAVITY_OPENING_EXPAND_PX    : circular dilation radius in pixels
+      - Legacy OPENING_MASK_OPEN/CLOSE_RADIUS_PX (default 0): no-op unless
+        a user re-enables them.
+
+    Returns (cleaned_mask, area_px).
     """
     import numpy as np
     import cv2
 
-    if board_surface_mask is None or board_region_mask is None:
+    if board_region_mask is None:
         return None, 0
 
-    raw = board_region_mask & ~board_surface_mask
+    # ── 1. Build the board-surface mask ──────────────────────────────────────
+    if depth is not None and board_surface_z is not None \
+            and BOARD_SURFACE_DEPTH_TOLERANCE_M > 0:
+        # Path A: tolerance-based, only inside the board region (avoids
+        # picking up other surfaces in the scene at the same depth).
+        board_surface_at_z = (
+            np.abs(depth - float(board_surface_z))
+            <= float(BOARD_SURFACE_DEPTH_TOLERANCE_M)
+        )
+        board_surface_for_opening = board_surface_at_z & board_region_mask
+    else:
+        # Path B: legacy.
+        if board_surface_mask is None:
+            return None, 0
+        board_surface_for_opening = board_surface_mask
+
+    # ── 2. Opening = filled board minus surface ──────────────────────────────
+    raw    = board_region_mask & ~board_surface_for_opening
     raw_u8 = raw.astype(np.uint8) * 255
 
+    # ── 3. Optional CAVITY_OPENING_CLEAN_MORPH (close) ───────────────────────
+    if CAVITY_OPENING_CLEAN_MORPH == "close_3":
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        raw_u8 = cv2.morphologyEx(raw_u8, cv2.MORPH_CLOSE, k)
+    elif CAVITY_OPENING_CLEAN_MORPH == "close_5":
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        raw_u8 = cv2.morphologyEx(raw_u8, cv2.MORPH_CLOSE, k)
+    # "none" → no-op
+
+    # ── 4. Optional expansion ───────────────────────────────────────────────
+    if CAVITY_OPENING_EXPAND_PX > 0:
+        r = int(CAVITY_OPENING_EXPAND_PX)
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*r + 1, 2*r + 1))
+        raw_u8 = cv2.dilate(raw_u8, k)
+
+    # ── 5. Legacy open+close (default 0; safe-no-op) ─────────────────────────
     if OPENING_MASK_OPEN_RADIUS_PX > 0:
         r = OPENING_MASK_OPEN_RADIUS_PX
         k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*r + 1, 2*r + 1))
@@ -1509,6 +1580,9 @@ def save_summary_metadata(out_dir: Path, success: bool, board_surface_z: float,
             "surface_depth_max":        SURFACE_DEPTH_MAX,
             "cavity_depth_margin":      CAVITY_DEPTH_MARGIN,
             "max_cavity_depth":         MAX_CAVITY_DEPTH,
+            "board_surface_depth_tolerance_m": BOARD_SURFACE_DEPTH_TOLERANCE_M,
+            "cavity_opening_expand_px":        CAVITY_OPENING_EXPAND_PX,
+            "cavity_opening_clean_morph":      CAVITY_OPENING_CLEAN_MORPH,
             "cc_min_area_px":           CC_MIN_AREA_PX,
             "cc_max_area_px":           CC_MAX_AREA_PX,
             "n_points":                 N_POINTS,
@@ -1774,8 +1848,12 @@ async def main():
             board_region_mask=board_region_for_cavities)
         depth_band_pixels = int(depth_band_mask.sum())
 
+        # Pass depth + board_surface_z so the depth-tolerance path (validated
+        # by sweep_cavity_opening_params.py) is used instead of the legacy
+        # mask-difference path.  See BOARD_SURFACE_DEPTH_TOLERANCE_M comment.
         opening_mask, opening_pixels = compute_cavity_opening_mask(
-            board_mask_for_surface, board_region_for_cavities)
+            board_mask_for_surface, board_region_for_cavities,
+            depth=depth, board_surface_z=board_surface_z)
 
         if board_mask_for_surface is not None:
             print(f"[cavity_mode] board_surface_mask pixels = "
