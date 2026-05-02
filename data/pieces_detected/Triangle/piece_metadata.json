@@ -1,6 +1,6 @@
 {
   "script": "capture_piece_detection.py",
-  "timestamp": "2026-05-02T12:14:34",
+  "timestamp": "2026-05-02T12:28:05",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
   "capture_name": "Triangle",
   "use_capture_subdir": true,
@@ -38,15 +38,82 @@
     "width": 640,
     "height": 480
   },
-  "surface_depth_m": 0.6995000000000001,
-  "n_valid_components": 0,
+  "surface_depth_m": 0.2994999928474427,
+  "surface_estimation_mode": "auto_depth_layers",
+  "depth_peaks": [
+    {
+      "depth_m": 0.2994999928474427,
+      "count_px": 72898,
+      "fraction": 0.6591616030092593
+    },
+    {
+      "depth_m": 0.699499992847443,
+      "count_px": 1088,
+      "fraction": 0.009837962962962963
+    }
+  ],
+  "selected_support_peak_rank": 0,
+  "selected_support_depth_m": 0.2994999928474427,
+  "selected_support_reason": "first peak with fraction >= SUPPORT_MIN_PEAK_FRACTION (0.10); fraction=0.659",
+  "selected_support_is_farthest_major": false,
+  "raw_piece_mask_area": 6050,
+  "expanded_roi_area": 139072,
+  "raw_piece_mask_area_ratio": 0.043502646111366776,
+  "n_valid_components": 1,
   "multiple_valid_components": false,
   "piece_selection_mode": "largest",
   "manual_component_index": 0,
-  "selected_component_rank_or_index": -1,
-  "all_valid_components": [],
-  "selected_component": {},
-  "pointcloud_bounds": {},
+  "selected_component_rank_or_index": 0,
+  "all_valid_components": [
+    {
+      "area_px": 6050,
+      "centroid_px": {
+        "x": 319.5,
+        "y": 257.8363636363636
+      },
+      "bbox_px": {
+        "x": 265,
+        "y": 186,
+        "w": 110,
+        "h": 109
+      }
+    }
+  ],
+  "selected_component": {
+    "area_px": 6050,
+    "centroid_px": [
+      319.5,
+      257.8363636363636
+    ],
+    "bbox_px": [
+      265,
+      186,
+      110,
+      109
+    ],
+    "centroid_world_m": [
+      -0.25035097655411814,
+      0.4383377007973017
+    ],
+    "surface_depth_m": 0.2994999928474427,
+    "point_count": 2048,
+    "height_range_m": [
+      0.10449995845556259,
+      0.10450000315904617
+    ],
+    "xy_span_m": [
+      0.07581093907356262,
+      0.070615753531456
+    ]
+  },
+  "pointcloud_bounds": {
+    "x_min": -0.03755449131131172,
+    "x_max": 0.0382564440369606,
+    "y_min": -0.02364557981491089,
+    "y_max": 0.0469701774418354,
+    "z_min": 0.10449995845556259,
+    "z_max": 0.10450000315904617
+  },
   "parameters": {
     "camera_prim": "/World/Camera",
     "cam_xyz": [
@@ -62,7 +129,7 @@
     "focal_mm": 24.0,
     "aperture_mm": 36.0,
     "surface_depth_range": [
-      0.5,
+      0.4,
       0.9
     ],
     "surface_tolerance_m": 0.004,
@@ -81,6 +148,6 @@
     "piece_pointcloud.npy",
     "piece_metadata.json"
   ],
-  "success": false,
-  "error": "No valid piece component found. Inspect raw_piece_mask.png and depth_vis.png. Typical causes: piece flush with table, wrong CAM_Z, SURFACE_TOLERANCE too tight, or multiple pieces all filtered out."
+  "success": true,
+  "error": null
 }

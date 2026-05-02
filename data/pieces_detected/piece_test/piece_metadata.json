@@ -1,6 +1,6 @@
 {
   "script": "capture_piece_detection.py",
-  "timestamp": "2026-05-02T11:30:05",
+  "timestamp": "2026-05-02T12:21:23",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
   "capture_name": "piece_test",
   "use_capture_subdir": true,
@@ -9,18 +9,51 @@
   "camera_pose": {
     "x": -0.25,
     "y": 0.45,
-    "z": 1.0,
+    "z": 0.7,
     "rot_z_deg": null,
     "source": "stage"
   },
   "camera_pose_source": "stage",
   "camera_pose_overridden": false,
   "set_camera_pose": false,
+  "piece_roi_enabled": true,
+  "piece_roi_mode": "center_fraction",
+  "piece_roi_fraction": 0.6,
+  "piece_roi_px": {
+    "x1": 128,
+    "y1": 96,
+    "x2": 512,
+    "y2": 384,
+    "source": "center_fraction"
+  },
+  "restrict_piece_mask_to_roi": true,
+  "piece_mask_roi_expand_px": 20,
+  "expanded_piece_roi_px": {
+    "x1": 108,
+    "y1": 76,
+    "x2": 532,
+    "y2": 404
+  },
   "image_resolution": {
     "width": 640,
     "height": 480
   },
-  "surface_depth_m": 0.49550000000000033,
+  "surface_depth_m": 0.7004999284744262,
+  "surface_estimation_mode": "auto_depth_layers",
+  "depth_peaks": [
+    {
+      "depth_m": 0.7004999284744262,
+      "count_px": 1536,
+      "fraction": 1.0
+    }
+  ],
+  "selected_support_peak_rank": 0,
+  "selected_support_depth_m": 0.7004999284744262,
+  "selected_support_reason": "first peak with fraction >= SUPPORT_MIN_PEAK_FRACTION (0.10); fraction=1.000",
+  "selected_support_is_farthest_major": true,
+  "raw_piece_mask_area": 120416,
+  "expanded_roi_area": 139072,
+  "raw_piece_mask_area_ratio": 0.8658536585365854,
   "n_valid_components": 0,
   "multiple_valid_components": false,
   "piece_selection_mode": "largest",
@@ -44,8 +77,8 @@
     "focal_mm": 24.0,
     "aperture_mm": 36.0,
     "surface_depth_range": [
-      0.1,
-      0.5
+      0.4,
+      0.9
     ],
     "surface_tolerance_m": 0.004,
     "cc_min_area_px": 300,
