@@ -1,5 +1,5 @@
 # capture_cavity_detection.py — run log
-# timestamp:  2026-05-02T14:58:14
+# timestamp:  2026-05-02T15:04:11
 # output_dir: /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected
 # This file is OVERWRITTEN at the beginning of every run.
 ============================================================
@@ -10,6 +10,7 @@ capture_cavity_detection.py — Phase 2
 [main] run_log    = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/run_log.txt
 [cleanup] removed stale: rgb.png
 [cleanup] removed stale: depth_vis.png
+[cleanup] removed stale: depth.npy
 [cleanup] removed stale: raw_cavity_mask.png
 [cleanup] removed stale: cavity_opening_mask.png
 [cleanup] removed stale: cavity_depth_mask.png
@@ -64,65 +65,69 @@ capture_cavity_detection.py — Phase 2
 [segment] after morph open+close: 3226 pixels (removed 60 noise pixels)
 [cavity_mode] board_surface_mask pixels = 49025
 [cavity_mode] board_region_mask  pixels = 60260
-[cavity_mode] cavity_opening_mask pixels = 11224
+[cavity_mode] cavity_opening_mask pixels = 18515
 [cavity_mode] depth_band_cavity_mask pixels = 3226
 
 --- Step 6: Find cavity components ---
 [cc] total components (excl. background): 4  accepted [80–30000 px]: 4  rejected: 0
 [cc] all components (label, area, centroid, bbox, status):
-  [ACCEPT] label=  1  area=  4260  centroid=( 278.5,  198.5)  bbox=(253, 158, 52, 82)
-  [ACCEPT] label=  2  area=  1299  centroid=( 361.2,  209.5)  bbox=(337, 177, 50, 50)
-  [ACCEPT] label=  3  area=  3121  centroid=( 361.8,  295.9)  bbox=(329, 265, 65, 62)
-  [ACCEPT] label=  4  area=  2544  centroid=( 278.5,  296.0)  bbox=(253, 272, 52, 49)
+  [ACCEPT] label=  1  area=  6700  centroid=( 271.0,  189.5)  bbox=(238, 140, 67, 100)
+  [ACCEPT] label=  2  area=  2239  centroid=( 369.1,  204.2)  bbox=(337, 161, 66, 66)
+  [ACCEPT] label=  3  area=  5154  centroid=( 368.7,  305.1)  bbox=(329, 265, 81, 81)
+  [ACCEPT] label=  4  area=  4422  centroid=( 271.0,  304.5)  bbox=(238, 272, 67, 66)
 [cc] sorted cavities (top-to-bottom, left-to-right):
-  cavity_00  area=4260 px  centroid=(278.5, 198.5)  row_bin=6  bbox=(253, 158, 52, 82)
-  cavity_01  area=1299 px  centroid=(361.2, 209.5)  row_bin=6  bbox=(337, 177, 50, 50)
-  cavity_02  area=2544 px  centroid=(278.5, 296.0)  row_bin=9  bbox=(253, 272, 52, 49)
-  cavity_03  area=3121 px  centroid=(361.8, 295.9)  row_bin=9  bbox=(329, 265, 65, 62)
+  cavity_00  area=6700 px  centroid=(271.0, 189.5)  row_bin=6  bbox=(238, 140, 67, 100)
+  cavity_01  area=2239 px  centroid=(369.1, 204.2)  row_bin=6  bbox=(337, 161, 66, 66)
+  cavity_02  area=4422 px  centroid=(271.0, 304.5)  row_bin=10  bbox=(238, 272, 67, 66)
+  cavity_03  area=5154 px  centroid=(368.7, 305.1)  row_bin=10  bbox=(329, 265, 81, 81)
 
 --- Step 7: Process 4 cavity/cavities ---
 [intrinsics] fx_px=426.67, fy_px=426.67, mpp_x=0.7605mm/px, mpp_y=0.7605mm/px  (at cam_z=0.3245m)
 [intrinsics] mpp_x=0.761 mm/px  mpp_y=0.761 mm/px  (at board surface depth 0.3245 m)
 
-  [cavity_00] label=1  area=4260 px  centroid=(278.5, 198.5)
-[opening_pc] raw pixels=4260  sampled=2048  (replace=False)
-  X=[-0.0194, 0.0194] m
-  Y=[-0.0308, 0.0308] m
+  [cavity_00] label=1  area=6700 px  centroid=(271.0, 189.5)
+[opening_pc] raw pixels=6700  sampled=2048  (replace=False)
+  X=[-0.0251, 0.0251] m
+  Y=[-0.0376, 0.0376] m
   Z=0 (board top plane)
-  centroid_world=(0.2684, 0.0316)
-[depth_pc] WARNING: depth mask empty for this cavity — writing zero-filled point cloud as auxiliary placeholder.
+  centroid_world=(0.2627, 0.0384)
+[depth_pc] raw pixels=1074  sampled=2048  (replace=True)
+  Z=[0.0047, 0.0299] m  median=0.0152 m  (depth below board surface)
 [footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
-[save_cavity] cavity_00  opening_area=4260 px  depth_area=0 px  opening_xy=(38.8, 61.6) mm  z_depth_median=0.0 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_00
+[save_cavity] cavity_00  opening_area=6700 px  depth_area=1074 px  opening_xy=(50.2, 75.3) mm  z_depth_median=15.2 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_00
 
-  [cavity_01] label=2  area=1299 px  centroid=(361.2, 209.5)
-[opening_pc] raw pixels=1299  sampled=2048  (replace=True)
-  X=[-0.0184, 0.0189] m
-  Y=[-0.0126, 0.0247] m
+  [cavity_01] label=2  area=2239 px  centroid=(369.1, 204.2)
+[opening_pc] raw pixels=2239  sampled=2048  (replace=False)
+  X=[-0.0244, 0.0250] m
+  Y=[-0.0166, 0.0328] m
   Z=0 (board top plane)
-  centroid_world=(0.3313, 0.0232)
-[depth_pc] WARNING: depth mask empty for this cavity — writing zero-filled point cloud as auxiliary placeholder.
+  centroid_world=(0.3373, 0.0272)
+[depth_pc] raw pixels=421  sampled=2048  (replace=True)
+  Z=[0.0030, 0.0299] m  median=0.0156 m  (depth below board surface)
 [footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
-[save_cavity] cavity_01  opening_area=1299 px  depth_area=0 px  opening_xy=(37.3, 37.3) mm  z_depth_median=0.0 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_01
+[save_cavity] cavity_01  opening_area=2239 px  depth_area=421 px  opening_xy=(49.4, 49.4) mm  z_depth_median=15.6 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_01
 
-  [cavity_02] label=4  area=2544 px  centroid=(278.5, 296.0)
-[opening_pc] raw pixels=2544  sampled=2048  (replace=False)
-  X=[-0.0194, 0.0194] m
-  Y=[-0.0183, 0.0183] m
+  [cavity_02] label=4  area=4422 px  centroid=(271.0, 304.5)
+[opening_pc] raw pixels=4422  sampled=2048  (replace=False)
+  X=[-0.0251, 0.0251] m
+  Y=[-0.0247, 0.0247] m
   Z=0 (board top plane)
-  centroid_world=(0.2684, -0.0426)
-[depth_pc] WARNING: depth mask empty for this cavity — writing zero-filled point cloud as auxiliary placeholder.
+  centroid_world=(0.2627, -0.0491)
+[depth_pc] raw pixels=876  sampled=2048  (replace=True)
+  Z=[0.0037, 0.0291] m  median=0.0152 m  (depth below board surface)
 [footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
-[save_cavity] cavity_02  opening_area=2544 px  depth_area=0 px  opening_xy=(38.8, 36.5) mm  z_depth_median=0.0 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_02
+[save_cavity] cavity_02  opening_area=4422 px  depth_area=876 px  opening_xy=(50.2, 49.4) mm  z_depth_median=15.2 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_02
 
-  [cavity_03] label=3  area=3121 px  centroid=(361.8, 295.9)
-[opening_pc] raw pixels=3121  sampled=2048  (replace=False)
-  X=[-0.0249, 0.0237] m
-  Y=[-0.0229, 0.0235] m
+  [cavity_03] label=3  area=5154 px  centroid=(368.7, 305.1)
+[opening_pc] raw pixels=5154  sampled=2048  (replace=False)
+  X=[-0.0302, 0.0307] m
+  Y=[-0.0304, 0.0305] m
   Z=0 (board top plane)
-  centroid_world=(0.3318, -0.0425)
-[depth_pc] WARNING: depth mask empty for this cavity — writing zero-filled point cloud as auxiliary placeholder.
+  centroid_world=(0.3370, -0.0495)
+[depth_pc] raw pixels=855  sampled=2048  (replace=True)
+  Z=[0.0030, 0.0299] m  median=0.0155 m  (depth below board surface)
 [footprint] canvas=256px  res=0.5 mm/px  world span=12.8 cm  projected 2048/2048 points
-[save_cavity] cavity_03  opening_area=3121 px  depth_area=0 px  opening_xy=(48.7, 46.4) mm  z_depth_median=0.0 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_03
+[save_cavity] cavity_03  opening_area=5154 px  depth_area=855 px  opening_xy=(60.8, 60.8) mm  z_depth_median=15.5 mm  → /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_03
 
 [main] Pipeline completed successfully.  Detected 4 cavities.
 
@@ -199,6 +204,11 @@ capture_cavity_detection.py — Phase 2
   depth_band_cavity_mask.png
   depth_vis.png
   footprints_grid.png
+  param_sweep
+  param_sweep/best_candidate_debug.png
+  param_sweep/sweep_grid.png
+  param_sweep/sweep_summary.csv
+  param_sweep/sweep_summary.json
   raw_cavity_mask.png
   rgb.png
   run_log.txt

@@ -5,33 +5,33 @@
   "footprint_source": "opening_from_board_region",
   "xy_projection_depth_mode": "board_surface_depth",
   "board_surface_depth_m": 0.3245000000000002,
-  "opening_area_px": 3121,
+  "opening_area_px": 5154,
   "opening_xy_span_m": {
-    "x": 0.04867500066757202,
-    "y": 0.04639335721731186
+    "x": 0.06084375083446503,
+    "y": 0.06084375083446503
   },
-  "depth_area_px": 0,
+  "depth_area_px": 855,
   "depth_xy_span_m": {
-    "x": 0.0,
-    "y": 0.0
+    "x": 0.0565570667386055,
+    "y": 0.05031289905309677
   },
-  "z_depth_min_m": 0.0,
-  "z_depth_max_m": 0.0,
-  "z_depth_median_m": 0.0,
-  "area_px": 3121,
+  "z_depth_min_m": 0.0030089858919382095,
+  "z_depth_max_m": 0.029906952753663063,
+  "z_depth_median_m": 0.015473389998078346,
+  "area_px": 5154,
   "centroid_px": {
-    "x": 361.7926946491509,
-    "y": 295.87952579301503
+    "x": 368.65405510283273,
+    "y": 305.05161039968954
   },
   "bbox_px": {
     "x": 329,
     "y": 265,
-    "w": 65,
-    "h": 62
+    "w": 81,
+    "h": 81
   },
   "centroid_world_m": {
-    "x": 0.33178530331324096,
-    "y": -0.04249899871835952
+    "x": 0.33700368956453725,
+    "y": -0.04947479900320142
   },
   "point_count": 2048,
   "files": {
