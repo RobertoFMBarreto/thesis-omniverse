@@ -52,26 +52,41 @@ RT_SUBFRAMES = 8
 FOCAL_MM    = 24.0
 APERTURE_MM = 36.0
 
-# Surface estimation: look for the dominant depth peak in this range [m].
-# Should bracket the table/board surface for the active camera height.
+# Surface estimation: broad safety bounds [m] within which depth is searched
+# for the local support plane.  These are deliberately wide because the active
+# estimator (auto_depth_layers) discriminates among multiple peaks rather than
+# relying on a tight bracket around the support.
 #
 # Recommended camera heights (when SET_CAMERA_POSE=False, the camera pose
 # is set in the Isaac Sim stage):
 #   - z ≈ 0.7 m : preferred for piece capture — narrower field of view,
 #                 reduces the chance of capturing the side table as a false
-#                 piece.  With this height, the support surface lands near
-#                 0.7 m depth and a 105 mm-tall piece top near 0.595 m.
+#                 piece.  Local support lands near 0.7 m depth; a 105 mm
+#                 tall piece top near 0.595 m.
 #   - z ≈ 0.8 m : working setting for board/cavity capture (different
 #                 script, different aperture trade-off).
-#
-# Defaults below match the recommended z ≈ 0.7 m piece-camera height.
-SURFACE_DEPTH_MIN = 0.50
-SURFACE_DEPTH_MAX = 0.90
-SURFACE_HIST_BIN  = 0.001   # 1 mm bins
+SURFACE_DEPTH_MIN  = 0.40
+SURFACE_DEPTH_MAX  = 0.90
+SURFACE_HIST_BIN_M = 0.001   # 1 mm histogram bin width
+SURFACE_HIST_BIN   = SURFACE_HIST_BIN_M   # alias kept for backward compatibility
 # Margin used by the surface estimator's bound-saturation warning:
 # warns if the estimated surface depth is within this many metres of the
 # search bounds (likely indicating a pinned histogram / wrong window).
 SURFACE_BOUND_WARN_M = 0.005   # 5 mm
+
+# ── AUTO DEPTH-LAYER SUPPORT ESTIMATION ──────────────────────────────────────
+# Strategy: build a 1 mm depth histogram inside the piece ROI, extract local
+# peaks (each merged within SURFACE_PEAK_MERGE_DISTANCE_M of its neighbours),
+# sort by depth ascending (closest first), then pick the closest LARGE peak
+# as the local support plane.  This avoids the "background-wall wins" failure
+# mode of plain dominant-mode estimation in scenes with several depth tiers.
+SURFACE_ESTIMATION_MODE       = "auto_depth_layers"   # or "dominant_peak"
+SURFACE_PEAK_MERGE_DISTANCE_M = 0.004    # peaks closer than this are merged
+SUPPORT_MIN_PEAK_FRACTION     = 0.10     # peak fraction needed to qualify as support
+PIECE_MAX_PEAK_FRACTION       = 0.08     # closer peaks up to this fraction are
+                                          # tolerated as "piece top" before support
+MIN_PIECE_ABOVE_SURFACE_M     = 0.004    # min depth gap between piece-top peak
+                                          # and support peak (sanity check)
 
 # Segmentation: a pixel belongs to the piece if its depth is MORE than this
 # margin below the surface estimate.  Too small → table noise bleeds in.
@@ -318,15 +333,124 @@ def expand_roi(roi: tuple, expand_px: int, img_w: int, img_h: int) -> tuple:
             min(img_h, y2 + expand_px))
 
 
+def _extract_depth_peaks(valid_depths, hist_bin_m: float,
+                          merge_distance_m: float):
+    """
+    Extract local maxima of the depth histogram, then merge peaks that fall
+    within `merge_distance_m` of an already-accepted peak (keeping the larger).
+    Returns a list of dicts sorted by depth ascending (closest first):
+        {"depth_m", "count_px", "fraction"}
+    """
+    import numpy as np
+
+    if valid_depths.size == 0:
+        return []
+
+    d_min = float(valid_depths.min())
+    d_max = float(valid_depths.max()) + hist_bin_m
+    bins  = np.arange(d_min, d_max + hist_bin_m, hist_bin_m)
+    hist, edges = np.histogram(valid_depths, bins=bins)
+    centres     = edges[:-1] + hist_bin_m / 2.0
+
+    if hist.size < 3:
+        # Trivially small histogram: treat the global max as the single peak.
+        i = int(np.argmax(hist))
+        return [{
+            "depth_m":  float(centres[i]),
+            "count_px": int(hist[i]),
+            "fraction": float(hist[i]) / float(valid_depths.size),
+        }]
+
+    # Local maxima: bin > both neighbours (strict; ties broken by left).
+    is_peak = np.zeros_like(hist, dtype=bool)
+    is_peak[1:-1] = (hist[1:-1] > hist[:-2]) & (hist[1:-1] >= hist[2:])
+    raw = sorted(
+        [(float(centres[i]), int(hist[i])) for i in np.where(is_peak)[0]],
+        key=lambda x: x[0],
+    )
+
+    # Merge peaks within merge_distance_m, keeping the larger count.
+    merged = []
+    for d, c in raw:
+        if merged and (d - merged[-1][0]) <= merge_distance_m:
+            if c > merged[-1][1]:
+                merged[-1] = (d, c)
+        else:
+            merged.append((d, c))
+
+    total = float(valid_depths.size)
+    return [
+        {"depth_m": d, "count_px": c, "fraction": c / total}
+        for (d, c) in merged
+    ]
+
+
+def _select_support_peak(peaks, camera_z: float = None):
+    """
+    Pick the local support peak from a list of depth peaks (closest first).
+    Returns (selected_peak_dict, rank_in_peaks_list, reason_str,
+             is_farthest_major_peak_bool).
+
+    Decision rules (deterministic, in order):
+      1. If a peak is closer than another but smaller than PIECE_MAX_PEAK_FRACTION,
+         skip it as the piece itself.
+      2. The first peak (closest first) with fraction >= SUPPORT_MIN_PEAK_FRACTION
+         that wasn't skipped is the support.
+      3. If no peak qualifies, fall back to the largest-fraction peak (and
+         flag the reason).
+    """
+    if not peaks:
+        return None, -1, "no peaks found", False
+
+    n = len(peaks)
+    largest_idx = max(range(n), key=lambda i: peaks[i]["fraction"])
+
+    selected_rank = None
+    skipped_close_small = []
+    for i, p in enumerate(peaks):
+        if p["fraction"] >= SUPPORT_MIN_PEAK_FRACTION:
+            selected_rank = i
+            break
+        if p["fraction"] <= PIECE_MAX_PEAK_FRACTION:
+            skipped_close_small.append(i)
+            continue
+        # Mid-sized peak we can't confidently skip as piece — accept it.
+        selected_rank = i
+        break
+
+    if selected_rank is None:
+        selected_rank = largest_idx
+        reason = (f"no peak >= SUPPORT_MIN_PEAK_FRACTION "
+                  f"({SUPPORT_MIN_PEAK_FRACTION:.2f}); fell back to largest")
+    else:
+        if skipped_close_small:
+            reason = (f"closest large peak (fraction "
+                      f"{peaks[selected_rank]['fraction']:.3f}); "
+                      f"skipped {len(skipped_close_small)} closer small peak(s) "
+                      f"as likely piece")
+        else:
+            reason = (f"first peak with fraction >= SUPPORT_MIN_PEAK_FRACTION "
+                      f"({SUPPORT_MIN_PEAK_FRACTION:.2f}); "
+                      f"fraction={peaks[selected_rank]['fraction']:.3f}")
+
+    is_farthest_major = (selected_rank == largest_idx) and (selected_rank == n - 1)
+    return peaks[selected_rank], selected_rank, reason, is_farthest_major
+
+
 def estimate_support_surface_depth(depth, roi: tuple = None):
     """
-    Estimate the depth (distance to camera) of the support surface by finding
-    the dominant peak in a histogram of valid depth values within the configured
-    range.  If `roi` is provided as (x1, y1, x2, y2), the histogram only uses
-    pixels inside that ROI — used to ignore unrelated surfaces elsewhere in
-    the frame.
+    Estimate the depth (distance to camera) of the LOCAL support surface inside
+    the piece ROI.
 
-    Returns the estimated surface depth in metres, or raises if not found.
+    SURFACE_ESTIMATION_MODE controls the algorithm:
+      "auto_depth_layers" (default): histogram → local-maxima peaks → choose
+        the closest peak large enough to be a support plane (skipping closer
+        small peaks that are probably the piece top, and avoiding a far-only
+        background peak when a nearer large peak exists).
+      "dominant_peak": legacy single-mode pick (retained for diagnostics).
+
+    Returns (surface_z_m, info_dict).  The dict has:
+      mode, peaks, selected_rank, reason, n_valid_pixels, is_farthest_major
     """
     import numpy as np
 
@@ -337,33 +461,52 @@ def estimate_support_surface_depth(depth, roi: tuple = None):
     else:
         depth_region = depth
 
-    valid = depth_region[(depth_region > SURFACE_DEPTH_MIN) &
-                         (depth_region < SURFACE_DEPTH_MAX)]
+    valid = depth_region[(depth_region >= SURFACE_DEPTH_MIN) &
+                         (depth_region <= SURFACE_DEPTH_MAX)]
     if valid.size == 0:
         raise RuntimeError(
             f"[surface_est] No valid depth pixels in range "
             f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m within the ROI. "
             f"Check camera Z, SURFACE_DEPTH_MIN/MAX, and PIECE_ROI_*.")
 
-    bins = np.arange(SURFACE_DEPTH_MIN, SURFACE_DEPTH_MAX + SURFACE_HIST_BIN,
-                     SURFACE_HIST_BIN)
-    hist, edges = np.histogram(valid, bins=bins)
+    print(f"[surface_est] mode={SURFACE_ESTIMATION_MODE}")
 
-    peak_bin = int(np.argmax(hist))
-    surface_d = float(edges[peak_bin]) + SURFACE_HIST_BIN / 2.0
+    # Always extract peaks for diagnostic logging, even in legacy mode.
+    peaks = _extract_depth_peaks(valid, SURFACE_HIST_BIN_M,
+                                  SURFACE_PEAK_MERGE_DISTANCE_M)
 
-    # Sanity: peak bin should contain a meaningful fraction of valid pixels
-    peak_fraction = float(hist[peak_bin]) / float(valid.size)
-    print(f"[surface_est] dominant depth = {surface_d:.4f} m  "
-          f"({peak_fraction*100:.1f}% of valid pixels)")
+    print(f"[surface_est] {len(peaks)} depth peak(s) inside ROI:")
+    for k, p in enumerate(peaks, start=1):
+        print(f"[surface_est] peak {k}: depth={p['depth_m']:.4f} m  "
+              f"count={p['count_px']} px  fraction={p['fraction']*100:.1f}%")
 
-    if peak_fraction < 0.05:
-        print("[surface_est] WARNING: peak fraction < 5% — depth histogram is "
-              "noisy; surface estimate may be unreliable. Inspect depth_vis.png.")
+    if SURFACE_ESTIMATION_MODE == "auto_depth_layers":
+        sel, sel_rank, reason, is_farthest = _select_support_peak(peaks)
+        if sel is None:
+            raise RuntimeError("[surface_est] auto_depth_layers found no peaks")
+        surface_d = sel["depth_m"]
+        print(f"[surface_est] selected support peak: rank={sel_rank+1}, "
+              f"depth={surface_d:.4f} m, reason={reason}")
+        if is_farthest:
+            print("[WARNING] selected support appears to be the farthest "
+                  "layer. This may be background, not the local support surface.")
+    else:  # legacy "dominant_peak"
+        if not peaks:
+            raise RuntimeError("[surface_est] no peaks; cannot pick dominant")
+        sel_rank = max(range(len(peaks)), key=lambda i: peaks[i]["fraction"])
+        sel = peaks[sel_rank]
+        surface_d = sel["depth_m"]
+        reason = "legacy dominant_peak mode (largest histogram fraction)"
+        is_farthest = (sel_rank == len(peaks) - 1)
+        print(f"[surface_est] dominant depth = {surface_d:.4f} m  "
+              f"({sel['fraction']*100:.1f}% of valid pixels)")
 
-    # Bound-saturation warning: if the estimate landed within
-    # SURFACE_BOUND_WARN_M of either bound, the histogram is probably pinned
-    # and the search window is wrong (or a near-field intruder is winning).
+    if sel["fraction"] < 0.05:
+        print("[surface_est] WARNING: selected-peak fraction < 5% — depth "
+              "histogram is noisy; surface estimate may be unreliable. "
+              "Inspect depth_vis.png.")
+
+    # Bound-saturation warnings (kept from prior version).
     if (surface_d - SURFACE_DEPTH_MIN) < SURFACE_BOUND_WARN_M:
         print(f"[surface_est] WARNING: estimate {surface_d:.4f} m is within "
               f"{SURFACE_BOUND_WARN_M*1000:.0f} mm of SURFACE_DEPTH_MIN "
@@ -375,7 +518,15 @@ def estimate_support_surface_depth(depth, roi: tuple = None):
               f"({SURFACE_DEPTH_MAX}). The true surface may be beyond the "
               f"search window; widen SURFACE_DEPTH_MAX.")
 
-    return surface_d
+    info = {
+        "mode":              SURFACE_ESTIMATION_MODE,
+        "peaks":             peaks,
+        "selected_rank":     int(sel_rank),
+        "reason":            reason,
+        "n_valid_pixels":    int(valid.size),
+        "is_farthest_major": bool(is_farthest),
+    }
+    return surface_d, info
 
 
 # ── SEGMENTATION ──────────────────────────────────────────────────────────────
@@ -407,7 +558,8 @@ def segment_piece(depth, surface_z, roi: tuple = None):
               f"{before} → {after} pixels")
 
     n_pixels = int(mask.sum())
-    print(f"[segment] surface_z={surface_z:.4f}m  threshold={threshold:.4f}m  "
+    print(f"[segment] surface_z={surface_z:.4f}m  "
+          f"threshold={threshold:.4f}m (= surface_z - {SURFACE_TOLERANCE*1000:.1f}mm)  "
           f"pixels above surface: {n_pixels}")
 
     if n_pixels == 0:
@@ -415,6 +567,22 @@ def segment_piece(depth, surface_z, roi: tuple = None):
               "Possible causes: piece is flush with table, camera too high, "
               "SURFACE_TOLERANCE too small, depth units mismatch, "
               "or PIECE_ROI excludes the piece.")
+
+    # Mask-area-vs-ROI ratio guard.  If the mask covers >50% of the segmentation
+    # ROI, the support surface is almost certainly wrong (e.g. the entire local
+    # support is being classified as "above surface" because the histogram
+    # locked onto a deeper background plane).
+    expanded_roi_area = 0
+    if roi is not None:
+        x1, y1, x2, y2 = roi[:4]
+        expanded_roi_area = max(0, (x2 - x1) * (y2 - y1))
+    if expanded_roi_area > 0:
+        ratio = n_pixels / float(expanded_roi_area)
+        print(f"[segment] raw_piece_mask area={n_pixels} px / "
+              f"expanded ROI area={expanded_roi_area} px  → ratio={ratio*100:.1f}%")
+        if ratio > 0.50:
+            print("[WARNING] raw piece mask covers too much of ROI. "
+                  "Support surface may be wrong.")
 
     return mask
 
@@ -684,6 +852,58 @@ def make_footprint_image(points, resolution_m=0.0005, canvas_px=256):
 
 # ── DEBUG OUTPUTS ─────────────────────────────────────────────────────────────
 
+def save_depth_layers_debug(out_dir, rgb, depth, roi: tuple,
+                             expanded_roi: tuple, surface_info: dict,
+                             surface_z: float):
+    """Render depth_layers_debug.png: RGB with the piece ROI (cyan), the
+    expanded segmentation ROI (yellow), and a text panel listing all detected
+    depth peaks plus the selected support depth.  Helps the operator see at a
+    glance whether the local support, not the background, was selected."""
+    if rgb is None or roi is None:
+        return
+    import cv2
+    import numpy as np
+
+    debug = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR).copy()
+    h, w  = debug.shape[:2]
+
+    x1, y1, x2, y2 = roi[:4]
+    cv2.rectangle(debug, (x1, y1), (x2 - 1, y2 - 1), (255, 255, 0), 2)   # cyan
+    if expanded_roi is not None:
+        ex1, ey1, ex2, ey2 = expanded_roi
+        cv2.rectangle(debug, (ex1, ey1), (ex2 - 1, ey2 - 1), (0, 255, 255), 1)
+
+    # Side panel for textual info — drawn over a translucent dark strip so
+    # it's readable on any background.
+    panel_h = 22 + 18 * (len(surface_info.get("peaks", [])) + 4)
+    panel_h = min(panel_h, h - 10)
+    panel_w = 360
+    overlay = debug.copy()
+    cv2.rectangle(overlay, (5, 5), (5 + panel_w, 5 + panel_h),
+                  (0, 0, 0), thickness=cv2.FILLED)
+    cv2.addWeighted(overlay, 0.55, debug, 0.45, 0, dst=debug)
+
+    def _put(line_idx, text, colour=(255, 255, 255)):
+        y = 22 + 18 * line_idx
+        cv2.putText(debug, text, (12, y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, colour, 1, cv2.LINE_AA)
+
+    _put(0, f"mode = {surface_info.get('mode', 'unknown')}")
+    _put(1, f"selected support depth = {surface_z:.4f} m")
+    _put(2, f"reason: {surface_info.get('reason', '')[:46]}")
+    _put(3, "depth peaks (closest first):")
+    for k, p in enumerate(surface_info.get("peaks", []), start=1):
+        _put(3 + k,
+             f"  {k}: d={p['depth_m']:.4f} m  frac={p['fraction']*100:.1f}%  "
+             f"cnt={p['count_px']}",
+             colour=(0, 255, 0)
+             if k - 1 == surface_info.get("selected_rank", -1)
+             else (255, 255, 255))
+
+    cv2.imwrite(str(out_dir / "depth_layers_debug.png"), debug)
+    print(f"[save] depth_layers_debug.png written")
+
+
 def save_piece_roi_debug(out_dir, rgb, roi: tuple, expanded_roi: tuple = None):
     """Render piece_roi_debug.png: RGB with the ROI rectangle (cyan) and,
     if RESTRICT_PIECE_MASK_TO_ROI is on, the expanded segmentation ROI
@@ -784,7 +1004,8 @@ def save_debug_outputs(out_dir, rgb, depth, raw_mask, best_mask,
 def save_metadata(out_dir, success, best_mask, blob_stats, points,
                   centroid_world, surface_z, n_valid_components=0,
                   selected_rank=-1, error_msg=None, camera_pose: dict = None,
-                  piece_roi: tuple = None, piece_roi_expanded: tuple = None):
+                  piece_roi: tuple = None, piece_roi_expanded: tuple = None,
+                  surface_info: dict = None, raw_piece_mask_area: int = 0):
     """
     Write piece_metadata.json conforming to the experiments.md conventions.
 
@@ -859,6 +1080,27 @@ def save_metadata(out_dir, success, best_mask, blob_stats, points,
             "height": IMG_H,
         },
         "surface_depth_m":           float(surface_z),
+        "surface_estimation_mode":   (surface_info or {}).get("mode", SURFACE_ESTIMATION_MODE),
+        "depth_peaks":               [
+            {"depth_m": p["depth_m"], "count_px": p["count_px"],
+             "fraction": p["fraction"]}
+            for p in (surface_info or {}).get("peaks", [])
+        ],
+        "selected_support_peak_rank": (surface_info or {}).get("selected_rank", -1),
+        "selected_support_depth_m":   float(surface_z),
+        "selected_support_reason":    (surface_info or {}).get("reason", ""),
+        "selected_support_is_farthest_major":
+            bool((surface_info or {}).get("is_farthest_major", False)),
+        "raw_piece_mask_area":       int(raw_piece_mask_area),
+        "expanded_roi_area":         int(
+            (piece_roi_expanded[2] - piece_roi_expanded[0]) *
+            (piece_roi_expanded[3] - piece_roi_expanded[1])
+            if piece_roi_expanded is not None else 0),
+        "raw_piece_mask_area_ratio": float(
+            raw_piece_mask_area /
+            ((piece_roi_expanded[2] - piece_roi_expanded[0]) *
+             (piece_roi_expanded[3] - piece_roi_expanded[1]))
+            if piece_roi_expanded is not None and raw_piece_mask_area > 0 else 0.0),
         "n_valid_components":        n_valid_components,
         "multiple_valid_components": n_valid_components > 1,
         "piece_selection_mode":      PIECE_SELECTION_MODE,
@@ -925,7 +1167,7 @@ async def main():
         "rgb.png", "depth_vis.png", "raw_piece_mask.png",
         "piece_mask.png", "piece_debug.png", "piece_footprint.png",
         "piece_pointcloud.npy", "piece_metadata.json",
-        "piece_roi_debug.png",
+        "piece_roi_debug.png", "depth_layers_debug.png",
     ]
     for _fname in _stale_files:
         _p = OUT_DIR / _fname
@@ -949,6 +1191,7 @@ async def main():
     active_cam_xy      = (0.0, 0.0)
     piece_roi          = None    # (x1, y1, x2, y2, source)
     piece_roi_expanded = None    # ROI used for mask restriction
+    surface_info       = None    # info dict from estimate_support_surface_depth
 
     try:
         # ── Step 1: Camera setup ──────────────────────────────────────────────
@@ -998,8 +1241,8 @@ async def main():
         # ── Step 3b: Surface estimation ──────────────────────────────────────
         print("\n--- Step 3: Estimate support surface depth ---")
         surface_estimation_roi = (x1, y1, x2, y2) if PIECE_ROI_ENABLED else None
-        surface_z = estimate_support_surface_depth(depth,
-                                                    roi=surface_estimation_roi)
+        surface_z, surface_info = estimate_support_surface_depth(
+            depth, roi=surface_estimation_roi)
 
         # ── Step 4: Segmentation ──────────────────────────────────────────────
         print("\n--- Step 4: Segment piece ---")
@@ -1053,6 +1296,13 @@ async def main():
             OUT_DIR.mkdir(parents=True, exist_ok=True)
             save_piece_roi_debug(OUT_DIR, rgb, piece_roi, piece_roi_expanded)
 
+        # Depth-layers debug: written whenever we have a surface_info dict,
+        # so failures caused by wrong support estimation are auditable.
+        if rgb is not None and depth is not None and surface_info is not None:
+            save_depth_layers_debug(OUT_DIR, rgb, depth, piece_roi,
+                                    piece_roi_expanded, surface_info,
+                                    surface_z)
+
         if success:
             # All intermediates are guaranteed non-None when success=True
             save_debug_outputs(OUT_DIR, rgb, depth, raw_mask, best_mask,
@@ -1095,7 +1345,10 @@ async def main():
                       error_msg=error_msg,
                       camera_pose=active_camera_pose,
                       piece_roi=piece_roi,
-                      piece_roi_expanded=piece_roi_expanded)
+                      piece_roi_expanded=piece_roi_expanded,
+                      surface_info=surface_info,
+                      raw_piece_mask_area=int(raw_mask.sum())
+                      if raw_mask is not None else 0)
 
         print("\n" + "=" * 60)
         print(f"  success={success}")
