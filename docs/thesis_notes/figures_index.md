@@ -89,10 +89,13 @@ relatório.
 
 > Nota: estas figuras correspondem ao **estado actual** da
 > *pipeline* de captura de peças após (a) controlo da câmara via
-> *stage*, (b) estimação por `auto_depth_layers` e (c) projecção
-> por *pixel* dependente da profundidade.  Preferir estas em vez
-> das figuras `fig07_circle_*` / `fig08_star_*` para qualquer
-> discussão do conjunto principal final no relatório.
+> *stage*, (b) estimação por `auto_depth_layers`, (c) projecção
+> por *pixel* dependente da profundidade e (d) **correcção dos
+> intrínsecos verticais** (`intrinsics_model =
+> "pinhole_tangent_aspect_corrected"`, ver doc 01 — secção
+> 18.12). Preferir estas em vez das figuras `fig07_circle_*` /
+> `fig08_star_*` para qualquer discussão do conjunto principal
+> final no relatório.
 
 | Figure ID | Source file | Suggested LaTeX filename | Suggested caption (pt-PT) | Related section | Notes |
 |---|---|---|---|---|---|
@@ -103,6 +106,10 @@ relatório.
 | `fig:final_triangle_debug` | `data/pieces_detected/triangle/piece_debug.png` | `fig30_final_triangle_debug.png` | Sobreposição da máscara seleccionada para o triângulo (base 50 mm, altura geom. 50 mm), peça que substitui a estrela no conjunto principal. | doc 01 — secção 18.1 e 18.5 | Caso central da decisão experimental documentada em doc 03 — secção 11. |
 | `fig:final_triangle_depth_layers` | `data/pieces_detected/triangle/depth_layers_debug.png` | `fig31_final_triangle_depth_layers.png` | Diagnóstico da estimação `auto_depth_layers` para a captura do triângulo: ROI (ciano), ROI de segmentação expandida (amarelo) e painel com lista de picos de profundidade detectados, com o pico seleccionado destacado a verde. | doc 01 — secção 18.4 | Figura de método para a secção da estimação automática da superfície. |
 | `fig:final_triangle_raw_mask` | `data/pieces_detected/triangle/raw_piece_mask.png` | `fig32_final_triangle_raw_mask.png` | Máscara binária resultante do limiar `depth < surface_z − SURFACE_TOLERANCE` para o triângulo, restringida à ROI expandida. | doc 01 — secção 18.5 | Útil para discutir o efeito da restrição à ROI e do limiar de tolerância. |
+| `fig:final_rectangle_footprint` | `data/pieces_detected/rectangle/piece_footprint.png` | `fig33_final_rectangle_footprint.png` | Pegada 2D *top-down* do retângulo (49,8 × 74,5 mm medidos vs CAD 50 × 75 mm), em escala real após a correcção dos intrínsecos. | doc 01 — secção 18.12 | Substitui `fig:rectangle_footprint` para o estado pós-correcção. |
+| `fig:final_square_footprint` | `data/pieces_detected/square/piece_footprint.png` | `fig34_final_square_footprint.png` | Pegada 2D *top-down* do quadrado (49,8 × 49,8 mm medidos vs CAD 50 × 50 mm), em escala real após a correcção dos intrínsecos. | doc 01 — secção 18.12 | Simetria X/Y restaurada após a correcção. |
+| `fig:final_circle_footprint` | `data/pieces_detected/circle/piece_footprint.png` | `fig35_final_circle_footprint.png` | Pegada 2D *top-down* do círculo (49,4 × 49,4 mm medidos vs CAD Ø 50 mm), em escala real após a correcção dos intrínsecos. | doc 01 — secção 18.12 | Inscrita numa caixa envolvente quase-quadrada. |
+| `fig:final_triangle_footprint` | `data/pieces_detected/triangle/piece_footprint.png` | `fig36_final_triangle_footprint.png` | Pegada 2D *top-down* do triângulo (base 49,4 mm, altura geom. ≈ 49,4 mm vs CAD 50 × 50 mm), em escala real após a correcção dos intrínsecos. | doc 01 — secção 18.12 | Substitui a estrela como caso de teste com geometria não-circular não-rectangular convexa. |
 
 ---
 
@@ -146,6 +153,13 @@ relatório, a registar quando forem produzidos:
   com a peça **triângulo** assim que a auditoria de escala
   CAD-vs-captura estiver feita e a baseline for re-executada
   (ver Baseline 1 — secção 11).
+- **Pendente:** versão pós-correcção dos intrínsecos das
+  figuras de Fase 2 (`fig:cavity_*`, `fig:board_*`,
+  `fig:cavities_debug`, `fig:cavities_footprints_grid`). Os
+  ficheiros actualmente em disco em `data/cavities_detected/`
+  ainda foram gerados com a fórmula antiga de `fy_px`; serão
+  substituídos automaticamente após a recaptura das cavidades
+  (ver doc 03 — secção 16.3.bis).
 - Tabela do *score* matrix com triângulo no lugar da estrela,
   para confronto direto com a tabela atual (4 × 4) deste
   documento.

@@ -1,5 +1,5 @@
 piece,exists,files_ok,metadata_n_components_ok,pc_shape_ok,pc_no_nan,pc_no_inf,pc_n_points,pc_x_span_m,pc_y_span_m,pc_z_span_m,footprint_ok,overall
-rectangle,True,True,True,True,True,True,2048,0.049816,0.069391,0.0,True,True
-square,True,True,True,True,True,True,2048,0.049816,0.046403,0.0,True,True
-circle,True,True,True,True,True,True,2048,0.049359,0.045977,0.0,True,True
-triangle,True,True,True,True,True,True,2048,0.049359,0.045977,0.0,True,True
+rectangle,True,True,True,True,True,True,2048,0.049816,0.074496,0.0,True,True
+square,True,True,True,True,True,True,2048,0.049816,0.049816,0.0,True,True
+circle,True,True,True,True,True,True,2048,0.049359,0.049359,0.0,True,True
+triangle,True,True,True,True,True,True,2048,0.049359,0.049359,0.0,True,True

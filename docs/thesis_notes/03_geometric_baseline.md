@@ -596,6 +596,42 @@ publicada como **resultado de referência** e este resultado
 intermédio deve ser claramente etiquetado como "pré-correcções"
 ou "diagnóstico intermédio".
 
+### 16.3.bis Estado da pré-condição (actualização)
+
+Da lista da secção 16.2:
+
+1. ~~Corrigir `fy_px` em
+   `scripts/capture_piece_detection.py` e em
+   `scripts/capture_cavity_detection.py`.~~ — **feito**.
+   Substituiu-se a escala linear `fov_v = fov_h × (H/W)` pela
+   relação tangente-aspecto
+   `tan_half_fov_y = tan_half_fov_x × (H/W)`. Detalhe completo
+   em doc 01 — secção 18.12. Ambos os *scripts* expõem agora
+   `intrinsics_model = "pinhole_tangent_aspect_corrected"` e os
+   campos `fx_px`, `fy_px` em metadados.
+2. ~~Recapturar e re-validar as quatro peças.~~ — **feito**.
+   Resultados em doc 01 — secção 18.12: 4/4 estruturalmente
+   válidas, todas as dimensões a ≤ 1,2 % do CAD,
+   `piece_height_median = 104,5` mm vs CAD 105 mm.
+3. **Pendente**: recapturar as cavidades com a nova fórmula e
+   re-validar com `scripts/validate_cavity_captures.py`. As
+   nuvens de pontos das cavidades em
+   `data/cavities_detected/cavity_*/cavity_pointcloud.npy`
+   continuam baseadas nos intrínsecos antigos até que esta
+   recaptura ocorra.
+4. **Pendente**: auditoria de escala das cavidades contra
+   `data/expected_cad_dimensions.json` após a recaptura.
+5. **Pendente**: re-execução da Baseline 1 com o conjunto
+   `triangle` (rectangle, square, circle, triangle) e
+   metadados de cavidades já corrigidos.
+
+A Baseline 1 **não** deve ser re-executada antes de pelo menos
+o ponto 3 estar concluído, sob pena de comparar pegadas de
+peças (escala correcta) com pegadas de cavidades (escala antiga,
+~7 % subestimada em Y) — o que produziria *area_ratio*
+artificialmente baixo do lado das cavidades e poderia
+desvirtuar a discussão da Baseline 1.
+
 ### 16.4 Outputs a re-gerar
 
 A próxima execução produzirá um conjunto novo dos mesmos

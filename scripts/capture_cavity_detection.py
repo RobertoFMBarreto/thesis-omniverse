@@ -129,6 +129,30 @@ SURFACE_HIST_BIN = 0.001   # 1 mm histogram bins
 CAVITY_DEPTH_MARGIN = 0.003   # 3 mm
 MAX_CAVITY_DEPTH    = 0.030   # 30 mm
 
+# ── Cavity detection mode ─────────────────────────────────────────────────────
+# "opening_from_board_region" (default, recommended for footprint matching):
+#     cavity_opening_mask = board_region_mask AND NOT board_surface_mask
+#     i.e. negative space inside the board footprint.  This captures the full
+#     cavity opening on the board top plane, not only the depth-band slice
+#     where the camera happens to see cavity walls.
+#
+# "depth_band" (legacy / diagnostic): the previous behaviour — cavity pixels
+#     are those with `depth ∈ (board_surface_z + CAVITY_DEPTH_MARGIN,
+#     board_surface_z + MAX_CAVITY_DEPTH]` AND inside board_region_mask.
+#     Tends to capture only side walls / partial floor, not the full opening
+#     silhouette, because the camera's view of the cavity floor is limited.
+#
+# When the default mode is active, the depth-band mask is still computed and
+# saved as `depth_band_cavity_mask.png` for diagnostic purposes only.
+CAVITY_DETECTION_MODE = "opening_from_board_region"
+
+# Morphological cleanup applied to the opening mask (in pixels).  Small noise
+# from board-edge segmentation can introduce 1-2 px specks inside the board
+# region that aren't real cavities; an opening (erode→dilate) of this radius
+# removes them while preserving the cavity outlines.
+OPENING_MASK_OPEN_RADIUS_PX  = 1
+OPENING_MASK_CLOSE_RADIUS_PX = 1
+
 # ── Connected-component filters ───────────────────────────────────────────────
 # Must be low enough to keep small cavities such as the star, but high enough
 # to reject isolated depth noise.  A previous run had the star cavity rejected
@@ -531,6 +555,46 @@ def estimate_board_surface_depth(depth, board_mask=None):
 
 # ── SEGMENTATION ──────────────────────────────────────────────────────────────
 
+def compute_cavity_opening_mask(board_surface_mask, board_region_mask):
+    """
+    Cavity opening = filled board footprint MINUS the board top surface.
+
+    By construction, a pixel inside `board_region_mask` but NOT in
+    `board_surface_mask` cannot be on the board top — therefore it must be
+    inside a cavity opening (or, more precisely, the camera does not see the
+    board top there because there's a hole).  This captures the FULL cavity
+    silhouette on the board top plane, independent of how much of the cavity
+    floor / walls the depth sensor can see.
+
+    A small morphological open + close cleanup is applied to remove single-
+    pixel specks at the board boundary (often caused by board-mask edge
+    quantisation) without erasing real cavity outlines.
+
+    Returns the cleaned opening mask (H×W bool), and the area in pixels.
+    """
+    import numpy as np
+    import cv2
+
+    if board_surface_mask is None or board_region_mask is None:
+        return None, 0
+
+    raw = board_region_mask & ~board_surface_mask
+    raw_u8 = raw.astype(np.uint8) * 255
+
+    if OPENING_MASK_OPEN_RADIUS_PX > 0:
+        r = OPENING_MASK_OPEN_RADIUS_PX
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*r + 1, 2*r + 1))
+        raw_u8 = cv2.morphologyEx(raw_u8, cv2.MORPH_OPEN, k)
+    if OPENING_MASK_CLOSE_RADIUS_PX > 0:
+        r = OPENING_MASK_CLOSE_RADIUS_PX
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*r + 1, 2*r + 1))
+        raw_u8 = cv2.morphologyEx(raw_u8, cv2.MORPH_CLOSE, k)
+
+    cleaned = raw_u8 > 0
+    area_px = int(cleaned.sum())
+    return cleaned, area_px
+
+
 def segment_cavities_from_depth(depth, board_surface_z: float,
                                 board_region_mask=None):
     """
@@ -773,15 +837,28 @@ def build_cavity_pointcloud(depth, mask, intrinsics, board_surface_z: float,
     cx_px = intrinsics["cx_px"]
     cy_px = intrinsics["cy_px"]
 
-    # Back-project to world XY using pinhole model.
-    # Camera world position is cam_xy = (cam_x, cam_y); pixel offset scales by mpp.
+    # Back-project to world XY using a pinhole model.
+    # Camera world position is cam_xy = (cam_x, cam_y).
+    #
+    # *** Important for cavity FOOTPRINT XY ***
+    # We project at the BOARD TOP plane (board_surface_z), not at the per-pixel
+    # depth.  The cavity opening sits ON the board top, and the metric scale
+    # of the opening silhouette is determined by board_surface_z.  Sampling
+    # XY scale at the cavity floor (deeper) would inflate the footprint.
+    fx_px = intrinsics["fx_px"]
+    fy_px = intrinsics["fy_px"]
     cam_x, cam_y = cam_xy
-    world_x = cam_x + (xs.astype(np.float64) - cx_px) * mpp_x
-    world_y = cam_y - (ys.astype(np.float64) - cy_px) * mpp_y  # image V flips Y
+    z_for_xy = float(board_surface_z)
+    world_x = cam_x + (xs.astype(np.float64) - cx_px) / fx_px * z_for_xy
+    world_y = cam_y - (ys.astype(np.float64) - cy_px) / fy_px * z_for_xy
 
-    # Z: how deep the pixel is below the board top surface.
-    # depth[y,x] is the camera-to-surface distance; board_surface_z is the
-    # camera-to-board-top distance.  Pixels inside a cavity have larger depth.
+    # Z: depth below the board top surface.  This uses the per-pixel depth
+    # (not board_surface_z) because Z is meant to encode actual cavity depth.
+    # For the new "opening_from_board_region" mode, many opening pixels won't
+    # have a meaningful cavity-floor depth (the camera may not see the floor);
+    # those pixels contribute z = 0 after the clip.  This is acceptable for
+    # the footprint (XY-only); it just means Z is a partial diagnostic, not
+    # a full cavity-floor reconstruction.
     world_z = depth[ys, xs].astype(np.float64) - board_surface_z
     world_z = np.clip(world_z, 0.0, None)   # clip numerical noise above board
 
@@ -1011,12 +1088,19 @@ def save_board_debug_images(out_dir: Path, rgb, depth, board_dict: dict) -> None
 
 # ── GLOBAL DEBUG OUTPUTS ──────────────────────────────────────────────────────
 
-def save_global_outputs(out_dir: Path, rgb, depth, raw_mask, cavities):
+def save_global_outputs(out_dir: Path, rgb, depth, raw_mask, cavities,
+                         board_surface_mask=None,
+                         opening_mask=None,
+                         depth_band_mask=None):
     """
-    Write the four global output images.  Skips any that are None (so a partial
-    run only writes the files that were actually produced).
+    Write the global output images.  Skips any that are None.
 
-    cavities — list of cavity dicts as returned by find_cavity_components.
+    cavities           — list of cavity dicts as returned by find_cavity_components.
+    board_surface_mask — H×W bool, board top surface (with cavity holes).
+    opening_mask       — H×W bool, cavity opening mask (negative space inside the
+                          board region).  This is the PRIMARY mask in
+                          opening_from_board_region mode.
+    depth_band_mask    — H×W bool, legacy depth-band cavity mask (diagnostic).
     """
     import numpy as np
     import cv2
@@ -1040,7 +1124,26 @@ def save_global_outputs(out_dir: Path, rgb, depth, raw_mask, cavities):
         cv2.imwrite(str(out_dir / "depth_vis.png"), depth_vis)
         print(f"[save_global] depth_vis.png")
 
-    # 3. Raw cavity mask (before connected-component filtering)
+    # 3. Board surface mask (board top with cavity-shaped holes)
+    if board_surface_mask is not None:
+        cv2.imwrite(str(out_dir / "board_surface_mask.png"),
+                    (board_surface_mask.astype(np.uint8) * 255))
+        print(f"[save_global] board_surface_mask.png")
+
+    # 4. Cavity opening mask (PRIMARY in opening_from_board_region mode)
+    if opening_mask is not None:
+        cv2.imwrite(str(out_dir / "cavity_opening_mask.png"),
+                    (opening_mask.astype(np.uint8) * 255))
+        print(f"[save_global] cavity_opening_mask.png")
+
+    # 5. Depth-band cavity mask (DIAGNOSTIC — legacy method)
+    if depth_band_mask is not None:
+        cv2.imwrite(str(out_dir / "depth_band_cavity_mask.png"),
+                    (depth_band_mask.astype(np.uint8) * 255))
+        print(f"[save_global] depth_band_cavity_mask.png")
+
+    # 6. Raw cavity mask (the mask actually used by find_cavity_components,
+    #    selected by CAVITY_DETECTION_MODE)
     if raw_mask is not None:
         cv2.imwrite(str(out_dir / "raw_cavity_mask.png"),
                     (raw_mask.astype(np.uint8) * 255))
@@ -1096,7 +1199,10 @@ def save_global_outputs(out_dir: Path, rgb, depth, raw_mask, cavities):
 
 def save_cavity_outputs(out_dir: Path, cavity_id: int, cavity_dict: dict,
                         cavity_mask, points, footprint_bgr,
-                        rgb, board_surface_z: float, centroid_world):
+                        rgb, board_surface_z: float, centroid_world,
+                        cavity_detection_mode: str = "opening_from_board_region",
+                        depth_band_mask_area_px: int = 0,
+                        opening_mask_area_px: int = 0):
     """
     Write all per-cavity files into out_dir / f"cavity_{cavity_id:02d}".
 
@@ -1147,7 +1253,16 @@ def save_cavity_outputs(out_dir: Path, cavity_id: int, cavity_dict: dict,
     z_max      = float(points[:, 2].max())
 
     cavity_meta = {
-        "cavity_id":         cavity_id,
+        "cavity_id":              cavity_id,
+        "cavity_detection_mode":  cavity_detection_mode,
+        "footprint_source":       (
+            "opening_from_board_region"
+            if cavity_detection_mode == "opening_from_board_region"
+            else "depth_band"
+        ),
+        "xy_projection_depth_mode": "board_surface_depth",
+        "depth_band_mask_area_px":  int(depth_band_mask_area_px),
+        "opening_mask_area_px":     int(opening_mask_area_px),
         "area_px":           cavity_dict["area_px"],
         "centroid_px": {
             "x": cavity_dict["centroid"][0],
@@ -1273,6 +1388,7 @@ def save_summary_metadata(out_dir: Path, success: bool, board_surface_z: float,
         "cavity_detection_restricted_to_board_region": (
             AUTO_DETECT_BOARD and board_detected
         ),
+        "cavity_detection_mode":        CAVITY_DETECTION_MODE,
         "intrinsics_model":             "pinhole_tangent_aspect_corrected",
         "fx_px":                        (
             (IMAGE_WIDTH  / 2.0) /
@@ -1332,6 +1448,8 @@ def _cleanup_stale(out_dir: Path) -> None:
     """
     _global_files = [
         "rgb.png", "depth_vis.png", "raw_cavity_mask.png",
+        "cavity_opening_mask.png", "depth_band_cavity_mask.png",
+        "board_surface_mask.png",
         "cavities_debug.png", "cavities_summary.json",
         "board_mask.png", "board_region_mask.png",
         "board_debug.png", "board_roi_auto_debug.png",
@@ -1449,6 +1567,10 @@ async def main():
     rgb                = None
     depth              = None
     raw_mask           = None
+    opening_mask       = None    # primary in opening_from_board_region mode
+    depth_band_mask    = None    # diagnostic in opening_from_board_region mode
+    board_mask_for_surface    = None
+    board_region_for_cavities = None
     board_surface_z    = 0.0
     raw_pixels         = 0
     cavities           = []      # list of component dicts (accepted only)
@@ -1536,10 +1658,47 @@ async def main():
             depth, board_mask=board_mask_for_surface)
 
         # ── Step 5: Cavity segmentation ───────────────────────────────────────
+        # Two masks are computed regardless of mode, so the diagnostic image
+        # for the non-active method is still saved:
+        #   - depth_band_mask : legacy depth-band cavity mask
+        #   - opening_mask    : board_region_mask AND NOT board_surface_mask
+        # The active mask used for connected components is selected by
+        # CAVITY_DETECTION_MODE.
         print("\n--- Step 5: Segment cavities ---")
-        raw_mask   = segment_cavities_from_depth(
+        print(f"[cavity_mode] {CAVITY_DETECTION_MODE}")
+
+        depth_band_mask = segment_cavities_from_depth(
             depth, board_surface_z,
             board_region_mask=board_region_for_cavities)
+        depth_band_pixels = int(depth_band_mask.sum())
+
+        opening_mask, opening_pixels = compute_cavity_opening_mask(
+            board_mask_for_surface, board_region_for_cavities)
+
+        if board_mask_for_surface is not None:
+            print(f"[cavity_mode] board_surface_mask pixels = "
+                  f"{int(board_mask_for_surface.sum())}")
+        if board_region_for_cavities is not None:
+            print(f"[cavity_mode] board_region_mask  pixels = "
+                  f"{int(board_region_for_cavities.sum())}")
+        print(f"[cavity_mode] cavity_opening_mask pixels = {opening_pixels}")
+        print(f"[cavity_mode] depth_band_cavity_mask pixels = {depth_band_pixels}")
+
+        if CAVITY_DETECTION_MODE == "opening_from_board_region":
+            if opening_mask is None:
+                raise RuntimeError(
+                    "[cavity_mode] opening_from_board_region requires both "
+                    "board_surface_mask and board_region_mask, but one of "
+                    "them is None (board detection probably failed)."
+                )
+            raw_mask = opening_mask
+        elif CAVITY_DETECTION_MODE == "depth_band":
+            raw_mask = depth_band_mask
+        else:
+            raise ValueError(
+                f"Unknown CAVITY_DETECTION_MODE={CAVITY_DETECTION_MODE!r}. "
+                f"Supported: 'opening_from_board_region', 'depth_band'."
+            )
         raw_pixels = int(raw_mask.sum())
 
         # ── Step 6: Connected components ──────────────────────────────────────
@@ -1549,10 +1708,12 @@ async def main():
         if not cavities:
             raise RuntimeError(
                 "No cavity components found after connected-component analysis. "
-                "Inspect raw_cavity_mask.png and depth_vis.png. "
-                "Typical causes: CAVITY_DEPTH_MARGIN too large, "
-                "MAX_CAVITY_DEPTH too small, board surface estimate wrong, "
-                "CC_MIN_AREA_PX too large."
+                "Inspect raw_cavity_mask.png, cavity_opening_mask.png, and "
+                "depth_band_cavity_mask.png.  "
+                "Typical causes (opening_from_board_region): board detection "
+                "wrong, board_surface_mask too eroded, opening cleanup too "
+                "aggressive.  Typical causes (depth_band): CAVITY_DEPTH_MARGIN "
+                "too large, MAX_CAVITY_DEPTH too small, CC_MIN_AREA_PX too large."
             )
 
         # ── Step 7: Per-cavity processing ────────────────────────────────────
@@ -1584,10 +1745,19 @@ async def main():
             # Footprint
             footprint_bgr = make_cavity_footprint(points)
 
+            # Per-cavity opening/depth-band area diagnostics
+            cav_opening_area = (int((cav_mask & opening_mask).sum())
+                                if opening_mask is not None else 0)
+            cav_depth_band_area = (int((cav_mask & depth_band_mask).sum())
+                                   if depth_band_mask is not None else 0)
+
             # Save per-cavity files and collect metadata
             cav_meta = save_cavity_outputs(
                 OUT_DIR, k, cav, cav_mask, points, footprint_bgr,
-                rgb, board_surface_z, centroid_world)
+                rgb, board_surface_z, centroid_world,
+                cavity_detection_mode=CAVITY_DETECTION_MODE,
+                depth_band_mask_area_px=cav_depth_band_area,
+                opening_mask_area_px=cav_opening_area)
             cavities_meta.append(cav_meta)
 
         success = True
@@ -1611,7 +1781,10 @@ async def main():
             # write what we can now (depth and rgb may still be available).
             save_board_debug_images(OUT_DIR, rgb, depth, board_dict)
 
-        save_global_outputs(OUT_DIR, rgb, depth, raw_mask, cavities)
+        save_global_outputs(OUT_DIR, rgb, depth, raw_mask, cavities,
+                             board_surface_mask=board_mask_for_surface,
+                             opening_mask=opening_mask,
+                             depth_band_mask=depth_band_mask)
 
         save_summary_metadata(
             OUT_DIR, success, board_surface_z, raw_pixels,

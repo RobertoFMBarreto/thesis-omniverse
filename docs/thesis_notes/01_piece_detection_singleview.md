@@ -741,7 +741,12 @@ Comparação com o CAD:
 5. **Cobertura geométrica parcial** — observação *top-down*
    única; faces laterais e inferiores não são observáveis.
 
-### 18.10 Viés residual de Y (intrínsecos verticais)
+### 18.10 Viés residual de Y (intrínsecos verticais) — *RESOLVIDO*
+
+> **Nota:** esta secção descreve o problema tal como foi
+> observado e diagnosticado **antes** da correcção. Para o
+> registo da correcção aplicada e dos novos resultados
+> validados, ver secção **18.12** abaixo.
 
 A função `compute_intrinsics()` calcula a *focal* vertical em
 *pixels* através de:
@@ -779,29 +784,167 @@ mesma fórmula — ver doc 02 — secção 18.
 
 ### 18.11 Próximas acções
 
-Sequência recomendada antes de gerar resultados finais:
+Estado actualizado da sequência originalmente recomendada:
 
-1. **Inspeccionar visualmente**
-   `data/pieces_detected/footprints_grid.png` para confirmar
-   que as quatro pegadas são compatíveis com as silhuetas
-   esperadas das peças.
-2. **Corrigir o cálculo de `fy_px`** em
-   `compute_intrinsics()` conforme secção 18.10.
-3. **Recapturar** as quatro peças após a correcção e re-validar
-   com `scripts/validate_piece_captures.py`.
-4. Verificar se `scripts/capture_cavity_detection.py` partilha a
-   mesma fórmula incorrecta. Se sim, **corrigir e recapturar**
-   as cavidades.
+1. ~~Inspeccionar visualmente
+   `data/pieces_detected/footprints_grid.png`.~~ — **feito**.
+2. ~~Corrigir o cálculo de `fy_px` em
+   `compute_intrinsics()`.~~ — **feito** (ver 18.12).
+3. ~~Recapturar as quatro peças e re-validar com
+   `scripts/validate_piece_captures.py`.~~ — **feito** (ver 18.12).
+4. ~~Verificar se `scripts/capture_cavity_detection.py` partilha
+   a mesma fórmula incorrecta.~~ — **feito**: partilhava; já
+   foi corrigida pela mesma alteração (ver doc 02 — secção 19).
+   **Pendente**: recapturar as cavidades com a fórmula corrigida
+   e re-validar.
 5. **Auditoria de escala** das amplitudes XY e altura medidas
-   contra `data/expected_cad_dimensions.json`.
+   das cavidades contra `data/expected_cad_dimensions.json`
+   (depois da recaptura).
 6. **Re-executar Baseline 1** com o conjunto `triangle`
-   (rectangle, square, circle, triangle).
+   (rectangle, square, circle, triangle), após o ponto 5.
 7. **Documentar** os resultados actualizados no doc 03.
 
 Esta sequência é tratada como pré-condição. Os resultados
 actuais da Baseline 1 (com o conjunto que incluía a `star`)
 permanecem registados como diagnóstico intermédio mas **não
 constituem o resultado final**.
+
+### 18.12 Correção dos intrínsecos e validação de escala
+
+**Problema encontrado.** Após substituir a `star` por
+`triangle`, recalibrar as dimensões CAD e revalidar
+estruturalmente as quatro peças, observou-se que as nuvens de
+pontos eram dimensionalmente inconsistentes com o CAD. As
+dimensões em X aproximavam-se do esperado, mas as dimensões em
+Y estavam **sistematicamente subestimadas em 7–8 %**.
+
+**Evidência.** Medições efectuadas em
+`data/pieces_detected/validation_summary.csv` antes da
+correcção:
+
+| Peça        | Y medido (mm) | Y CAD (mm) | erro    |
+|-------------|---------------|------------|---------|
+| square      | 46,4          | 50         | −7,2 %  |
+| circle      | 46,0          | 50         | −8,0 %  |
+| triangle    | 46,0          | 50         | −8,0 %  |
+| rectangle   | 69,4          | 75         | −7,5 %  |
+
+Em paralelo:
+- a altura mediana (`piece_height_median`) estava correcta
+  (104,5 mm vs CAD 105 mm), o que descartava erro na escala
+  global de profundidade ou na estimativa do plano de suporte;
+- a dimensão X estava correcta (≤ 1,2 % de erro), o que
+  localizava o problema **exclusivamente na direcção vertical
+  da imagem**.
+
+**Causa.** A função `compute_intrinsics()` em
+`scripts/capture_piece_detection.py` (e a função homónima em
+`scripts/capture_cavity_detection.py`) calculava o FOV vertical
+através de uma escala linear em radianos:
+
+```
+fov_v = fov_h × (IMG_H / IMG_W)
+```
+
+Esta aproximação é apenas válida para FOVs muito pequenos. Para
+o sensor utilizado (FOCAL = 24 mm, APERTURE = 36 mm,
+FOV horizontal ≈ 73,7°), produzia `fy_px ≈ 459` em vez do valor
+geometricamente correcto para *pixels* quadrados,
+`fy_px = fx_px ≈ 426,67`. O rácio 459 / 426,67 ≈ 1,0736
+corresponde exactamente à redução de ≈ 7,4 % observada nas
+medidas em Y.
+
+**Correcção aplicada.** A escala linear foi substituída por
+uma relação tangente-aspecto:
+
+```
+tan_half_fov_y = tan_half_fov_x × (IMG_H / IMG_W)
+fy_px          = (IMG_H / 2) / tan_half_fov_y
+                  → algebricamente igual a fx_px
+```
+
+Esta é a fórmula consistente com *pixels* quadrados, em que a
+abertura vertical efectiva é `aperture_horizontal × (H/W)` e
+a *focal* vertical em *pixels* iguala a horizontal. A mesma
+correcção foi aplicada em ambos os *scripts* de captura. A
+projecção XY da nuvem de pontos continua a ser por *pixel*
+(secção 18.6); só os intrínsecos foram corrigidos.
+
+A *pipeline* passou a expor:
+- `intrinsics_model = "pinhole_tangent_aspect_corrected"` em
+  `piece_metadata.json` e em `cavities_summary.json`;
+- `fx_px` e `fy_px` em ambos os ficheiros de metadados;
+- linha de consola por captura:
+  `[intrinsics] fx_px=..., fy_px=..., mpp_x=..., mpp_y=...`.
+
+**Comparação antes/depois.**
+
+| Peça | Y antes (mm) | Y depois (mm) | Y CAD (mm) | erro depois |
+|------|--------------|---------------|------------|-------------|
+| square    | 46,4 | **49,8** | 50 | −0,4 %  |
+| circle    | 46,0 | **49,4** | 50 | −1,2 %  |
+| triangle  | 46,0 | **49,4** | 50 | −1,2 %  |
+| rectangle | 69,4 | **74,5** | 75 | −0,7 %  |
+
+`fx_px = fy_px = 426,6667` confirmado nos quatro
+`piece_metadata.json`; simetria X/Y restaurada (square e circle
+medem agora `49,8 × 49,8` mm e `49,4 × 49,4` mm
+respectivamente).
+
+**Resultado da validação após a correcção.**
+
+`scripts/validate_piece_captures.py`: 4/4 peças passam todos os
+critérios estruturais. Métricas-chave:
+
+| Peça      | X (mm) | Y (mm) | Z span (mm) | `piece_height_median` (mm) |
+|-----------|--------|--------|-------------|----------------------------|
+| rectangle | 49,8   | 74,5   | 0           | 104,5                      |
+| square    | 49,8   | 49,8   | 0           | 104,5                      |
+| circle    | 49,4   | 49,4   | 0           | 104,5                      |
+| triangle  | 49,4   | 49,4   | 0           | 104,5                      |
+
+Todas as dimensões dentro de ≈ 1,2 % do CAD; altura mediana a
+104,5 mm vs 105 mm (≈ 0,5 %).
+
+**Interpretação.**
+
+- A correcção fechou o viés sistemático de Y. As peças `square`
+  e `circle` recuperaram simetria X/Y exacta no plano da
+  pegada, e a `rectangle` apresenta agora a razão de aspecto
+  esperada (74,5 / 49,8 ≈ 1,50, vs CAD 75 / 50 = 1,50).
+- O problema **não** era exclusivamente de segmentação. A
+  segmentação por camadas de profundidade estava correcta; o
+  defeito era estritamente na geometria projectiva. Esta
+  distinção é importante para o relatório, porque mostra que
+  os dois subsistemas (segmentação e projecção) podem falhar
+  independentemente e exigem auditorias separadas.
+- O `piece_height_median = 104,5 mm` continuar correcto antes e
+  depois do *fix* confirma também que a estimativa de superfície
+  por `auto_depth_layers` já estava correcta — o viés de Y não
+  afectava Z porque Z é calculado por subtracção directa de
+  profundidade e não passa pela escala em *pixels*.
+
+**Limitação remanescente.**
+
+- Erro residual de até ≈ 1,2 % em XY, atribuível a quantização
+  *pixel-a-pixel* nos limites da máscara e a anti-*aliasing* no
+  rasterizador de profundidade do Replicator. Este erro é
+  simétrico em X e Y, situado dentro da tolerância de
+  engenharia, e sem correlação com forma da peça. Nenhuma
+  acção adicional é proposta para esta limitação no âmbito da
+  Baseline 1.
+- O Z `span` permanece igual a zero por captura; é uma
+  propriedade conjunta da geometria observada (face superior
+  estritamente plana) e da quantização *float32* do anotador.
+  Aceitável para a Baseline 1 (correspondência por pegada);
+  requer abordagem complementar para verificação vertical de
+  inserção.
+- A correcção foi aplicada também a
+  `scripts/capture_cavity_detection.py` mas as cavidades ainda
+  precisam de ser **recapturadas** para que as nuvens de pontos
+  guardadas reflictam a nova fórmula (os ficheiros `.npy`
+  existentes continuam baseados nos intrínsecos antigos). Ver
+  doc 03 — secção 16 para o protocolo de re-execução.
 
 ---
 
