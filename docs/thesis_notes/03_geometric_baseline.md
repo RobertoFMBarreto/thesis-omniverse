@@ -527,6 +527,98 @@ consolidada. As figuras mais relevantes desta fase são:
 
 ---
 
+## 16. Estado actual e protocolo de re-execução
+
+Os resultados desta secção (matriz 4×4, *overlays*, *flags* de
+compatibilidade) foram produzidos com o conjunto experimental
+**anterior** — `rectangle, square, circle, star` — e antes das
+correcções introduzidas no *script* de captura de peças
+(controlo de câmara via *stage*, estimação por
+`auto_depth_layers`, projecção por *pixel* dependente da
+profundidade). **Devem ser tratados como diagnóstico
+intermédio**, e não como o resultado final da Baseline 1.
+
+### 16.1 Decisões consolidadas
+
+- **Conjunto principal**: `rectangle, square, circle, triangle`.
+- **`star`**: removida do conjunto principal por ser
+  excessivamente sensível a segmentação e a escala absoluta
+  (ver secção 11). Permanece registada em
+  `data/expected_cad_dimensions.json` em
+  `optional_stress_test_shapes` como caso de *stress* concava
+  reservado para trabalho futuro. **Não** entra na re-execução
+  da Baseline 1.
+- **Sem mapeamento peça→cavidade** em qualquer parte do
+  algoritmo (princípio mantido).
+
+### 16.2 Pré-condições para a re-execução
+
+A re-execução deve ocorrer **apenas após** o seguinte
+encadeamento (ver doc 01 — secção 18.11 para o protocolo
+completo):
+
+1. Corrigir o cálculo da *focal* vertical em *pixels*
+   (`fy_px`) em
+   `scripts/capture_piece_detection.py` (e em
+   `scripts/capture_cavity_detection.py` se partilhar a mesma
+   fórmula — ver doc 02 — secção 19).
+2. Recapturar as quatro peças do conjunto principal e
+   re-validar com `scripts/validate_piece_captures.py`.
+3. Recapturar as cavidades, se aplicável, e re-validar.
+4. Auditoria de escala contra
+   `data/expected_cad_dimensions.json`: amplitudes XY e
+   `piece_height_median_m` devem situar-se dentro de uma margem
+   de tolerância pré-definida (sugestão: ≤ 2 % de erro relativo,
+   uma vez removido o viés sistemático actual de Y).
+5. Só então re-executar `scripts/baseline1_geometric_matching.py`
+   com o conjunto `rectangle, square, circle, triangle`.
+
+### 16.3 Resultado actual — preservar como diagnóstico
+
+A matriz 4×4, os *overlays* e a discussão das secções 9–11
+permanecem documentados como **resultado intermédio**. Servem
+três propósitos no relatório:
+
+1. mostrar que a Baseline 1 descobriu correctamente a
+   diagonal (rectangle ↔ cavity_01, square ↔ cavity_03, etc.)
+   sem qualquer mapeamento manual, prova de conceito do método
+   determinístico;
+2. expor o sintoma `suspicious_scale = True` transversal,
+   diagnóstico que motivou a investigação posterior (estimação
+   de superfície, projecção por *pixel*);
+3. fundamentar a decisão experimental de retirar a `star` do
+   conjunto principal (secção 11).
+
+Estes resultados **não** devem ser citados como medida de
+desempenho da abordagem determinística no relatório final.
+Quando a re-execução posterior estiver disponível, deve ser
+publicada como **resultado de referência** e este resultado
+intermédio deve ser claramente etiquetado como "pré-correcções"
+ou "diagnóstico intermédio".
+
+### 16.4 Outputs a re-gerar
+
+A próxima execução produzirá um conjunto novo dos mesmos
+artefactos em `data/baseline1_geometric_matching/`. Para evitar
+confusão entre execuções, recomenda-se:
+
+- antes da re-execução, copiar `results_matrix.csv`,
+  `results_all.json`, `summary.txt`, `score_matrix_heatmap.png`,
+  `best_match_grid.png` e `run_log.txt` para um directório de
+  arquivo (por exemplo
+  `data/baseline1_geometric_matching/_archive/2026-05_star_set/`)
+  para preservar o registo intermédio;
+- só depois deixar que `scripts/baseline1_geometric_matching.py`
+  sobrescreva os artefactos canónicos.
+
+A nomenclatura `cavity_NN` continua posicional e
+determinística por construção; a substituição da `star` pelo
+`triangle` no lado das peças não altera a numeração das
+cavidades, mas pode alterar qual cavidade ganha cada *match* se
+a escala for substancialmente diferente.
+
+---
+
 ## Notas para o autor
 
 Itens a registar manualmente, fora deste documento:

@@ -689,25 +689,52 @@ def compute_intrinsics(cam_z: float):
     """
     Compute pixel-space intrinsics from the camera configuration constants.
 
-    cam_z should be the depth at which the XY scale is evaluated — for cavity
+    cam_z is the depth at which the diagnostic mpp is evaluated — for cavity
     detection this is board_surface_z (the board top surface, not CAM_Z).
+    fx_px / fy_px themselves are depth-independent.
 
-    Returns a dict: fx, fy, cx_px, cy_px, mpp_x, mpp_y, cam_z.
+    Returns a dict with:
+      cx_px, cy_px           — principal point (image centre, pixels)
+      fx_px, fy_px           — focal length in PIXELS (depth-INDEPENDENT)
+      tan_half_fov_x/y       — for fast per-pixel back-projection
+      fov_h_rad, fov_v_rad   — diagnostic
+      fx, fy                 — kept for backward compatibility with prior
+                               consumers (= fx_px, fy_px)
+      mpp_x, mpp_y           — metres-per-pixel evaluated at cam_z
+      cam_z                  — depth at which the diagnostic mpp was evaluated
+      intrinsics_model       — provenance tag
     """
-    fov_h = 2.0 * math.atan((APERTURE_MM / 2.0) / FOCAL_MM)
-    fov_v = fov_h * (IMAGE_HEIGHT / IMAGE_WIDTH)
-    mpp_x = (2.0 * cam_z * math.tan(fov_h / 2.0)) / IMAGE_WIDTH
-    mpp_y = (2.0 * cam_z * math.tan(fov_v / 2.0)) / IMAGE_HEIGHT
-    fx    = cam_z / mpp_x
-    fy    = cam_z / mpp_y
+    fov_h           = 2.0 * math.atan((APERTURE_MM / 2.0) / FOCAL_MM)
+    tan_half_fov_x  = math.tan(fov_h / 2.0)
+    # Tangent-aspect-corrected vertical FOV.  For square pixels this gives
+    # tan_half_fov_y = tan_half_fov_x * (H/W), which makes fy_px = fx_px.
+    # The previous form `fov_v = fov_h * (H/W)` then `tan(fov_v/2)` was a
+    # linear-degrees scaling that under-estimated metric Y by ~7-8% for the
+    # current sensor (FOV_h ≈ 73.7°).
+    tan_half_fov_y  = tan_half_fov_x * (IMAGE_HEIGHT / IMAGE_WIDTH)
+    fov_v           = 2.0 * math.atan(tan_half_fov_y)
+    fx_px           = (IMAGE_WIDTH  / 2.0) / tan_half_fov_x
+    fy_px           = (IMAGE_HEIGHT / 2.0) / tan_half_fov_y
+    mpp_x           = (2.0 * cam_z * tan_half_fov_x) / IMAGE_WIDTH
+    mpp_y           = (2.0 * cam_z * tan_half_fov_y) / IMAGE_HEIGHT
+    print(f"[intrinsics] fx_px={fx_px:.2f}, fy_px={fy_px:.2f}, "
+          f"mpp_x={mpp_x*1000:.4f}mm/px, mpp_y={mpp_y*1000:.4f}mm/px  "
+          f"(at cam_z={cam_z:.4f}m)")
     return {
-        "fx":    fx,
-        "fy":    fy,
-        "cx_px": IMAGE_WIDTH  / 2.0,
-        "cy_px": IMAGE_HEIGHT / 2.0,
-        "mpp_x": mpp_x,
-        "mpp_y": mpp_y,
-        "cam_z": cam_z,
+        "fx":              fx_px,   # backward-compat alias
+        "fy":              fy_px,   # backward-compat alias
+        "fx_px":           fx_px,
+        "fy_px":           fy_px,
+        "cx_px":           IMAGE_WIDTH  / 2.0,
+        "cy_px":           IMAGE_HEIGHT / 2.0,
+        "tan_half_fov_x":  tan_half_fov_x,
+        "tan_half_fov_y":  tan_half_fov_y,
+        "fov_h_rad":       fov_h,
+        "fov_v_rad":       fov_v,
+        "mpp_x":           mpp_x,
+        "mpp_y":           mpp_y,
+        "cam_z":           cam_z,
+        "intrinsics_model": "pinhole_tangent_aspect_corrected",
     }
 
 
@@ -1245,6 +1272,16 @@ def save_summary_metadata(out_dir: Path, success: bool, board_surface_z: float,
         "table_or_background_depth_m": table_depth_m,
         "cavity_detection_restricted_to_board_region": (
             AUTO_DETECT_BOARD and board_detected
+        ),
+        "intrinsics_model":             "pinhole_tangent_aspect_corrected",
+        "fx_px":                        (
+            (IMAGE_WIDTH  / 2.0) /
+            math.tan(math.atan((APERTURE_MM / 2.0) / FOCAL_MM))
+        ),
+        "fy_px":                        (
+            (IMAGE_HEIGHT / 2.0) /
+            (math.tan(math.atan((APERTURE_MM / 2.0) / FOCAL_MM))
+             * (IMAGE_HEIGHT / IMAGE_WIDTH))
         ),
         "parameters": {
             "focal_mm":                 FOCAL_MM,

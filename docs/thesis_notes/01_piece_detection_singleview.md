@@ -484,6 +484,327 @@ futuro trabalho, registada em
 
 ---
 
+## 18. Atualização — estado atual da *pipeline* de captura
+
+Esta secção substitui, para fins de leitura do estado **atual**, as
+secções 4–14 acima (que permanecem como registo histórico do
+desenvolvimento). Documenta a *pipeline* tal como existe após o
+conjunto de alterações descritas na secção 13 mais as alterações
+adicionais introduzidas posteriormente para resolver problemas de
+controlo de câmara, estimação de superfície e projeção métrica.
+
+### 18.1 Conjunto de formas final
+
+O conjunto principal de peças usado a partir desta versão é:
+
+- `rectangle`
+- `square`
+- `circle`
+- `triangle` (substitui a `star`)
+
+A `star` foi removida do conjunto principal por ser excessivamente
+sensível a segmentação e a escala absoluta, conforme documentado
+no doc 03 — secção 11. Permanece registada em
+`data/expected_cad_dimensions.json`, em
+`optional_stress_test_shapes`, como caso de *stress* concava
+reservado para trabalho futuro.
+
+### 18.2 Dimensões CAD finais (recapituladas)
+
+| Peça        | XY nominal (mm)            | Extrusão (mm) |
+|-------------|----------------------------|---------------|
+| rectangle   | 75 × 50                    | 105           |
+| square      | 50 × 50                    | 105           |
+| circle      | diâmetro 50                | 105           |
+| triangle    | base 50, alt. geom. 50     | 105           |
+
+Para o tabuleiro e cavidades, ver doc 02 — secção 18; para
+folga nominal (1 mm total, 0,5 mm por lado), ver
+`data/expected_cad_dimensions.json`.
+
+### 18.3 Controlo da câmara via *stage*
+
+`scripts/capture_piece_detection.py` adopta agora a mesma
+convenção de `scripts/capture_cavity_detection.py`:
+
+- `SET_CAMERA_POSE = False` por omissão. O *script* **não** move
+  a câmara: usa a pose autorizada no *stage* USD, que o
+  utilizador posiciona manualmente no Isaac Sim.
+- A pose mundial efetiva da câmara é lida via
+  `get_camera_world_pose()`, impressa no início da execução, e
+  registada em `piece_metadata.json` em `camera_pose` com
+  `source = "stage"`.
+- Se `SET_CAMERA_POSE = True`, as constantes `CAM_X/Y/Z` e
+  `CAM_ROT_Z_DEG` são aplicadas via `setup_camera()` e
+  `source = "config_override"`. Esta via é mantida apenas para
+  reprodução determinística de capturas anteriores.
+
+A pose efetiva é depois passada como `cam_xy` para a função de
+*back-projection*, garantindo que as coordenadas mundiais XY
+correspondem à pose realmente em vigor (e não a constantes de
+configuração que poderiam não coincidir com o *stage*).
+
+### 18.4 Estimativa automática da superfície de suporte por camadas de profundidade
+
+A estimativa por modo dominante de profundidade falhou em
+cenários com vários planos no campo de visão (por exemplo,
+peça + tabuleiro local + uma segunda mesa/parede ao fundo). A
+solução adoptada é a estimação por **camadas de profundidade**:
+
+1. Restrição da análise a uma **ROI** centrada no campo de
+   captura da peça (`PIECE_ROI_ENABLED = True`,
+   `PIECE_ROI_MODE = "center_fraction"`,
+   `PIECE_ROI_FRACTION = 0.60`).
+2. Recolha dos *pixels* de profundidade válidos (positivos,
+   finitos) dentro dessa ROI.
+3. Cálculo de **limites adaptativos** a partir da própria
+   distribuição (`AUTO_SURFACE_DEPTH_BOUNDS = True`):
+   `lower = p01 − margem`, `upper = p99 + margem` com
+   `SURFACE_DEPTH_MARGIN_M = 0,005` m. As constantes estáticas
+   `SURFACE_DEPTH_MIN/MAX` deixam de funcionar como filtro
+   rígido neste modo (mantêm-se em uso apenas no modo legado
+   `dominant_depth`).
+4. Construção de histograma com *bin* de 1 mm
+   (`SURFACE_HIST_BIN_M`).
+5. Extracção de máximos locais e fusão de picos próximos
+   (`SURFACE_PEAK_MERGE_DISTANCE_M = 0,004` m).
+6. Ordenação dos picos do mais próximo ao mais distante.
+7. Selecção do pico de suporte:
+   - picos próximos pequenos (fração ≤
+     `PIECE_MAX_PEAK_FRACTION = 0,08`) são saltados como
+     prováveis "topo da peça";
+   - é aceite o primeiro pico com fração ≥
+     `SUPPORT_MIN_PEAK_FRACTION = 0,10`;
+   - se nenhum pico atinge esse limiar, recorre-se ao pico de
+     maior fração e isto é registado em
+     `selected_support_reason`.
+8. Salvaguarda: se a máscara crua resultante cobrir mais de 50 %
+   da ROI segmentada, é tentada uma **reseleção** com o pico
+   imediatamente mais próximo — registada em
+   `selected_support_reason` como `"... | RESELECTED (initial
+   mask >50% of ROI)"`.
+
+Diagnósticos disponíveis na consola e em metadados:
+
+- listagem completa dos picos detectados (profundidade, contagem,
+  fracção);
+- pico seleccionado, identificado por `rank` e `reason`;
+- aviso explícito `[WARNING] selected support appears to be the
+  farthest layer ...` quando o pico escolhido é o último (sinal
+  típico de fundo a ganhar);
+- aviso `[WARNING] raw piece mask covers too much of ROI ...`;
+- aviso específico para a configuração actual (`> 0,68 m`)
+  indicando proximidade ao pano de fundo;
+- imagem `depth_layers_debug.png` com a ROI de superfície
+  (ciano), ROI de segmentação expandida (amarela) e painel de
+  texto com a lista de picos, com o pico seleccionado destacado
+  a verde.
+
+### 18.5 Segmentação da peça
+
+A regra mantém-se geometricamente correcta:
+
+```
+piece_mask = (depth > DEPTH_MIN_VALID) AND (depth < surface_z − SURFACE_TOLERANCE)
+```
+
+com `SURFACE_TOLERANCE = 0,004` m. Pixels mais próximos da
+câmara do que a superfície (numa observação *top-down*) são
+classificados como "acima do suporte".
+
+Se `RESTRICT_PIECE_MASK_TO_ROI = True`, a máscara crua é também
+restringida à ROI **expandida** por `PIECE_MASK_ROI_EXPAND_PX =
+20` *pixels*, garantindo que objectos fora do campo de captura
+nunca podem entrar na análise de componentes ligados.
+
+### 18.6 Geração de *point cloud* e *footprint* — projecção por *pixel*
+
+O cálculo de coordenadas mundiais XY foi alterado para
+**projecção dependente da profundidade por *pixel***. A
+versão anterior usava `mpp` calculado em `surface_z` para todos
+os *pixels*, o que era aceitável para peças finas mas inflacionou
+sistematicamente as dimensões para peças altas (105 mm).
+
+Convenção actual (canónica para o modelo *pinhole*):
+
+```
+world_x = cam_x + (u − cx_px) / fx_px × depth_px
+world_y = cam_y − (v − cy_px) / fy_px × depth_px
+world_z = surface_z − depth_px            (altura acima do suporte)
+```
+
+onde `fx_px` e `fy_px` são distâncias focais expressas em
+*pixels* (independentes da profundidade), `cam_x`/`cam_y` são as
+coordenadas mundiais reais da câmara obtidas do *stage*, e
+`depth_px` é a profundidade observada de cada *pixel* (distância
+ao plano de imagem). XY é depois centrado no centróide da peça;
+Z é mantido em valores absolutos (altura sobre o suporte).
+
+A escala real é preservada. Z = 0 é tipicamente reportado para
+faces superiores planas, devido à quantização em `float32` do
+anotador — não constitui defeito do *pipeline*.
+
+Diagnósticos novos por captura:
+
+- `projection_depth_mode = "per_pixel_depth"`
+- `support_surface_depth_m`
+- `piece_depth_median_m`
+- `piece_height_median_m`
+- `piece_height_min_m`
+- `piece_height_max_m`
+- `xy_projection_note` (fórmula literal, para citação no
+  relatório).
+
+A pegada 2D continua a ser construída pela projecção *top-down*
+da nuvem de pontos numa tela de 256 × 256 *pixels* a 0,5 mm/px.
+
+### 18.7 Problemas encontrados nesta iteração
+
+Resumo dos problemas observados e resolvidos durante esta
+iteração da *pipeline*. Mais detalhe operacional na secção 13.
+
+1. **Câmara movida pelo *script* sem necessidade.** Decisão:
+   `SET_CAMERA_POSE = False` por omissão; usar a pose do *stage*.
+2. **Estimador dominante a "agarrar" o fundo.** A profundidade
+   dominante numa cena com várias mesas/paredes podia ser o
+   plano mais distante. Decisão: estimador por camadas
+   (`auto_depth_layers`) que prefere o pico grande mais próximo
+   sem ser o topo da peça.
+3. **Janela `SURFACE_DEPTH_MIN/MAX` demasiado estreita.** Os
+   limites estáticos excluíam camadas úteis (peça, suporte
+   local) e deixavam apenas o fundo no histograma. Decisão:
+   limites adaptativos por p01/p99 da distribuição da própria
+   ROI quando em modo `auto_depth_layers`.
+4. **Inflação sistemática de XY (~1,5×) para peças de 105 mm de
+   altura.** Causada pela utilização de `mpp(surface_z)` na
+   *back-projection* uniforme. Decisão: projecção por *pixel*
+   com `fx_px`/`fy_px` independentes da profundidade.
+
+Histórico anterior (Fase 1 inicial) está registado na secção 13.
+
+### 18.8 Validação atual (após correcções)
+
+Resultado de
+`scripts/validate_piece_captures.py` sobre as quatro pastas
+`data/pieces_detected/{rectangle, square, circle, triangle}/`:
+
+- 4/4 peças passam todos os critérios estruturais;
+- todos os ficheiros obrigatórios presentes;
+- nuvens de pontos com forma `(2048, 3)`, sem NaN nem infinitos;
+- *footprints* legíveis e não vazios;
+- exactamente um componente válido por captura
+  (`n_valid_components = 1`).
+
+Métricas geométricas medidas (extraídas de
+`data/pieces_detected/validation_summary.csv` e dos metadados
+individuais):
+
+| Peça        | X medido (mm) | Y medido (mm) | Z span (mm) | `piece_height_median` (mm) |
+|-------------|---------------|---------------|-------------|----------------------------|
+| rectangle   | 49,8          | 69,4          | 0           | 104,5                      |
+| square      | 49,8          | 46,4          | 0           | 104,5                      |
+| circle      | 49,4          | 46,0          | 0           | 104,5                      |
+| triangle    | 49,4          | 46,0          | 0           | 104,5                      |
+
+Comparação com o CAD:
+
+- **Altura da peça**: medida 104,5 mm vs CAD 105 mm ⇒ ≈ 0,5 % de
+  desvio. Confirma que a estimativa de superfície (≈ 0,2995 m)
+  e a projecção por *pixel* estão alinhadas.
+- **Dimensão X**: erro ≤ ≈ 1,2 % em todos os casos (50 mm ⇒
+  49,4–49,8 mm; 75 mm ⇒ não aplicável a X aqui pois a peça
+  longa está orientada com 75 mm em Y).
+- **Dimensão Y**: erro sistemático de aproximadamente
+  −7 a −8 % (50 mm ⇒ 46,0–46,4 mm; 75 mm ⇒ 69,4 mm). Ver
+  secção 18.10 abaixo.
+- Z `span` = 0 mantém-se. Aceitável para correspondência por
+  pegada na Baseline 1.
+
+### 18.9 Limitações actuais
+
+1. **Z span = 0 nas faces superiores planas** — propriedade
+   conjunta da geometria observada e da quantização *float32*
+   do anotador. Sem consequência para a Baseline 1 (correspondência
+   por pegada 2D); requer abordagem complementar (multi-view ou
+   depth com sub-pixel) para verificação vertical de inserção.
+2. **Viés sistemático de Y (~7–8 %)** — descrito em detalhe na
+   secção 18.10.
+3. **Restricção a uma peça visível por captura** — premissa
+   experimental; o *script* deteta múltiplos componentes mas
+   selecciona um, controlado por
+   `PIECE_SELECTION_MODE`.
+4. **Sensibilidade aos parâmetros do estimador por camadas**
+   (`SUPPORT_MIN_PEAK_FRACTION`, `PIECE_MAX_PEAK_FRACTION`,
+   `SURFACE_PEAK_MERGE_DISTANCE_M`). Os valores actuais
+   funcionam para a cena validada; cenas novas podem exigir
+   reajuste.
+5. **Cobertura geométrica parcial** — observação *top-down*
+   única; faces laterais e inferiores não são observáveis.
+
+### 18.10 Viés residual de Y (intrínsecos verticais)
+
+A função `compute_intrinsics()` calcula a *focal* vertical em
+*pixels* através de:
+
+```
+fov_v          = fov_h × (IMG_H / IMG_W)
+tan_half_fov_y = tan(fov_v / 2)
+fy_px          = (IMG_H / 2) / tan_half_fov_y
+```
+
+Esta escala **linear em graus/radianos** entre `fov_h` e `fov_v`
+só é geometricamente exacta para FOVs muito pequenos. Para o
+sensor actual (FOCAL = 24 mm, APERTURE = 36 mm, FOV horizontal
+≈ 73,7°), o erro acumulado é não-desprezável: produz
+`fy_px ≈ 459` em vez do valor correcto para *pixels* quadrados,
+`fy_px = fx_px ≈ 426,7`. O rácio 459/426,7 ≈ 1,077 explica
+exactamente a redução de ≈ 7,7 % observada nas dimensões
+medidas em Y.
+
+Correcção apropriada (em conformidade com *pixels* quadrados):
+
+```
+tan_half_fov_y = tan_half_fov_x × (IMG_H / IMG_W)
+fy_px          = (IMG_H / 2) / tan_half_fov_y
+                  → algebricamente igual a fx_px
+```
+
+Esta correcção **não** está aplicada no código no momento desta
+nota, por instrução explícita de não modificar o *script*
+enquanto a validação estrutural passar. Deve ser aplicada antes
+de qualquer afirmação de escala absoluta no relatório final.
+Para a Baseline 1 (correspondência relativa peça-cavidade), o
+viés cancela parcialmente caso o *script* das cavidades use a
+mesma fórmula — ver doc 02 — secção 18.
+
+### 18.11 Próximas acções
+
+Sequência recomendada antes de gerar resultados finais:
+
+1. **Inspeccionar visualmente**
+   `data/pieces_detected/footprints_grid.png` para confirmar
+   que as quatro pegadas são compatíveis com as silhuetas
+   esperadas das peças.
+2. **Corrigir o cálculo de `fy_px`** em
+   `compute_intrinsics()` conforme secção 18.10.
+3. **Recapturar** as quatro peças após a correcção e re-validar
+   com `scripts/validate_piece_captures.py`.
+4. Verificar se `scripts/capture_cavity_detection.py` partilha a
+   mesma fórmula incorrecta. Se sim, **corrigir e recapturar**
+   as cavidades.
+5. **Auditoria de escala** das amplitudes XY e altura medidas
+   contra `data/expected_cad_dimensions.json`.
+6. **Re-executar Baseline 1** com o conjunto `triangle`
+   (rectangle, square, circle, triangle).
+7. **Documentar** os resultados actualizados no doc 03.
+
+Esta sequência é tratada como pré-condição. Os resultados
+actuais da Baseline 1 (com o conjunto que incluía a `star`)
+permanecem registados como diagnóstico intermédio mas **não
+constituem o resultado final**.
+
+---
+
 ## Notas para o autor
 
 Itens que devem ser registados manualmente, fora deste documento, e
@@ -495,6 +816,12 @@ que não estão capturados nos ficheiros de validação:
   ancora a auditoria de escala que confronta as dimensões CAD
   com as amplitudes medidas em
   `data/pieces_detected/validation_summary.csv`.
+- **Confirmação visual de `footprints_grid.png`** após a
+  correcção de `fy_px` (ver 18.10–18.11).
+- **Pose USD da câmara no momento da captura validada** (lida do
+  campo `camera_pose` em `piece_metadata.json`, mas convém
+  guardar uma captura de ecrã do inspector do *stage* para o
+  relatório).
 - **Pose física da câmara virtual no USD** (translação e
   orientação) no momento da captura validada.
 - **Versão exata do Isaac Sim** e do contentor usado.

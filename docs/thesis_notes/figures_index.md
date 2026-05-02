@@ -85,12 +85,34 @@ relatório.
 
 ---
 
+## Tabela de figuras — Conjunto principal final (peças `triangle`-set, pós-correcções)
+
+> Nota: estas figuras correspondem ao **estado actual** da
+> *pipeline* de captura de peças após (a) controlo da câmara via
+> *stage*, (b) estimação por `auto_depth_layers` e (c) projecção
+> por *pixel* dependente da profundidade.  Preferir estas em vez
+> das figuras `fig07_circle_*` / `fig08_star_*` para qualquer
+> discussão do conjunto principal final no relatório.
+
+| Figure ID | Source file | Suggested LaTeX filename | Suggested caption (pt-PT) | Related section | Notes |
+|---|---|---|---|---|---|
+| `fig:final_footprints_grid` | `data/pieces_detected/footprints_grid.png` | `fig26_final_footprints_grid.png` | Pegadas 2D *top-down* das quatro peças do conjunto principal final (rectangle, square, circle, triangle), após substituição da estrela e correcção da projecção por *pixel*. | doc 01 — secção 18.8 | Substitui `fig:footprints_grid` para o estado pós-correcções. |
+| `fig:final_rectangle_debug` | `data/pieces_detected/rectangle/piece_debug.png` | `fig27_final_rectangle_debug.png` | Sobreposição da máscara seleccionada para o rectângulo (75 × 50 mm) com caixa envolvente e centróide, na captura validada do conjunto principal final. | doc 01 — secção 18.5 | Conjunto experimental final. |
+| `fig:final_square_debug` | `data/pieces_detected/square/piece_debug.png` | `fig28_final_square_debug.png` | Sobreposição da máscara seleccionada para o quadrado (50 × 50 mm). | doc 01 — secção 18.5 | Conjunto experimental final. |
+| `fig:final_circle_debug` | `data/pieces_detected/circle/piece_debug.png` | `fig29_final_circle_debug.png` | Sobreposição da máscara seleccionada para o círculo (Ø 50 mm). | doc 01 — secção 18.5 | Conjunto experimental final. |
+| `fig:final_triangle_debug` | `data/pieces_detected/triangle/piece_debug.png` | `fig30_final_triangle_debug.png` | Sobreposição da máscara seleccionada para o triângulo (base 50 mm, altura geom. 50 mm), peça que substitui a estrela no conjunto principal. | doc 01 — secção 18.1 e 18.5 | Caso central da decisão experimental documentada em doc 03 — secção 11. |
+| `fig:final_triangle_depth_layers` | `data/pieces_detected/triangle/depth_layers_debug.png` | `fig31_final_triangle_depth_layers.png` | Diagnóstico da estimação `auto_depth_layers` para a captura do triângulo: ROI (ciano), ROI de segmentação expandida (amarelo) e painel com lista de picos de profundidade detectados, com o pico seleccionado destacado a verde. | doc 01 — secção 18.4 | Figura de método para a secção da estimação automática da superfície. |
+| `fig:final_triangle_raw_mask` | `data/pieces_detected/triangle/raw_piece_mask.png` | `fig32_final_triangle_raw_mask.png` | Máscara binária resultante do limiar `depth < surface_z − SURFACE_TOLERANCE` para o triângulo, restringida à ROI expandida. | doc 01 — secção 18.5 | Útil para discutir o efeito da restrição à ROI e do limiar de tolerância. |
+
+---
+
 ## Fontes de dados (não-figuras) para tabelas e métricas
 
 | ID interno | Source file | Utilização sugerida | Notes |
 |---|---|---|---|
-| `data:validation_csv_pieces` | `data/pieces_detected/validation_summary.csv` | Origem da tabela de amplitudes e contagem de pontos das peças. | Formato plano, fácil de transformar em `\begin{tabular}`. |
-| `data:validation_json_pieces` | `data/pieces_detected/validation_summary.json` | Origem detalhada (limites X/Y/Z exatos, *flags* de validação) para tabelas auxiliares ou texto. | Mais completo do que o CSV; preferir como fonte canónica para Fase 1. |
+| `data:validation_csv_pieces` | `data/pieces_detected/validation_summary.csv` | Origem da tabela de amplitudes e contagem de pontos das peças, **conjunto principal final** (rectangle, square, circle, triangle). | Formato plano, fácil de transformar em `\begin{tabular}`. Sobrescreve a versão histórica que incluía `star`. |
+| `data:validation_json_pieces` | `data/pieces_detected/validation_summary.json` | Origem detalhada (limites X/Y/Z exatos, *flags* de validação) do conjunto principal final. | Fonte canónica para o estado actual do conjunto principal. |
+| `data:piece_metadata_triangle` | `data/pieces_detected/triangle/piece_metadata.json` | Origem dos diagnósticos da estimação `auto_depth_layers` e da projecção por *pixel* (`projection_depth_mode`, `support_surface_depth_m`, `piece_depth_median_m`, `piece_height_median_m`). | Metadados por captura. Análogos existem para `rectangle`, `square`, `circle`. |
 | `data:validation_csv_cavities` | `data/cavities_detected/validation_summary.csv` | Origem da tabela de áreas e amplitudes das cavidades. | Formato plano, fácil de transformar em `\begin{tabular}`. |
 | `data:validation_json_cavities` | `data/cavities_detected/validation_summary.json` | Origem detalhada da validação das cavidades (limites X/Y/Z, *flags*). | Mais completo do que o CSV; preferir como fonte canónica para Fase 2. |
 | `data:cavities_summary_json` | `data/cavities_detected/cavities_summary.json` | Origem dos parâmetros do *pipeline* (tabuleiro, profundidade da mesa, *flags* de deteção, lista de componentes rejeitados). | Útil para a secção de problemas encontrados/parâmetros sintonizados. |

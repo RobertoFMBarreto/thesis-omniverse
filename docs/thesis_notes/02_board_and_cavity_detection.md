@@ -518,6 +518,41 @@ atual.
 
 ---
 
+## 19. Verificação pendente — viés vertical de intrínsecos
+
+A *script* de captura de peças
+(`scripts/capture_piece_detection.py`) revelou um viés
+sistemático de aproximadamente −7 a −8 % nas dimensões medidas
+em Y, atribuído a uma fórmula incorrecta de cálculo da *focal*
+vertical em *pixels*:
+
+```
+fov_v          = fov_h × (IMG_H / IMG_W)        # escala linear, errada para FOVs grandes
+tan_half_fov_y = tan(fov_v / 2)
+fy_px          = (IMG_H / 2) / tan_half_fov_y
+```
+
+A correcção apropriada para *pixels* quadrados é:
+
+```
+tan_half_fov_y = tan_half_fov_x × (IMG_H / IMG_W)
+fy_px          = (IMG_H / 2) / tan_half_fov_y      # algebricamente igual a fx_px
+```
+
+(Detalhe completo no doc 01 — secção 18.10.)
+
+`scripts/capture_cavity_detection.py` partilha as constantes
+`FOCAL_MM`, `APERTURE_MM`, `IMAGE_WIDTH`, `IMAGE_HEIGHT` e a
+função `compute_intrinsics(...)`. **Verificar** se a fórmula da
+*focal* vertical é a mesma e, se sim, corrigir e recapturar as
+cavidades antes de qualquer auditoria final de escala. As
+amplitudes XY de cavidades reportadas na secção 13 (validação
+anterior, com a câmara num cenário diferente) ficam por isso
+sujeitas à mesma reanálise — devem ser tratadas como
+diagnóstico intermédio, não como referência absoluta.
+
+---
+
 ## Notas para o autor
 
 Itens que devem ser registados manualmente, fora deste documento, e

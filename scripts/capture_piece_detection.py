@@ -766,23 +766,35 @@ def compute_intrinsics(cam_z: float):
     along the principal axis, so the standard pinhole formulas apply.
     """
     fov_h           = 2.0 * math.atan((APERTURE_MM / 2.0) / FOCAL_MM)
-    fov_v           = fov_h * (IMG_H / IMG_W)
     tan_half_fov_x  = math.tan(fov_h / 2.0)
-    tan_half_fov_y  = math.tan(fov_v / 2.0)
+    # Tangent-aspect-corrected vertical FOV.  For square pixels this gives
+    # tan_half_fov_y = tan_half_fov_x * (H/W), which makes fy_px = fx_px.
+    # The previous form `fov_v = fov_h * (H/W)` then `tan(fov_v/2)` was a
+    # linear-degrees scaling that under-estimated metric Y by ~7-8% for the
+    # current sensor (FOV_h ≈ 73.7°).
+    tan_half_fov_y  = tan_half_fov_x * (IMG_H / IMG_W)
+    fov_v           = 2.0 * math.atan(tan_half_fov_y)
     fx_px           = (IMG_W / 2.0) / tan_half_fov_x
     fy_px           = (IMG_H / 2.0) / tan_half_fov_y
     mpp_x_at_cam_z  = (2.0 * cam_z * tan_half_fov_x) / IMG_W
     mpp_y_at_cam_z  = (2.0 * cam_z * tan_half_fov_y) / IMG_H
+    print(f"[intrinsics] fx_px={fx_px:.2f}, fy_px={fy_px:.2f}, "
+          f"mpp_x={mpp_x_at_cam_z*1000:.4f}mm/px, "
+          f"mpp_y={mpp_y_at_cam_z*1000:.4f}mm/px  "
+          f"(at cam_z={cam_z:.4f}m)")
     return {
-        "cx_px":          IMG_W / 2.0,
-        "cy_px":          IMG_H / 2.0,
-        "fx_px":          fx_px,
-        "fy_px":          fy_px,
-        "tan_half_fov_x": tan_half_fov_x,
-        "tan_half_fov_y": tan_half_fov_y,
-        "mpp_x":          mpp_x_at_cam_z,   # diagnostic only
-        "mpp_y":          mpp_y_at_cam_z,   # diagnostic only
-        "cam_z":          cam_z,
+        "cx_px":           IMG_W / 2.0,
+        "cy_px":           IMG_H / 2.0,
+        "fx_px":           fx_px,
+        "fy_px":           fy_px,
+        "tan_half_fov_x":  tan_half_fov_x,
+        "tan_half_fov_y":  tan_half_fov_y,
+        "fov_h_rad":       fov_h,
+        "fov_v_rad":       fov_v,
+        "mpp_x":           mpp_x_at_cam_z,   # diagnostic only
+        "mpp_y":           mpp_y_at_cam_z,   # diagnostic only
+        "cam_z":           cam_z,
+        "intrinsics_model": "pinhole_tangent_aspect_corrected",
     }
 
 
@@ -873,6 +885,9 @@ def depth_to_pointcloud(depth, mask, intrinsics, surface_z, cam_xy: tuple,
 
     pc_info = {
         "projection_depth_mode": "per_pixel_depth",
+        "intrinsics_model":      intrinsics.get("intrinsics_model", "unknown"),
+        "fx_px":                 float(fx_px),
+        "fy_px":                 float(fy_px),
         "support_surface_depth_m": float(surface_z),
         "piece_depth_median_m":   piece_depth_median,
         "piece_height_min_m":     piece_height_min,
@@ -1198,6 +1213,10 @@ def save_metadata(out_dir, success, best_mask, blob_stats, points,
             if piece_roi_expanded is not None and raw_piece_mask_area > 0 else 0.0),
         "projection_depth_mode":      (pc_info or {}).get(
             "projection_depth_mode", "unknown"),
+        "intrinsics_model":           (pc_info or {}).get(
+            "intrinsics_model", "unknown"),
+        "fx_px":                      (pc_info or {}).get("fx_px", None),
+        "fy_px":                      (pc_info or {}).get("fy_px", None),
         "support_surface_depth_m":    (pc_info or {}).get(
             "support_surface_depth_m", float(surface_z)),
         "piece_depth_median_m":       (pc_info or {}).get(
