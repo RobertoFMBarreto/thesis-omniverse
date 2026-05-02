@@ -1164,6 +1164,13 @@ def save_global_outputs(out_dir: Path, rgb, depth, raw_mask, cavities,
         cv2.imwrite(str(out_dir / "depth_vis.png"), depth_vis)
         print(f"[save_global] depth_vis.png")
 
+    # 2b. Raw depth array — needed by offline diagnostic scripts (e.g.
+    # scripts/sweep_cavity_opening_params.py) to recompute board-surface and
+    # opening masks under different tolerances without re-running Isaac Sim.
+    if depth is not None:
+        np.save(str(out_dir / "depth.npy"), depth.astype(np.float32))
+        print(f"[save_global] depth.npy")
+
     # 3. Board surface mask (board top with cavity-shaped holes)
     if board_surface_mask is not None:
         cv2.imwrite(str(out_dir / "board_surface_mask.png"),
@@ -1541,7 +1548,7 @@ def _cleanup_stale(out_dir: Path) -> None:
     that could be mistaken for current results.
     """
     _global_files = [
-        "rgb.png", "depth_vis.png", "raw_cavity_mask.png",
+        "rgb.png", "depth_vis.png", "depth.npy", "raw_cavity_mask.png",
         "cavity_opening_mask.png", "cavity_depth_mask.png",
         "depth_band_cavity_mask.png",
         "board_surface_mask.png", "board_region_mask.png",
