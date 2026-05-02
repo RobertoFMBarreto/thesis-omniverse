@@ -80,7 +80,7 @@ SURFACE_BOUND_WARN_M = 0.005   # 5 mm
 # sort by depth ascending (closest first), then pick the closest LARGE peak
 # as the local support plane.  This avoids the "background-wall wins" failure
 # mode of plain dominant-mode estimation in scenes with several depth tiers.
-SURFACE_ESTIMATION_MODE       = "auto_depth_layers"   # or "dominant_peak"
+SURFACE_ESTIMATION_MODE       = "auto_depth_layers"   # or "dominant_depth"
 SURFACE_PEAK_MERGE_DISTANCE_M = 0.004    # peaks closer than this are merged
 SUPPORT_MIN_PEAK_FRACTION     = 0.10     # peak fraction needed to qualify as support
 PIECE_MAX_PEAK_FRACTION       = 0.08     # closer peaks up to this fraction are
@@ -447,7 +447,7 @@ def estimate_support_surface_depth(depth, roi: tuple = None):
         the closest peak large enough to be a support plane (skipping closer
         small peaks that are probably the piece top, and avoiding a far-only
         background peak when a nearer large peak exists).
-      "dominant_peak": legacy single-mode pick (retained for diagnostics).
+      "dominant_depth": legacy single-mode pick (retained for diagnostics).
 
     Returns (surface_z_m, info_dict).  The dict has:
       mode, peaks, selected_rank, reason, n_valid_pixels, is_farthest_major
@@ -490,13 +490,13 @@ def estimate_support_surface_depth(depth, roi: tuple = None):
         if is_farthest:
             print("[WARNING] selected support appears to be the farthest "
                   "layer. This may be background, not the local support surface.")
-    else:  # legacy "dominant_peak"
+    else:  # legacy "dominant_depth"
         if not peaks:
             raise RuntimeError("[surface_est] no peaks; cannot pick dominant")
         sel_rank = max(range(len(peaks)), key=lambda i: peaks[i]["fraction"])
         sel = peaks[sel_rank]
         surface_d = sel["depth_m"]
-        reason = "legacy dominant_peak mode (largest histogram fraction)"
+        reason = "legacy dominant_depth mode (largest histogram fraction)"
         is_farthest = (sel_rank == len(peaks) - 1)
         print(f"[surface_est] dominant depth = {surface_d:.4f} m  "
               f"({sel['fraction']*100:.1f}% of valid pixels)")
@@ -517,6 +517,13 @@ def estimate_support_surface_depth(depth, roi: tuple = None):
               f"{SURFACE_BOUND_WARN_M*1000:.0f} mm of SURFACE_DEPTH_MAX "
               f"({SURFACE_DEPTH_MAX}). The true surface may be beyond the "
               f"search window; widen SURFACE_DEPTH_MAX.")
+
+    # Scene-specific defensive guard for the current camera-at-z≈0.7 m setup.
+    # Local board-top is expected near 0.62-0.63 m; if we land closer to the
+    # 0.7 m background, the auto-layer estimator probably picked the wrong peak.
+    if surface_d > 0.68:
+        print(f"[WARNING] selected support depth is close to background. "
+              f"Expected support around 0.62–0.63 m for current camera pose.")
 
     info = {
         "mode":              SURFACE_ESTIMATION_MODE,
@@ -1155,6 +1162,7 @@ async def main():
     print("=" * 60)
     print("capture_piece_detection.py — Phase 1")
     print("=" * 60)
+    print(f"[config] SURFACE_ESTIMATION_MODE={SURFACE_ESTIMATION_MODE}")
     print(f"[main] capture_name = {CAPTURE_NAME!r}  "
           f"use_capture_subdir = {USE_CAPTURE_SUBDIR}")
     print(f"[main] output_dir   = {OUT_DIR}")
