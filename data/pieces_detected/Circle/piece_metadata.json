@@ -1,0 +1,64 @@
+{
+  "script": "capture_piece_detection.py",
+  "timestamp": "2026-05-02T11:24:15",
+  "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
+  "capture_name": "Circle",
+  "use_capture_subdir": true,
+  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/pieces_detected/Circle",
+  "visible_piece_assumption": "single visible piece",
+  "camera_pose": {
+    "x": -0.25,
+    "y": 0.45,
+    "z": 0.58,
+    "rot_z_deg": 0.0
+  },
+  "image_resolution": {
+    "width": 640,
+    "height": 480
+  },
+  "surface_depth_m": 0.17950000000000008,
+  "n_valid_components": 0,
+  "multiple_valid_components": false,
+  "piece_selection_mode": "largest",
+  "manual_component_index": 0,
+  "selected_component_rank_or_index": -1,
+  "all_valid_components": [],
+  "selected_component": {},
+  "pointcloud_bounds": {},
+  "parameters": {
+    "camera_prim": "/World/Camera",
+    "cam_xyz": [
+      -0.25,
+      0.45,
+      0.58
+    ],
+    "cam_rot_z_deg": 0.0,
+    "resolution": [
+      640,
+      480
+    ],
+    "focal_mm": 24.0,
+    "aperture_mm": 36.0,
+    "surface_depth_range": [
+      0.1,
+      0.5
+    ],
+    "surface_tolerance_m": 0.004,
+    "cc_min_area_px": 300,
+    "cc_max_area_px": 50000,
+    "n_points": 2048
+  },
+  "input_files": [],
+  "output_files": [
+    "rgb.png",
+    "depth_vis.png",
+    "raw_piece_mask.png",
+    "piece_mask.png",
+    "piece_debug.png",
+    "piece_footprint.png",
+    "piece_pointcloud.npy",
+    "piece_metadata.json"
+  ],
+  "success": false,
+  "error": "No valid piece component found. Inspect raw_piece_mask.png and depth_vis.png. Typical causes: piece flush with table, wrong CAM_Z, SURFACE_TOLERANCE too tight, or multiple pieces all filtered out."
+}
