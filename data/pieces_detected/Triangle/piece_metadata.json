@@ -1,6 +1,6 @@
 {
   "script": "capture_piece_detection.py",
-  "timestamp": "2026-05-02T11:58:59",
+  "timestamp": "2026-05-02T12:14:34",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
   "capture_name": "Triangle",
   "use_capture_subdir": true,
@@ -41,7 +41,7 @@
   "surface_depth_m": 0.6995000000000001,
   "n_valid_components": 0,
   "multiple_valid_components": false,
-  "piece_selection_mode": "closest_to_center",
+  "piece_selection_mode": "largest",
   "manual_component_index": 0,
   "selected_component_rank_or_index": -1,
   "all_valid_components": [],
