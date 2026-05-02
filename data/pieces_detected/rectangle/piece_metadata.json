@@ -1,6 +1,6 @@
 {
   "script": "capture_piece_detection.py",
-  "timestamp": "2026-05-02T11:53:13",
+  "timestamp": "2026-05-02T12:29:25",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
   "capture_name": "Rectangle",
   "use_capture_subdir": true,
@@ -9,7 +9,7 @@
   "camera_pose": {
     "x": -0.25,
     "y": 0.45,
-    "z": 1.0,
+    "z": 0.7,
     "rot_z_deg": null,
     "source": "stage"
   },
@@ -38,61 +38,81 @@
     "width": 640,
     "height": 480
   },
-  "surface_depth_m": 0.9995000000000002,
+  "surface_depth_m": 0.2994999928474427,
+  "surface_estimation_mode": "auto_depth_layers",
+  "depth_peaks": [
+    {
+      "depth_m": 0.2994999928474427,
+      "count_px": 64723,
+      "fraction": 0.5852412471064815
+    },
+    {
+      "depth_m": 0.699499992847443,
+      "count_px": 1088,
+      "fraction": 0.009837962962962963
+    }
+  ],
+  "selected_support_peak_rank": 0,
+  "selected_support_depth_m": 0.2994999928474427,
+  "selected_support_reason": "first peak with fraction >= SUPPORT_MIN_PEAK_FRACTION (0.10); fraction=0.585",
+  "selected_support_is_farthest_major": false,
+  "raw_piece_mask_area": 18040,
+  "expanded_roi_area": 139072,
+  "raw_piece_mask_area_ratio": 0.12971698113207547,
   "n_valid_components": 1,
   "multiple_valid_components": false,
-  "piece_selection_mode": "closest_to_center",
+  "piece_selection_mode": "largest",
   "manual_component_index": 0,
   "selected_component_rank_or_index": 0,
   "all_valid_components": [
     {
-      "area_px": 2040,
+      "area_px": 18040,
       "centroid_px": {
-        "x": 516.5,
-        "y": 369.5
+        "x": 319.5,
+        "y": 239.5
       },
       "bbox_px": {
-        "x": 502,
-        "y": 336,
-        "w": 30,
-        "h": 68
+        "x": 265,
+        "y": 158,
+        "w": 110,
+        "h": 164
       }
     }
   ],
   "selected_component": {
-    "area_px": 2040,
+    "area_px": 18040,
     "centroid_px": [
-      516.5,
-      369.5
+      319.5,
+      239.5
     ],
     "bbox_px": [
-      502,
-      336,
-      30,
-      68
+      265,
+      158,
+      110,
+      164
     ],
     "centroid_world_m": [
-      0.2103166015625001,
-      0.16742508090815827
+      -0.2503509765541181,
+      0.4503269247992601
     ],
-    "surface_depth_m": 0.9995000000000002,
+    "surface_depth_m": 0.2994999928474427,
     "point_count": 2048,
     "height_range_m": [
-      0.00468131247907877,
-      0.14213219285011292
+      0.10449995845556259,
+      0.10450000315904617
     ],
     "xy_span_m": [
-      0.06793476641178131,
-      0.14619706571102142
+      0.0765128880739212,
+      0.10657748579978943
     ]
   },
   "pointcloud_bounds": {
-    "x_min": -0.033967383205890656,
-    "x_max": 0.033967383205890656,
-    "y_min": -0.07309853285551071,
-    "y_max": 0.07309853285551071,
-    "z_min": 0.00468131247907877,
-    "z_max": 0.14213219285011292
+    "x_min": -0.0382564440369606,
+    "x_max": 0.0382564440369606,
+    "y_min": -0.053288742899894714,
+    "y_max": 0.053288742899894714,
+    "z_min": 0.10449995845556259,
+    "z_max": 0.10450000315904617
   },
   "parameters": {
     "camera_prim": "/World/Camera",
@@ -109,8 +129,8 @@
     "focal_mm": 24.0,
     "aperture_mm": 36.0,
     "surface_depth_range": [
-      0.7,
-      1.2
+      0.4,
+      0.9
     ],
     "surface_tolerance_m": 0.004,
     "cc_min_area_px": 300,

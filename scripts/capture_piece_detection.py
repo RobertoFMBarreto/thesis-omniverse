@@ -750,28 +750,39 @@ def select_best_component(raw_mask):
 
 def compute_intrinsics(cam_z: float):
     """
-    Compute pixel-space intrinsics from the camera configuration constants.
+    Pinhole intrinsics derived from FOCAL_MM, APERTURE_MM and image size.
 
-    Returns a dict with: fx, fy, cx_px, cy_px, mpp_x, mpp_y
-    (metres-per-pixel at distance cam_z, and principal point in pixels).
+    Returns a dict with:
+      cx_px, cy_px         — principal point (image centre, pixels)
+      fx_px, fy_px         — focal length in PIXELS (depth-INDEPENDENT)
+      tan_half_fov_x/y     — pre-computed for fast per-pixel back-projection
+      mpp_x, mpp_y         — metres-per-pixel evaluated at cam_z
+                             (kept for diagnostics / footprint canvas only;
+                              NOT used for piece XY back-projection any more,
+                              since that requires per-pixel depth)
+      cam_z                — depth at which the diagnostic mpp was evaluated
 
-    Note: Isaac Sim's distance_to_image_plane annotator measures the
-    perpendicular distance, so pinhole backprojection is correct.
+    Isaac Sim's distance_to_image_plane returns the perpendicular distance
+    along the principal axis, so the standard pinhole formulas apply.
     """
-    fov_h = 2.0 * math.atan((APERTURE_MM / 2.0) / FOCAL_MM)
-    fov_v = fov_h * (IMG_H / IMG_W)
-    mpp_x = (2.0 * cam_z * math.tan(fov_h / 2.0)) / IMG_W
-    mpp_y = (2.0 * cam_z * math.tan(fov_v / 2.0)) / IMG_H
-    fx    = cam_z / mpp_x   # pixels per metre at distance cam_z → focal length
-    fy    = cam_z / mpp_y
+    fov_h           = 2.0 * math.atan((APERTURE_MM / 2.0) / FOCAL_MM)
+    fov_v           = fov_h * (IMG_H / IMG_W)
+    tan_half_fov_x  = math.tan(fov_h / 2.0)
+    tan_half_fov_y  = math.tan(fov_v / 2.0)
+    fx_px           = (IMG_W / 2.0) / tan_half_fov_x
+    fy_px           = (IMG_H / 2.0) / tan_half_fov_y
+    mpp_x_at_cam_z  = (2.0 * cam_z * tan_half_fov_x) / IMG_W
+    mpp_y_at_cam_z  = (2.0 * cam_z * tan_half_fov_y) / IMG_H
     return {
-        "fx":    fx,
-        "fy":    fy,
-        "cx_px": IMG_W / 2.0,
-        "cy_px": IMG_H / 2.0,
-        "mpp_x": mpp_x,
-        "mpp_y": mpp_y,
-        "cam_z": cam_z,
+        "cx_px":          IMG_W / 2.0,
+        "cy_px":          IMG_H / 2.0,
+        "fx_px":          fx_px,
+        "fy_px":          fy_px,
+        "tan_half_fov_x": tan_half_fov_x,
+        "tan_half_fov_y": tan_half_fov_y,
+        "mpp_x":          mpp_x_at_cam_z,   # diagnostic only
+        "mpp_y":          mpp_y_at_cam_z,   # diagnostic only
+        "cam_z":          cam_z,
     }
 
 
@@ -802,24 +813,40 @@ def depth_to_pointcloud(depth, mask, intrinsics, surface_z, cam_xy: tuple,
     if len(xs) == 0:
         raise RuntimeError("[pointcloud] mask is empty — cannot build point cloud")
 
-    mpp_x  = intrinsics["mpp_x"]
-    mpp_y  = intrinsics["mpp_y"]
-    cx_px  = intrinsics["cx_px"]
-    cy_px  = intrinsics["cy_px"]
-    cam_z  = intrinsics["cam_z"]
+    cx_px = intrinsics["cx_px"]
+    cy_px = intrinsics["cy_px"]
+    fx_px = intrinsics["fx_px"]
+    fy_px = intrinsics["fy_px"]
 
-    # Back-project to world XY using the pinhole model.
-    # Camera X/Y world position is cam_xy (the actually-active stage pose);
-    # pixel offset scales by mpp.
+    # Per-pixel depth from the depth image.  This is the geometric scale
+    # source for XY back-projection: each pixel's metric position depends on
+    # its OWN depth, not on the support depth.  Using surface_z for every
+    # pixel inflates piece XY by a factor of (surface_z / piece_depth) when
+    # the piece sits significantly above the support.
+    z_px = depth[ys, xs].astype(np.float64)
+
+    # Standard pinhole back-projection (depth-dependent):
+    #   x = cam_x + (u - cx) / fx_px * z_px
+    #   y = cam_y - (v - cy) / fy_px * z_px       (image V flips world Y)
     cam_x, cam_y = cam_xy
-    world_x = cam_x + (xs.astype(np.float64) - cx_px) * mpp_x
-    world_y = cam_y - (ys.astype(np.float64) - cy_px) * mpp_y  # image V flips Y
+    world_x = cam_x + (xs.astype(np.float64) - cx_px) / fx_px * z_px
+    world_y = cam_y - (ys.astype(np.float64) - cy_px) / fy_px * z_px
 
     # Z = height of piece top above support surface
     # depth[y,x] is distance to camera; surface is at surface_z from camera.
     # Points closer to camera → smaller depth value → larger height.
-    world_z = surface_z - depth[ys, xs].astype(np.float64)
+    world_z = surface_z - z_px
     world_z = np.clip(world_z, 0.0, None)   # clip numerical noise below surface
+
+    # Per-piece-depth diagnostics (used for metadata + console).
+    piece_depth_median = float(np.median(z_px))
+    piece_height_min   = float(world_z.min())
+    piece_height_max   = float(world_z.max())
+    piece_height_med   = float(np.median(world_z))
+    print(f"[pointcloud] support_z={surface_z:.4f} m  "
+          f"piece_depth_median={piece_depth_median:.4f} m  "
+          f"piece_height_median={piece_height_med*1000:.1f} mm  "
+          f"(min={piece_height_min*1000:.1f} mm, max={piece_height_max*1000:.1f} mm)")
 
     # Centre XY around piece centroid
     cx_obj = float(world_x.mean())
@@ -844,7 +871,20 @@ def depth_to_pointcloud(depth, mask, intrinsics, surface_z, cam_xy: tuple,
           f"(height above surface)")
     print(f"  centroid_world=({cx_obj:.4f}, {cy_obj:.4f})")
 
-    return points, (cx_obj, cy_obj)
+    pc_info = {
+        "projection_depth_mode": "per_pixel_depth",
+        "support_surface_depth_m": float(surface_z),
+        "piece_depth_median_m":   piece_depth_median,
+        "piece_height_min_m":     piece_height_min,
+        "piece_height_max_m":     piece_height_max,
+        "piece_height_median_m":  piece_height_med,
+        "xy_projection_note": (
+            "world_x = cam_x + (u - cx)/fx_px * depth_px; "
+            "world_y = cam_y - (v - cy)/fy_px * depth_px; "
+            "depth_px is the per-pixel distance_to_image_plane value."
+        ),
+    }
+    return points, (cx_obj, cy_obj), pc_info
 
 
 # ── FOOTPRINT IMAGE ───────────────────────────────────────────────────────────
@@ -1059,7 +1099,8 @@ def save_metadata(out_dir, success, best_mask, blob_stats, points,
                   centroid_world, surface_z, n_valid_components=0,
                   selected_rank=-1, error_msg=None, camera_pose: dict = None,
                   piece_roi: tuple = None, piece_roi_expanded: tuple = None,
-                  surface_info: dict = None, raw_piece_mask_area: int = 0):
+                  surface_info: dict = None, raw_piece_mask_area: int = 0,
+                  pc_info: dict = None):
     """
     Write piece_metadata.json conforming to the experiments.md conventions.
 
@@ -1155,6 +1196,20 @@ def save_metadata(out_dir, success, best_mask, blob_stats, points,
             ((piece_roi_expanded[2] - piece_roi_expanded[0]) *
              (piece_roi_expanded[3] - piece_roi_expanded[1]))
             if piece_roi_expanded is not None and raw_piece_mask_area > 0 else 0.0),
+        "projection_depth_mode":      (pc_info or {}).get(
+            "projection_depth_mode", "unknown"),
+        "support_surface_depth_m":    (pc_info or {}).get(
+            "support_surface_depth_m", float(surface_z)),
+        "piece_depth_median_m":       (pc_info or {}).get(
+            "piece_depth_median_m", None),
+        "piece_height_min_m":         (pc_info or {}).get(
+            "piece_height_min_m", None),
+        "piece_height_max_m":         (pc_info or {}).get(
+            "piece_height_max_m", None),
+        "piece_height_median_m":      (pc_info or {}).get(
+            "piece_height_median_m", None),
+        "xy_projection_note":         (pc_info or {}).get(
+            "xy_projection_note", ""),
         "n_valid_components":        n_valid_components,
         "multiple_valid_components": n_valid_components > 1,
         "piece_selection_mode":      PIECE_SELECTION_MODE,
@@ -1247,6 +1302,7 @@ async def main():
     piece_roi          = None    # (x1, y1, x2, y2, source)
     piece_roi_expanded = None    # ROI used for mask restriction
     surface_info       = None    # info dict from estimate_support_surface_depth
+    pc_info            = None    # info dict from depth_to_pointcloud
 
     try:
         # ── Step 1: Camera setup ──────────────────────────────────────────────
@@ -1357,8 +1413,10 @@ async def main():
 
         # ── Step 6: Point cloud ───────────────────────────────────────────────
         print("\n--- Step 6: Build point cloud ---")
+        # cam_z passed to compute_intrinsics is now used only for the
+        # diagnostic mpp fields; the actual back-projection is per-pixel.
         intrinsics = compute_intrinsics(surface_z)
-        points, centroid_w = depth_to_pointcloud(
+        points, centroid_w, pc_info = depth_to_pointcloud(
             depth, best_mask, intrinsics, surface_z,
             cam_xy=active_cam_xy, n_samples=N_POINTS)
 
@@ -1437,7 +1495,8 @@ async def main():
                       piece_roi_expanded=piece_roi_expanded,
                       surface_info=surface_info,
                       raw_piece_mask_area=int(raw_mask.sum())
-                      if raw_mask is not None else 0)
+                      if raw_mask is not None else 0,
+                      pc_info=pc_info)
 
         print("\n" + "=" * 60)
         print(f"  success={success}")
