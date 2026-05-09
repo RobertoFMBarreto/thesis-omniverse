@@ -3,12 +3,12 @@
   "camera_prim_path": "/World/Camera",
   "requested_pose": {
     "position_m": [
-      -0.25,
+      -0.25003,
       0.45,
       0.9525
     ],
     "look_at_m": [
-      -0.25,
+      -0.25003,
       0.45,
       0.4525
     ],
@@ -20,7 +20,7 @@
   },
   "measured_pose_read_back_from_stage": {
     "position": [
-      -0.25,
+      -0.25003,
       0.45,
       0.9525
     ],
@@ -47,20 +47,20 @@
   "run_id": "6c7226cb",
   "phase_note": "sequential-camera proof-of-life; not final static multi-camera architecture",
   "target_mode": "auto_prim_bbox",
-  "selected_target_prim_path": "/World/Rectangle",
+  "selected_target_prim_path": "/World/Circle",
   "target_bbox_center_world_m": [
-    -0.25,
+    -0.25003,
     0.45,
     0.4525
   ],
   "target_bbox_size_mm": [
-    50.0,
-    75.0,
+    49.939,
+    49.97,
     105.0
   ],
   "target_bbox_method": "BBoxCache",
   "requested_look_at": [
-    -0.25,
+    -0.25003,
     0.45,
     0.4525
   ],
@@ -69,14 +69,14 @@
     0.0,
     0.5
   ],
-  "target_piece_name": "rectangle",
+  "target_piece_name": "circle",
   "visibility_control_enabled": true,
   "hidden_piece_prim_paths": [
+    "/World/Rectangle",
     "/World/Square",
-    "/World/Circle",
     "/World/Triangle"
   ],
-  "shown_target_prim_path": "/World/Rectangle",
+  "shown_target_prim_path": "/World/Circle",
   "note": "Piece identity used only for experimental scene setup, not for perception/matching.",
   "cad_sanity_warning": false
 }

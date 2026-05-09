@@ -43,8 +43,8 @@
   "depth_valid_min_m": 0.4355,
   "depth_valid_max_m": 1.8405,
   "n_valid_depth_pixels": 307200,
-  "timestamp_utc": "2026-05-09T14:19:09.155747+00:00",
-  "run_id": "aa05e41f",
+  "timestamp_utc": "2026-05-09T14:59:21.469978+00:00",
+  "run_id": "6c7226cb",
   "phase_note": "sequential-camera proof-of-life; not final static multi-camera architecture",
   "target_mode": "auto_prim_bbox",
   "selected_target_prim_path": "/World/Rectangle",
@@ -68,5 +68,15 @@
     0.0,
     -0.3,
     0.4
-  ]
+  ],
+  "target_piece_name": "rectangle",
+  "visibility_control_enabled": true,
+  "hidden_piece_prim_paths": [
+    "/World/Square",
+    "/World/Circle",
+    "/World/Triangle"
+  ],
+  "shown_target_prim_path": "/World/Rectangle",
+  "note": "Piece identity used only for experimental scene setup, not for perception/matching.",
+  "cad_sanity_warning": false
 }

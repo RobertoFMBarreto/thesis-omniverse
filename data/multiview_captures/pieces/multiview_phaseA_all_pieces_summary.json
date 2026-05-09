@@ -1,0 +1,83 @@
+{
+  "script_name": "capture_multiview_piece.py",
+  "phase": "A",
+  "phase_note": "sequential-camera proof-of-life; not final static multi-camera architecture",
+  "run_id": "6c7226cb",
+  "timestamp_utc": "2026-05-09T14:59:21.469978+00:00",
+  "n_pieces_attempted": 4,
+  "n_pieces_succeeded": 4,
+  "success_overall": true,
+  "pieces": [
+    {
+      "piece_name": "rectangle",
+      "selected_prim_path": "/World/Rectangle",
+      "bbox_size_mm": [
+        50.0,
+        75.0,
+        105.0
+      ],
+      "bbox_method": "BBoxCache",
+      "views_succeeded": 3,
+      "views_total": 3,
+      "success": true,
+      "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle",
+      "cad_sanity_warning": false,
+      "cad_sanity_message": null,
+      "error_message": null
+    },
+    {
+      "piece_name": "square",
+      "selected_prim_path": "/World/Square",
+      "bbox_size_mm": [
+        50.0,
+        50.0,
+        105.0
+      ],
+      "bbox_method": "BBoxCache",
+      "views_succeeded": 3,
+      "views_total": 3,
+      "success": true,
+      "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/square",
+      "cad_sanity_warning": false,
+      "cad_sanity_message": null,
+      "error_message": null
+    },
+    {
+      "piece_name": "circle",
+      "selected_prim_path": "/World/Circle",
+      "bbox_size_mm": [
+        49.939,
+        49.97,
+        105.0
+      ],
+      "bbox_method": "BBoxCache",
+      "views_succeeded": 3,
+      "views_total": 3,
+      "success": true,
+      "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/circle",
+      "cad_sanity_warning": false,
+      "cad_sanity_message": null,
+      "error_message": null
+    },
+    {
+      "piece_name": "triangle",
+      "selected_prim_path": "/World/Triangle",
+      "bbox_size_mm": [
+        50.0,
+        50.0,
+        105.0
+      ],
+      "bbox_method": "BBoxCache",
+      "views_succeeded": 3,
+      "views_total": 3,
+      "success": true,
+      "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/triangle",
+      "cad_sanity_warning": false,
+      "cad_sanity_message": null,
+      "error_message": null
+    }
+  ],
+  "pieces_output_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces",
+  "visibility_control_enabled": true,
+  "note": "Piece identity used only for experimental scene setup, not for perception/matching."
+}

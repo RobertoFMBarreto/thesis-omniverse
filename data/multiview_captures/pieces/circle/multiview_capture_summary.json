@@ -4,37 +4,37 @@
   "phase_note": "sequential-camera proof-of-life; not final static multi-camera architecture",
   "run_id": "6c7226cb",
   "timestamp_utc": "2026-05-09T14:59:21.469978+00:00",
-  "piece": "rectangle",
+  "piece": "circle",
   "n_views_requested": 3,
   "n_views_succeeded": 3,
   "success": true,
   "target_resolution": {
     "target_mode": "auto_prim_bbox",
-    "selected_target_prim_path": "/World/Rectangle",
+    "selected_target_prim_path": "/World/Circle",
     "target_prim_type_name": "Xform",
     "bbox_min_m": [
       -0.275,
-      0.4125,
+      0.425015,
       0.4
     ],
     "bbox_max_m": [
-      -0.225,
-      0.4875,
+      -0.225061,
+      0.474985,
       0.505
     ],
     "bbox_center_m": [
-      -0.25,
+      -0.25003,
       0.45,
       0.4525
     ],
     "bbox_size_m": [
-      0.05,
-      0.075,
+      0.049939,
+      0.04997,
       0.105
     ],
     "bbox_size_mm": [
-      50.0,
-      75.0,
+      49.939,
+      49.97,
       105.0
     ],
     "bbox_method": "BBoxCache",
@@ -47,12 +47,12 @@
       "prim_path": "/World/Camera",
       "requested_pose": {
         "position_m": [
-          -0.25,
+          -0.25003,
           0.45,
           0.9525
         ],
         "look_at_m": [
-          -0.25,
+          -0.25003,
           0.45,
           0.4525
         ],
@@ -64,7 +64,7 @@
       },
       "measured_pose": {
         "position": [
-          -0.25,
+          -0.25003,
           0.45,
           0.9525
         ],
@@ -89,7 +89,7 @@
       "depth_valid_min_m": 0.4475,
       "depth_valid_max_m": 0.9525,
       "n_valid_depth_pixels": 307200,
-      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/view_00_top_down",
+      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/circle/view_00_top_down",
       "ok": true,
       "error_message": null,
       "camera_offset_from_target": [
@@ -104,12 +104,12 @@
       "prim_path": "/World/Camera",
       "requested_pose": {
         "position_m": [
-          -0.25,
+          -0.25003,
           0.15000000000000002,
           0.8525
         ],
         "look_at_m": [
-          -0.25,
+          -0.25003,
           0.45,
           0.4525
         ],
@@ -121,7 +121,7 @@
       },
       "measured_pose": {
         "position": [
-          -0.25,
+          -0.25003,
           0.15,
           0.8525
         ],
@@ -143,10 +143,10 @@
         "cy_px": 240.0,
         "model": "pinhole_square_pixels"
       },
-      "depth_valid_min_m": 0.4355,
+      "depth_valid_min_m": 0.4433,
       "depth_valid_max_m": 1.8405,
       "n_valid_depth_pixels": 307200,
-      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/view_01_front_oblique",
+      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/circle/view_01_front_oblique",
       "ok": true,
       "error_message": null,
       "camera_offset_from_target": [
@@ -161,12 +161,12 @@
       "prim_path": "/World/Camera",
       "requested_pose": {
         "position_m": [
-          0.04999999999999999,
+          0.049970000000000014,
           0.45,
           0.8525
         ],
         "look_at_m": [
-          -0.25,
+          -0.25003,
           0.45,
           0.4525
         ],
@@ -178,7 +178,7 @@
       },
       "measured_pose": {
         "position": [
-          0.05,
+          0.04997,
           0.45,
           0.8525
         ],
@@ -203,7 +203,7 @@
       "depth_valid_min_m": 0.3622,
       "depth_valid_max_m": 2.4308,
       "n_valid_depth_pixels": 307200,
-      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/view_02_side_oblique",
+      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/circle/view_02_side_oblique",
       "ok": true,
       "error_message": null,
       "camera_offset_from_target": [
@@ -214,14 +214,14 @@
     }
   ],
   "inputs_dir": "/World/Camera",
-  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle",
+  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/circle",
   "visibility_control_enabled": true,
   "hidden_piece_prim_paths": [
+    "/World/Rectangle",
     "/World/Square",
-    "/World/Circle",
     "/World/Triangle"
   ],
-  "shown_target_prim_path": "/World/Rectangle",
+  "shown_target_prim_path": "/World/Circle",
   "note": "Piece identity used only for experimental scene setup, not for perception/matching.",
   "cad_sanity_warning": false
 }
