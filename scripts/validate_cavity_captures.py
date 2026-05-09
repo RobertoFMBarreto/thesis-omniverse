@@ -148,7 +148,7 @@ def check_metadata(cavity_dir: Path) -> dict:
     return result
 
 
-def check_pointcloud(cavity_dir: Path) -> dict:
+def check_pointcloud(cavity_dir: Path, is_opening: bool = False) -> dict:
     """
     Checks 2, 6, 7, 8: .npy exists, shape correct, no NaN/Inf, bounds sane.
     Z convention: Z = depth - board_surface_z, positive into the cavity,
@@ -213,6 +213,7 @@ def check_pointcloud(cavity_dir: Path) -> dict:
         y_span = float(pc[:, 1].max() - pc[:, 1].min())
         z_span = float(pc[:, 2].max() - pc[:, 2].min())
         z_max  = float(pc[:, 2].max())
+        z_min  = float(pc[:, 2].min())
 
         result["x_span_m"] = x_span
         result["y_span_m"] = y_span
@@ -230,8 +231,21 @@ def check_pointcloud(cavity_dir: Path) -> dict:
             xy_issues.append("X span == 0")
         if y_span <= 0.0:
             xy_issues.append("Y span == 0")
-        if z_max <= 0.0:
-            z_issues.append(f"Z max={z_max:.6f} <= 0 (cavities must have positive depth)")
+        if is_opening:
+            # Opening representation lives on the board top plane: Z is
+            # expected to be ~0.  Only flag impossible NEGATIVE Z extents.
+            if z_min < -1e-6:
+                z_issues.append(f"Z min={z_min:.6f} < 0 (opening should be at Z=0)")
+            if z_max > 1e-3:
+                z_issues.append(
+                    f"Z max={z_max:.6f} > 1mm (opening pointcloud should be flat)")
+        else:
+            # Auxiliary depth representation: cavity floor below the board
+            # surface — Z must be positive.
+            if z_max <= 0.0:
+                z_issues.append(
+                    f"Z max={z_max:.6f} <= 0 (depth pointcloud must have "
+                    f"positive Z = depth_px - board_surface_z)")
         if z_span < 0.0:
             z_issues.append("Z span < 0")
 
@@ -269,6 +283,150 @@ def check_image_exists(cavity_dir: Path, filename: str) -> tuple:
     return True, ""
 
 
+def check_depth_pointcloud(cavity_dir: Path, meta_content: dict) -> dict:
+    """
+    Inspect the auxiliary cavity_depth_pointcloud.npy and per-cavity depth
+    metadata fields.  Reports whether a depth representation is available,
+    NEVER fails the cavity (this is auxiliary).
+
+    Returns:
+      available     — bool
+      reason        — short string explaining absence
+      n_unique_pts  — int (deduplicated by 0.1 mm rounding; replicated samples
+                            from sampling-with-replacement aren't real depth)
+      depth_area_px — int from metadata (None if missing)
+      z_max_m       — float or None
+    """
+    result = {
+        "available":     False,
+        "reason":        "",
+        "n_unique_pts":  0,
+        "depth_area_px": meta_content.get("depth_area_px"),
+        "z_max_m":       meta_content.get("z_depth_max_m"),
+    }
+
+    p = cavity_dir / "cavity_depth_pointcloud.npy"
+    if not p.exists():
+        result["reason"] = "cavity_depth_pointcloud.npy not found"
+        return result
+    try:
+        pc = np.load(str(p))
+    except Exception as exc:
+        result["reason"] = f"could not load: {exc}"
+        return result
+
+    if pc.ndim != 2 or pc.shape[1] != 3:
+        result["reason"] = f"depth pointcloud has unexpected shape {pc.shape}"
+        return result
+    # Deduplicate at 0.1 mm to ignore the with-replacement padding.
+    rounded = np.unique(np.round(pc, decimals=4), axis=0)
+    n_unique = int(rounded.shape[0])
+    result["n_unique_pts"] = n_unique
+
+    z_max = float(pc[:, 2].max()) if pc.size else 0.0
+    if n_unique <= 1 and z_max <= 1e-6:
+        result["reason"] = ("depth pointcloud is degenerate (≤1 unique point, "
+                            "Z≈0) — camera sees no pixels deeper than the "
+                            "board top + tolerance")
+        return result
+
+    da = result["depth_area_px"]
+    if da is not None and da == 0:
+        result["reason"] = ("metadata.depth_area_px = 0 — no pixels in this "
+                            "cavity's opening reach the depth-band threshold")
+        return result
+
+    result["available"] = True
+    return result
+
+
+# ── CAD scale check ──────────────────────────────────────────────────────────
+
+_CAD_PATH  = PROJECT_ROOT / "data" / "expected_cad_dimensions.json"
+_CAD_CACHE = None
+
+
+def _load_cad_cavities() -> list:
+    """Return list of CAD cavity x_span, y_span pairs in metres.  Cached."""
+    global _CAD_CACHE
+    if _CAD_CACHE is not None:
+        return _CAD_CACHE
+    if not _CAD_PATH.exists():
+        _CAD_CACHE = []
+        return _CAD_CACHE
+    try:
+        with open(_CAD_PATH) as f:
+            cad = json.load(f)
+    except Exception:
+        _CAD_CACHE = []
+        return _CAD_CACHE
+    cavs = (cad.get("cavities") or {})
+    out = []
+    for name, entry in cavs.items():
+        x = entry.get("x_span_m")
+        y = entry.get("y_span_m")
+        if x is not None and y is not None:
+            out.append((name, float(x), float(y)))
+    _CAD_CACHE = out
+    return out
+
+
+def check_cad_scale(meta_content: dict, tol: float = 0.10) -> dict:
+    """
+    Compare measured opening_xy_span_m against any CAD cavity span (any
+    orientation).  No shape→cavity mapping is hardcoded — the cavity passes
+    if its measured span matches at least one CAD cavity within ±`tol`.
+
+    Returns:
+      checked         — bool (False if no CAD reference available)
+      ok              — bool (None if not checked, else True/False)
+      best_match_name — string name of the closest CAD cavity, or ""
+      max_rel_err     — float, the worst dimensional relative error vs the
+                         best match (0.10 = 10%)
+      warning         — short string (empty when ok)
+    """
+    result = {
+        "checked":         False,
+        "ok":              None,
+        "best_match_name": "",
+        "max_rel_err":     None,
+        "warning":         "",
+    }
+    cad = _load_cad_cavities()
+    if not cad:
+        return result
+    span = meta_content.get("opening_xy_span_m") or meta_content.get("xy_span_m")
+    if not span:
+        result["warning"] = "no opening_xy_span_m in metadata"
+        return result
+    mx = float(span.get("x", 0.0))
+    my = float(span.get("y", 0.0))
+    if mx <= 0 or my <= 0:
+        result["warning"] = f"degenerate measured span ({mx}, {my})"
+        return result
+
+    result["checked"] = True
+    best = None  # (max_rel_err, name)
+    for name, cx, cy in cad:
+        # Try both orientations; take the smaller worst-axis error.
+        for tx, ty in ((cx, cy), (cy, cx)):
+            ex = abs(mx - tx) / tx
+            ey = abs(my - ty) / ty
+            err = max(ex, ey)
+            if best is None or err < best[0]:
+                best = (err, name)
+    err, name = best
+    result["best_match_name"] = name
+    result["max_rel_err"]     = err
+    result["ok"]              = err <= tol
+    if not result["ok"]:
+        result["warning"] = (
+            f"measured opening ({mx*1000:.2f}×{my*1000:.2f} mm) is "
+            f"{err*100:.1f}% away from nearest CAD cavity "
+            f"'{name}' (>{tol*100:.0f}% tolerance)")
+    return result
+
+
 def check_footprint_nonempty(cavity_dir: Path) -> tuple:
     """
     Check 9: cavity_footprint.png is readable and has at least one non-zero pixel.
@@ -304,12 +462,16 @@ def validate_cavity(cavity_name: str) -> dict:
         "footprint_exists": False,
         "debug_exists": False,
         "mask_exists": False,
+        # Representation type (NEW)
+        "pointcloud_type": "unknown",
+        "primary_matching_representation": None,
         # Point cloud
         "pc_shape_ok": False,
         "pc_no_nan": False,
         "pc_no_inf": False,
         "pc_xy_ok": False,
-        "pc_z_ok": False,
+        "primary_z_ok": False,   # renamed from pc_z_ok
+        "pc_z_ok": False,        # legacy alias kept for any downstream consumers
         "pc_n_points": 0,
         "pc_x_span_m": 0.0,
         "pc_y_span_m": 0.0,
@@ -318,6 +480,14 @@ def validate_cavity(cavity_name: str) -> dict:
         "pc_z_span_m": 0.0,
         "pc_x_min": 0.0, "pc_x_max": 0.0,
         "pc_y_min": 0.0, "pc_y_max": 0.0,
+        # Opening / depth (NEW)
+        "opening_xy_span_m":     None,
+        "depth_available":       False,
+        "depth_warning":         "",
+        # CAD scale (NEW)
+        "cad_scale_checked":     False,
+        "cad_scale_ok":          None,
+        "cad_scale_warning":     "",
         # Footprint
         "footprint_ok": False,
         # Advisory metadata
@@ -358,14 +528,29 @@ def validate_cavity(cavity_name: str) -> dict:
             "point_count":      mc.get("point_count"),
         }
 
-    # Checks 2, 6, 7, 8: point cloud
-    pc_check = check_pointcloud(cavity_dir)
+    # ── Representation type from metadata ───────────────────────────────────
+    mc = meta_check.get("content") or {}
+    pmr = mc.get("primary_matching_representation")
+    fs  = mc.get("footprint_source")
+    is_opening = (pmr == "cavity_opening_pointcloud") \
+        or (fs == "opening_from_board_region") \
+        or (mc.get("xy_projection_depth_mode") == "board_surface_depth")
+    pc_type = mc.get("pointcloud_type") or (
+        "opening_on_board_plane" if is_opening else "unknown"
+    )
+    result["pointcloud_type"]                  = pc_type
+    result["primary_matching_representation"]  = pmr
+    result["opening_xy_span_m"]                = mc.get("opening_xy_span_m")
+
+    # Checks 2, 6, 7, 8: point cloud (z rule depends on representation type)
+    pc_check = check_pointcloud(cavity_dir, is_opening=is_opening)
     result["pc_exists"]   = pc_check["exists"]
     result["pc_shape_ok"] = pc_check["shape_ok"]
     result["pc_no_nan"]   = pc_check["no_nan"]
     result["pc_no_inf"]   = pc_check["no_inf"]
     result["pc_xy_ok"]    = pc_check["xy_ok"]
-    result["pc_z_ok"]     = pc_check["z_ok"]
+    result["primary_z_ok"] = pc_check["z_ok"]
+    result["pc_z_ok"]      = pc_check["z_ok"]   # legacy alias
     result["pc_n_points"] = pc_check["n_points"]
     result["pc_x_span_m"] = pc_check["x_span_m"]
     result["pc_y_span_m"] = pc_check["y_span_m"]
@@ -417,7 +602,28 @@ def validate_cavity(cavity_name: str) -> dict:
         and result["mask_exists"]
     )
 
-    # Overall pass: all mandatory checks must pass
+    # ── Auxiliary depth representation (advisory, never fails) ──────────────
+    depth_check = check_depth_pointcloud(cavity_dir, mc)
+    result["depth_available"] = depth_check["available"]
+    result["depth_warning"]   = depth_check["reason"]
+    if not depth_check["available"]:
+        # Surface as a non-fatal note in `reasons` for visibility but do NOT
+        # affect overall_pass.
+        result["reasons"].append(
+            f"NOTE: depth representation unavailable or degenerate; "
+            f"opening representation still valid for Baseline 1. "
+            f"({depth_check['reason'] or 'no reason'})")
+
+    # ── CAD scale check (advisory, never fails) ─────────────────────────────
+    cad_check = check_cad_scale(mc, tol=0.10)
+    result["cad_scale_checked"] = cad_check["checked"]
+    result["cad_scale_ok"]      = cad_check["ok"]
+    result["cad_scale_warning"] = cad_check["warning"]
+    if cad_check["checked"] and cad_check["ok"] is False:
+        result["reasons"].append("WARNING: " + cad_check["warning"])
+
+    # Overall pass: structural checks only.  Depth availability and CAD scale
+    # are advisory — opening representations with Z=0 are valid for Baseline 1.
     result["overall_pass"] = (
         result["folder_exists"]
         and result["metadata_ok"]

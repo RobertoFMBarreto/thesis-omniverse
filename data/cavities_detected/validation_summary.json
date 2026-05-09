@@ -26,38 +26,32 @@
       "metadata_ok": true,
       "overall_pass": true,
       "pc_bounds": {
-        "x_min": -0.005406938958913088,
-        "x_max": 0.005266498774290085,
-        "y_min": -0.005145424976944923,
-        "y_max": 0.005625083111226559,
-        "z_min": 0.000499965448398143,
-        "z_max": 0.020500095561146736,
-        "x_span": 0.010673437267541885,
-        "y_span": 0.010770508088171482,
-        "z_span": 0.02000012993812561
+        "x_min": -0.02509804628789425,
+        "x_max": 0.02509804628789425,
+        "y_min": -0.0376470685005188,
+        "y_max": 0.0376470685005188,
+        "z_min": 0.0,
+        "z_max": 0.0,
+        "x_span": 0.0501960925757885,
+        "y_span": 0.0752941370010376,
+        "z_span": 0.0
       },
       "metadata_excerpt": {
         "cavity_id": 0,
-        "area_px": 114,
+        "area_px": 6700,
         "centroid_world_m": {
-          "x": 0.26850225123355265,
-          "y": 0.01952993489093708
+          "x": 0.262733203125,
+          "y": 0.038407617187500014
         },
-        "xy_span_m": {
-          "x": 0.010673437267541885,
-          "y": 0.010770508088171482
-        },
-        "z_depth_range_m": {
-          "min": 0.000499965448398143,
-          "max": 0.020500095561146736
-        },
+        "xy_span_m": null,
+        "z_depth_range_m": null,
         "point_count": 2048
       },
       "advisory_fields": {
         "cavity_id": "present",
         "centroid_world_m": "present",
-        "xy_span_m": "present",
-        "z_depth_range_m": "present"
+        "xy_span_m": "absent",
+        "z_depth_range_m": "absent"
       },
       "failure_reasons": []
     },
@@ -73,38 +67,32 @@
       "metadata_ok": true,
       "overall_pass": true,
       "pc_bounds": {
-        "x_min": -0.009783984161913395,
-        "x_max": 0.009783984161913395,
-        "y_min": -0.015741512179374695,
-        "y_max": 0.015741512179374695,
-        "z_min": 0.004410089924931526,
-        "z_max": 0.020500095561146736,
-        "x_span": 0.01956796832382679,
-        "y_span": 0.03148302435874939,
-        "z_span": 0.01609000563621521
+        "x_min": -0.024405095726251602,
+        "x_max": 0.025030450895428658,
+        "y_min": -0.016588006168603897,
+        "y_max": 0.03284754231572151,
+        "z_min": 0.0,
+        "z_max": 0.0,
+        "x_span": 0.04943554848432541,
+        "y_span": 0.04943554848432541,
+        "z_span": 0.0
       },
       "metadata_excerpt": {
         "cavity_id": 1,
-        "area_px": 897,
+        "area_px": 2239,
         "centroid_world_m": {
-          "x": 0.30312070312499995,
-          "y": 0.017698512520371645
+          "x": 0.33733439349318894,
+          "y": 0.02723566254466281
         },
-        "xy_span_m": {
-          "x": 0.01956796832382679,
-          "y": 0.03148302435874939
-        },
-        "z_depth_range_m": {
-          "min": 0.004410089924931526,
-          "max": 0.020500095561146736
-        },
+        "xy_span_m": null,
+        "z_depth_range_m": null,
         "point_count": 2048
       },
       "advisory_fields": {
         "cavity_id": "present",
         "centroid_world_m": "present",
-        "xy_span_m": "present",
-        "z_depth_range_m": "present"
+        "xy_span_m": "absent",
+        "z_depth_range_m": "absent"
       },
       "failure_reasons": []
     },
@@ -120,38 +108,32 @@
       "metadata_ok": true,
       "overall_pass": true,
       "pc_bounds": {
-        "x_min": -0.00893633347004652,
-        "x_max": 0.009742182679474354,
-        "y_min": -0.008436429314315319,
-        "y_max": 0.008962083607912064,
-        "z_min": 0.0032199935521930456,
-        "z_max": 0.020500095561146736,
-        "x_span": 0.018678516149520874,
-        "y_span": 0.017398513853549957,
-        "z_span": 0.017280101776123047
+        "x_min": -0.02509804628789425,
+        "x_max": 0.02509804628789425,
+        "y_min": -0.024717774242162704,
+        "y_max": 0.024717774242162704,
+        "z_min": 0.0,
+        "z_max": 0.0,
+        "x_span": 0.0501960925757885,
+        "y_span": 0.04943554848432541,
+        "z_span": 0.0
       },
       "metadata_excerpt": {
         "cavity_id": 2,
-        "area_px": 383,
+        "area_px": 4422,
         "centroid_world_m": {
-          "x": 0.26847383322454305,
-          "y": -0.021918093012151828
+          "x": 0.2627332031249999,
+          "y": -0.049055273437500026
         },
-        "xy_span_m": {
-          "x": 0.018678516149520874,
-          "y": 0.017398513853549957
-        },
-        "z_depth_range_m": {
-          "min": 0.0032199935521930456,
-          "max": 0.020500095561146736
-        },
+        "xy_span_m": null,
+        "z_depth_range_m": null,
         "point_count": 2048
       },
       "advisory_fields": {
         "cavity_id": "present",
         "centroid_world_m": "present",
-        "xy_span_m": "present",
-        "z_depth_range_m": "present"
+        "xy_span_m": "absent",
+        "z_depth_range_m": "absent"
       },
       "failure_reasons": []
     },
@@ -167,40 +149,36 @@
       "metadata_ok": true,
       "overall_pass": true,
       "pc_bounds": {
-        "x_min": -0.009783984161913395,
-        "x_max": 0.009783984161913395,
-        "y_min": -0.008699255995452404,
-        "y_max": 0.008699255995452404,
-        "z_min": 0.006466003134846687,
-        "z_max": 0.020500095561146736,
-        "x_span": 0.01956796832382679,
-        "y_span": 0.017398511990904808,
-        "z_span": 0.014034092426300049
+        "x_min": -0.030158767476677895,
+        "x_max": 0.030684981495141983,
+        "y_min": -0.03038262203335762,
+        "y_max": 0.030461126938462257,
+        "z_min": 0.0,
+        "z_max": 0.0,
+        "x_span": 0.06084375083446503,
+        "y_span": 0.06084375083446503,
+        "z_span": 0.0
       },
       "metadata_excerpt": {
         "cavity_id": 3,
-        "area_px": 506,
+        "area_px": 5154,
         "centroid_world_m": {
-          "x": 0.30312070312499995,
-          "y": -0.0216552657995166
+          "x": 0.33700368956453725,
+          "y": -0.04947479900320142
         },
-        "xy_span_m": {
-          "x": 0.01956796832382679,
-          "y": 0.017398511990904808
-        },
-        "z_depth_range_m": {
-          "min": 0.006466003134846687,
-          "max": 0.020500095561146736
-        },
+        "xy_span_m": null,
+        "z_depth_range_m": null,
         "point_count": 2048
       },
       "advisory_fields": {
         "cavity_id": "present",
         "centroid_world_m": "present",
-        "xy_span_m": "present",
-        "z_depth_range_m": "present"
+        "xy_span_m": "absent",
+        "z_depth_range_m": "absent"
       },
-      "failure_reasons": []
+      "failure_reasons": [
+        "WARNING: measured opening (60.84\u00d760.84 mm) is 19.3% away from nearest CAD cavity 'square' (>10% tolerance)"
+      ]
     }
   ]
 }
