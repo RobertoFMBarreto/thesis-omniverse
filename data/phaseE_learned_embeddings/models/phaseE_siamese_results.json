@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "script_name": "train_phaseE_siamese_embedding.py",
+  "phase": "Phase E.2 \u2014 siamese SDF embedding training",
+  "phase_note": "The model learns a geometric compatibility embedding from SDF footprints; it does NOT learn robot control or visual perception. Single training run; no hyperparameter tuning.",
+  "timestamp_utc": "2026-05-09T22:33:37.812773+00:00",
+  "device": "cuda",
+  "n_params": 31649,
+  "config": {
+    "seed": 0,
+    "embed_dim": 64,
+    "batch_size": 256,
+    "learning_rate": 0.001,
+    "max_epochs": 20,
+    "early_stop_patience": 3,
+    "pos_weight_value": 3.817111459968603,
+    "sdf_int8_scale": 6.35,
+    "sdf_norm_div_mm": 20.0
+  },
+  "best_epoch": 6,
+  "best_val_f1": 0.549145,
+  "curves": [
+    {
+      "epoch": 1,
+      "train_loss": 1.07857,
+      "val_loss": 0.673379,
+      "val_f1": 0.4,
+      "val_acc": 0.694785,
+      "val_pos_rate_pred": 0.293712
+    },
+    {
+      "epoch": 2,
+      "train_loss": 1.048149,
+      "val_loss": 0.672986,
+      "val_f1": 0.416102,
+      "val_acc": 0.625511,
+      "val_pos_rate_pred": 0.42638
+    },
+    {
+      "epoch": 3,
+      "train_loss": 1.022167,
+      "val_loss": 0.608531,
+      "val_f1": 0.451044,
+      "val_acc": 0.697597,
+      "val_pos_rate_pred": 0.33589
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.983491,
+      "val_loss": 0.590469,
+      "val_f1": 0.490484,
+      "val_acc": 0.698875,
+      "val_pos_rate_pred": 0.376022
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.943399,
+      "val_loss": 0.599449,
+      "val_f1": 0.500778,
+      "val_acc": 0.671779,
+      "val_pos_rate_pred": 0.442485
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.907142,
+      "val_loss": 0.494974,
+      "val_f1": 0.549145,
+      "val_acc": 0.784254,
+      "val_pos_rate_pred": 0.263548
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.89606,
+      "val_loss": 0.497874,
+      "val_f1": 0.548223,
+      "val_acc": 0.772495,
+      "val_pos_rate_pred": 0.288599
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.880906,
+      "val_loss": 0.614459,
+      "val_f1": 0.526437,
+      "val_acc": 0.684049,
+      "val_pos_rate_pred": 0.452198
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.87863,
+      "val_loss": 0.450861,
+      "val_f1": 0.525504,
+      "val_acc": 0.795501,
+      "val_pos_rate_pred": 0.216002
+    }
+  ],
+  "final_metrics": {
+    "train": {
+      "n": 18411,
+      "accuracy": 0.778611,
+      "precision": 0.473229,
+      "recall": 0.587389,
+      "f1": 0.524165,
+      "positive_rate_true": 0.207593,
+      "positive_rate_pred": 0.257672,
+      "confusion_matrix": {
+        "tp": 2245,
+        "fp": 2499,
+        "tn": 12090,
+        "fn": 1577
+      },
+      "roc_auc": null,
+      "degenerate_flag": false,
+      "mean_loss": 0.494449
+    },
+    "val": {
+      "n": 3912,
+      "accuracy": 0.784254,
+      "precision": 0.498545,
+      "recall": 0.611177,
+      "f1": 0.549145,
+      "positive_rate_true": 0.21498,
+      "positive_rate_pred": 0.263548,
+      "confusion_matrix": {
+        "tp": 514,
+        "fp": 517,
+        "tn": 2554,
+        "fn": 327
+      },
+      "roc_auc": null,
+      "degenerate_flag": false,
+      "mean_loss": 0.494974
+    },
+    "test": {
+      "n": 3885,
+      "accuracy": 0.778636,
+      "precision": 0.45171,
+      "recall": 0.587696,
+      "f1": 0.510808,
+      "positive_rate_true": 0.196654,
+      "positive_rate_pred": 0.255856,
+      "confusion_matrix": {
+        "tp": 449,
+        "fp": 545,
+        "tn": 2576,
+        "fn": 315
+      },
+      "roc_auc": null,
+      "degenerate_flag": false,
+      "mean_loss": 0.491415
+    }
+  },
+  "per_family_test": {
+    "convex_irregular_polygon": {
+      "n": 720,
+      "accuracy": 0.890278,
+      "precision": 0.323944,
+      "recall": 0.425926,
+      "f1": 0.368,
+      "positive_rate_true": 0.075,
+      "positive_rate_pred": 0.098611,
+      "confusion_matrix": {
+        "tp": 23,
+        "fp": 48,
+        "tn": 618,
+        "fn": 31
+      },
+      "roc_auc": null,
+      "degenerate_flag": false
+    },
+    "ellipse": {
+      "n": 804,
+      "accuracy": 0.665423,
+      "precision": 0.446115,
+      "recall": 0.787611,
+      "f1": 0.5696,
+      "positive_rate_true": 0.281095,
+      "positive_rate_pred": 0.496269,
+      "confusion_matrix": {
+        "tp": 178,
+        "fp": 221,
+        "tn": 357,
+        "fn": 48
+      },
+      "roc_auc": null,
+      "degenerate_flag": false
+    },
+    "rectangle": {
+      "n": 804,
+      "accuracy": 0.736318,
+      "precision": 0.252874,
+      "recall": 0.349206,
+      "f1": 0.293333,
+      "positive_rate_true": 0.156716,
+      "positive_rate_pred": 0.216418,
+      "confusion_matrix": {
+        "tp": 44,
+        "fp": 130,
+        "tn": 548,
+        "fn": 82
+      },
+      "roc_auc": null,
+      "degenerate_flag": false
+    },
+    "regular_polygon": {
+      "n": 821,
+      "accuracy": 0.714982,
+      "precision": 0.571429,
+      "recall": 0.669039,
+      "f1": 0.616393,
+      "positive_rate_true": 0.342266,
+      "positive_rate_pred": 0.400731,
+      "confusion_matrix": {
+        "tp": 188,
+        "fp": 141,
+        "tn": 399,
+        "fn": 93
+      },
+      "roc_auc": null,
+      "degenerate_flag": false
+    },
+    "rounded_rectangle": {
+      "n": 736,
+      "accuracy": 0.910326,
+      "precision": 0.761905,
+      "recall": 0.207792,
+      "f1": 0.326531,
+      "positive_rate_true": 0.10462,
+      "positive_rate_pred": 0.028533,
+      "confusion_matrix": {
+        "tp": 16,
+        "fp": 5,
+        "tn": 654,
+        "fn": 61
+      },
+      "roc_auc": null,
+      "degenerate_flag": false
+    }
+  },
+  "ranking": {
+    "test_split": {
+      "scope": "test_split",
+      "n_pieces": 104,
+      "n_pieces_with_at_least_one_feasible": 93,
+      "top1_feasible_accuracy": 0.505376,
+      "mean_reciprocal_rank": 0.681208,
+      "mean_rank_first_feasible": 2.129032,
+      "mean_rank_margin": 0.124184
+    },
+    "mvp_scenario": {
+      "scope": "mvp_scenario",
+      "n_pieces": 4,
+      "n_pieces_with_at_least_one_feasible": 4,
+      "top1_feasible_accuracy": 0.0,
+      "mean_reciprocal_rank": 0.375,
+      "mean_rank_first_feasible": 2.75,
+      "mean_rank_margin": 0.03438
+    }
+  },
+  "phaseD_baseline_reference": {
+    "logreg_test_F1": 0.829,
+    "tree_test_F1": 0.871
+  }
+}
