@@ -117,6 +117,13 @@ SURFACE_DEPTH_MAX = 0.50   # metres
 
 SURFACE_HIST_BIN = 0.001   # 1 mm histogram bins
 
+# Minimum width of an adaptive depth window. When the configured
+# [SURFACE_DEPTH_MIN, SURFACE_DEPTH_MAX] window is empty, the surface estimator
+# falls back to a percentile window of the source pool. If that window is too
+# narrow (e.g. the board is at a single depth so p05 == p70), it is expanded
+# symmetrically around its centre to at least this width before histogramming.
+MIN_ADAPTIVE_DEPTH_BAND_M = 0.004   # 4 mm
+
 # Cavity segmentation: a pixel belongs to a cavity if its depth is deeper than
 # the board surface by at least CAVITY_DEPTH_MARGIN and at most MAX_CAVITY_DEPTH.
 #
@@ -558,6 +565,12 @@ def estimate_board_surface_depth(depth, board_mask=None):
     """
     import numpy as np
 
+    # Active depth window — initialised to the configured range, then optionally
+    # replaced by an adaptive window if the configured one is empty. All
+    # downstream selection, logging and error messages use the active range.
+    active_min_depth = SURFACE_DEPTH_MIN
+    active_max_depth = SURFACE_DEPTH_MAX
+
     if board_mask is not None:
         roi = depth[board_mask]
         n_board_px = int(board_mask.sum())
@@ -565,7 +578,6 @@ def estimate_board_surface_depth(depth, board_mask=None):
               f"({n_board_px} board pixels)")
         # roi is already a 1-D array of depth values
         source_pool = roi
-        valid = roi[(roi > SURFACE_DEPTH_MIN) & (roi < SURFACE_DEPTH_MAX)]
     else:
         # Legacy path
         if BOARD_ROI_ENABLED:
@@ -576,23 +588,29 @@ def estimate_board_surface_depth(depth, board_mask=None):
             print(f"[surface_est] using ROI [{dh}:{h-dh}, {dw}:{w-dw}]  "
                   f"({roi_2d.shape[1]}x{roi_2d.shape[0]} px)")
             source_pool = roi_2d.reshape(-1)
-            valid = roi_2d[(roi_2d > SURFACE_DEPTH_MIN) & (roi_2d < SURFACE_DEPTH_MAX)]
         else:
             print("[surface_est] using full image (BOARD_ROI_ENABLED=False)")
             source_pool = depth.reshape(-1)
-            valid = depth[(depth > SURFACE_DEPTH_MIN) & (depth < SURFACE_DEPTH_MAX)]
 
     # Report observed valid depth range inside the source pool, before applying
     # the configured window — useful for diagnosing depth-range mismatches after
     # scene/camera updates.
     pool_valid = source_pool[(source_pool > 0) & np.isfinite(source_pool)]
     if pool_valid.size > 0:
+        pool_min = float(pool_valid.min())
+        pool_max = float(pool_valid.max())
         print(f"[surface_est] observed valid depth range in source pool: "
-              f"[{float(pool_valid.min()):.4f}, {float(pool_valid.max()):.4f}] m  "
+              f"[{pool_min:.4f}, {pool_max:.4f}] m  "
               f"(n_valid={pool_valid.size})")
     else:
+        pool_min = float("nan")
+        pool_max = float("nan")
         print("[surface_est] observed valid depth range in source pool: "
               "no finite positive pixels at all")
+
+    # First pass: try the configured window.
+    valid = source_pool[(source_pool > active_min_depth) &
+                         (source_pool < active_max_depth)]
 
     if valid.size == 0:
         # Adaptive fallback: configured window is empty (e.g. after a scene
@@ -603,30 +621,54 @@ def estimate_board_surface_depth(depth, board_mask=None):
         # estimate_table_or_background_depth.
         if pool_valid.size == 0:
             raise RuntimeError(
-                f"[surface_est] No valid depth pixels in "
-                f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m and no finite "
-                f"depth pixels in source pool. Cannot estimate board surface depth."
+                f"[surface_est] No valid depth pixels in configured range "
+                f"[{SURFACE_DEPTH_MIN:.3f}, {SURFACE_DEPTH_MAX:.3f}] m and no "
+                f"finite depth pixels in source pool. Cannot estimate board "
+                f"surface depth."
             )
-        p05 = float(np.percentile(pool_valid, 5))
-        p70 = float(np.percentile(pool_valid, 70))
+
+        adaptive_min = float(np.percentile(pool_valid, 5))
+        adaptive_max = float(np.percentile(pool_valid, 70))
+
+        # Guarantee a non-degenerate window: when the source pool is essentially
+        # a single depth (e.g. a flat board patch), p05 and p70 collapse, leaving
+        # a 0 m wide histogram. Expand symmetrically around the centre to at
+        # least MIN_ADAPTIVE_DEPTH_BAND_M.
+        if (adaptive_max - adaptive_min) < MIN_ADAPTIVE_DEPTH_BAND_M:
+            centre = 0.5 * (adaptive_min + adaptive_max)
+            half_band = 0.5 * MIN_ADAPTIVE_DEPTH_BAND_M
+            expanded_min = centre - half_band
+            expanded_max = centre + half_band
+            print(f"[surface_est] adaptive range [{adaptive_min:.4f}, "
+                  f"{adaptive_max:.4f}] m too narrow "
+                  f"(< {MIN_ADAPTIVE_DEPTH_BAND_M*1000:.1f} mm); "
+                  f"expanding around centre {centre:.4f} m to "
+                  f"[{expanded_min:.4f}, {expanded_max:.4f}] m")
+            adaptive_min = expanded_min
+            adaptive_max = expanded_max
+
+        active_min_depth = adaptive_min
+        active_max_depth = adaptive_max
         print(f"[surface_est] configured range [{SURFACE_DEPTH_MIN:.3f}, "
               f"{SURFACE_DEPTH_MAX:.3f}] m empty; using adaptive board-depth "
-              f"range [{p05:.3f}, {p70:.3f}] m (p05..p70 of source pool)")
-        valid = pool_valid[pool_valid < p70]
+              f"range [{active_min_depth:.4f}, {active_max_depth:.4f}] m "
+              f"(p05..p70 of source pool, expanded if needed)")
+
+        # Re-select valid pixels using the adaptive (active) range.
+        valid = pool_valid[(pool_valid > active_min_depth) &
+                            (pool_valid < active_max_depth)]
         if valid.size == 0:
             raise RuntimeError(
-                f"[surface_est] No valid depth pixels in "
-                f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m. "
+                f"[surface_est] No valid depth pixels after adaptive fallback. "
+                f"configured=[{SURFACE_DEPTH_MIN:.3f}, {SURFACE_DEPTH_MAX:.3f}] m  "
+                f"active=[{active_min_depth:.4f}, {active_max_depth:.4f}] m  "
+                f"source_pool=[{pool_min:.4f}, {pool_max:.4f}] m  "
+                f"n_valid_source={pool_valid.size}. "
                 f"Check CAM_Z and SURFACE_DEPTH_MIN / SURFACE_DEPTH_MAX."
             )
-        adapt_min = p05
-        adapt_max = p70
-    else:
-        adapt_min = SURFACE_DEPTH_MIN
-        adapt_max = SURFACE_DEPTH_MAX
 
-    bins             = np.arange(adapt_min,
-                                  adapt_max + SURFACE_HIST_BIN,
+    bins             = np.arange(active_min_depth,
+                                  active_max_depth + SURFACE_HIST_BIN,
                                   SURFACE_HIST_BIN)
     hist, edges      = np.histogram(valid, bins=bins)
     peak_bin         = int(np.argmax(hist))
