@@ -1,5 +1,5 @@
 # capture_multiview_piece.py — run log
-# timestamp_utc: 2026-05-09T12:22:40Z
+# timestamp_utc: 2026-05-09T13:30:06Z
 # output_dir:    /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle
 # phase_note:    sequential-camera proof-of-life; not final static multi-camera architecture
 # This file is OVERWRITTEN at the beginning of every run.
@@ -11,8 +11,8 @@ capture_multiview_piece.py — Phase A: Multi-view Proof-of-Life
 [multiview] camera_prim    = /World/Camera
 [multiview] output_dir     = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle
 [multiview] n_views        = 3
-[multiview] run_id         = f005c96b
-[multiview] timestamp_utc  = 2026-05-09T12:22:40.841008+00:00
+[multiview] run_id         = 4a17bec2
+[multiview] timestamp_utc  = 2026-05-09T13:30:06.402629+00:00
 [multiview] run_log        = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/run_log.txt
 [multiview] intrinsics: fx=426.67  fy=426.67  cx=320.00  cy=240.00  model=pinhole_square_pixels
 [multiview] creating render product 640x480 on /World/Camera

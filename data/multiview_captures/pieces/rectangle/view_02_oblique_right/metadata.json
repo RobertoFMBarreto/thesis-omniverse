@@ -43,7 +43,7 @@
   "depth_valid_min_m": 0.4674,
   "depth_valid_max_m": 1.436,
   "n_valid_depth_pixels": 307200,
-  "timestamp_utc": "2026-05-09T12:22:40.841008+00:00",
-  "run_id": "f005c96b",
+  "timestamp_utc": "2026-05-09T13:30:06.402629+00:00",
+  "run_id": "4a17bec2",
   "phase_note": "sequential-camera proof-of-life; not final static multi-camera architecture"
 }
