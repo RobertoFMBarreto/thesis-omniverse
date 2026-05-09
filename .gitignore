@@ -5,3 +5,56 @@ __pycache__/
 *.pyc
 
 data/pieces_detected/
+
+# Python
+pycache/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual envs
+.venv/
+.venv_phaseE/
+venv/
+
+# PyTorch
+*.pt
+*.pth
+
+# Numpy / datasets
+*.npz
+*.npy
+
+# Large experiment outputs
+data//models/
+data//archive/
+
+# Training artifacts
+*.csv
+*.parquet
+
+# OS
+.DS_Store
+
+# Isaac / cache
+*.cache
+logs/
+tmp/
+
+# Optional: generated debug images
+data/**/debug/
+
+# Local environments
+.venv/
+.venv_phaseE/
+venv/
+
+# Generated data / experiment artifacts
+data/
+*.npz
+*.npy
+*.pt
+*.pth
+*.parquet
+__pycache__/
+*.pyc
