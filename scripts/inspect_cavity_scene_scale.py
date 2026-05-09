@@ -49,7 +49,17 @@ SCALE_UNITY_TOL = 1e-4
 # Bbox thresholds for highlighting (metres).
 BBOX_SUSPECT_CIRCLE_M   = 0.06084   # measured oversized diameter
 BBOX_EXPECTED_CIRCLE_M  = 0.051     # CAD nominal diameter
-BBOX_HIGHLIGHT_MARGIN_M = 0.005     # ±5 mm window
+BBOX_BOARD_THICKNESS_M  = 0.075     # CAD board thickness (sanity check)
+BBOX_HIGHLIGHT_MARGIN_M = 0.005     # ±5 mm window for circle checks
+BBOX_BOARD_MARGIN_M     = 0.010     # ±10 mm window for board thickness check
+
+# Four prims that must always appear in the report regardless of search terms.
+FORCED_INSPECTION_PATHS = [
+    "/World/Circle",
+    "/World/Circle/Body1",
+    "/World/Board_Tese",
+    "/World/Board_Tese/Body1",
+]
 
 # ── HELPERS ────────────────────────────────────────────────────────────────────
 
@@ -114,28 +124,167 @@ def _get_world_matrix(prim):
         return None
 
 
-def _get_world_bbox(prim, bbox_cache):
+def _mesh_points_world_bbox(prim):
     """
-    Return (x_m, y_m, z_m) world-space bounding-box dimensions in metres,
-    or None on failure.
+    Compute the world-space AABB of a single UsdGeom.Mesh prim by transforming
+    its points attribute through its local-to-world matrix.
+
+    Returns (mn, mx) as (Gf.Vec3d, Gf.Vec3d) or None if the prim has no mesh points.
     """
     try:
-        bbox = bbox_cache.ComputeWorldBound(prim)
-        if bbox is None:
+        from pxr import UsdGeom, Usd, Gf
+        mesh = UsdGeom.Mesh(prim)
+        if not mesh:
             return None
-        rng = bbox.GetRange()
-        if rng.IsEmpty():
+        points_attr = mesh.GetPointsAttr()
+        if not points_attr or not points_attr.HasAuthoredValue():
             return None
-        mn = rng.GetMin()
-        mx = rng.GetMax()
-        dims = (
-            float(mx[0] - mn[0]),
-            float(mx[1] - mn[1]),
-            float(mx[2] - mn[2]),
-        )
-        return dims
+        local_points = points_attr.Get()
+        if local_points is None or len(local_points) == 0:
+            return None
+        xform = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        xs, ys, zs = [], [], []
+        for p in local_points:
+            wp = xform.Transform(Gf.Vec3d(float(p[0]), float(p[1]), float(p[2])))
+            xs.append(wp[0]); ys.append(wp[1]); zs.append(wp[2])
+        from pxr import Gf as _Gf
+        mn = _Gf.Vec3d(min(xs), min(ys), min(zs))
+        mx = _Gf.Vec3d(max(xs), max(ys), max(zs))
+        return (mn, mx)
     except Exception:
         return None
+
+
+def _union_ranges(range_list):
+    """
+    Union a list of (mn, mx) tuples (Gf.Vec3d pairs) into a single (mn, mx).
+    Returns None if the list is empty.
+    """
+    if not range_list:
+        return None
+    all_min_x = [r[0][0] for r in range_list]
+    all_min_y = [r[0][1] for r in range_list]
+    all_min_z = [r[0][2] for r in range_list]
+    all_max_x = [r[1][0] for r in range_list]
+    all_max_y = [r[1][1] for r in range_list]
+    all_max_z = [r[1][2] for r in range_list]
+    from pxr import Gf
+    mn = Gf.Vec3d(min(all_min_x), min(all_min_y), min(all_min_z))
+    mx = Gf.Vec3d(max(all_max_x), max(all_max_y), max(all_max_z))
+    return (mn, mx)
+
+
+def world_bbox_from_subtree(prim):
+    """
+    Walk the subtree rooted at prim (including prim itself), collect all
+    UsdGeom.Mesh point-cloud bboxes and return their union as (mn, mx).
+    Returns None if no mesh points are found anywhere in the subtree.
+    """
+    ranges = []
+    # Walk every prim in subtree (depth-first using USD iterator).
+    from pxr import Usd
+    it = iter(Usd.PrimRange(prim))
+    for p in it:
+        r = _mesh_points_world_bbox(p)
+        if r is not None:
+            ranges.append(r)
+    return _union_ranges(ranges)
+
+
+def _compute_world_bbox(prim, bbox_cache, meters_per_unit: float):
+    """
+    Two-strategy world bbox computation.
+
+    Strategy 1: UsdGeom.BBoxCache.ComputeWorldBound.
+    Strategy 2: world_bbox_from_subtree (mesh-points fallback).
+
+    Returns a dict with keys:
+        bbox_available, bbox_method, bbox_min_m, bbox_max_m,
+        bbox_size_m, bbox_size_mm, bbox_highlight_flags, bbox_error
+    """
+    result = {
+        "bbox_available": False,
+        "bbox_method": "unavailable",
+        "bbox_min_m": None,
+        "bbox_max_m": None,
+        "bbox_size_m": None,
+        "bbox_size_mm": None,
+        "bbox_highlight_flags": [],
+        "bbox_error": None,
+    }
+
+    # ── Strategy 1: BBoxCache ─────────────────────────────────────────────────
+    if bbox_cache is not None:
+        try:
+            world_bbox = bbox_cache.ComputeWorldBound(prim)
+            range_ = world_bbox.ComputeAlignedRange()
+            if not range_.IsEmpty():
+                mn = range_.GetMin()
+                mx = range_.GetMax()
+                size = (
+                    float((mx[0] - mn[0]) * meters_per_unit),
+                    float((mx[1] - mn[1]) * meters_per_unit),
+                    float((mx[2] - mn[2]) * meters_per_unit),
+                )
+                result["bbox_available"] = True
+                result["bbox_method"] = "BBoxCache"
+                result["bbox_min_m"] = [float(mn[0] * meters_per_unit),
+                                        float(mn[1] * meters_per_unit),
+                                        float(mn[2] * meters_per_unit)]
+                result["bbox_max_m"] = [float(mx[0] * meters_per_unit),
+                                        float(mx[1] * meters_per_unit),
+                                        float(mx[2] * meters_per_unit)]
+                result["bbox_size_m"] = list(size)
+                result["bbox_size_mm"] = [round(v * 1000.0, 3) for v in size]
+                result["bbox_highlight_flags"] = _bbox_highlight_flags(size)
+                return result
+            else:
+                result["bbox_method"] = "empty"
+                result["bbox_error"] = "BBoxCache returned empty range"
+        except Exception as exc:
+            result["bbox_error"] = f"BBoxCache failed: {exc}"
+            # fall through to strategy 2
+
+    # ── Strategy 2: mesh-points fallback ─────────────────────────────────────
+    try:
+        r = world_bbox_from_subtree(prim)
+        if r is not None:
+            mn, mx = r
+            size = (
+                float((mx[0] - mn[0]) * meters_per_unit),
+                float((mx[1] - mn[1]) * meters_per_unit),
+                float((mx[2] - mn[2]) * meters_per_unit),
+            )
+            result["bbox_available"] = True
+            result["bbox_method"] = "mesh_points_fallback"
+            result["bbox_min_m"] = [float(mn[0] * meters_per_unit),
+                                    float(mn[1] * meters_per_unit),
+                                    float(mn[2] * meters_per_unit)]
+            result["bbox_max_m"] = [float(mx[0] * meters_per_unit),
+                                    float(mx[1] * meters_per_unit),
+                                    float(mx[2] * meters_per_unit)]
+            result["bbox_size_m"] = list(size)
+            result["bbox_size_mm"] = [round(v * 1000.0, 3) for v in size]
+            result["bbox_highlight_flags"] = _bbox_highlight_flags(size)
+            # Append to existing error (if BBoxCache failed) rather than clobber.
+            fallback_note = "used mesh_points_fallback"
+            if result["bbox_error"]:
+                result["bbox_error"] += f"; {fallback_note}"
+            return result
+        else:
+            fallback_note = "no mesh points found in subtree"
+            if result["bbox_error"]:
+                result["bbox_error"] += f"; {fallback_note}"
+            else:
+                result["bbox_error"] = fallback_note
+    except Exception as exc2:
+        note = f"mesh_points_fallback failed: {exc2}"
+        if result["bbox_error"]:
+            result["bbox_error"] += f"; {note}"
+        else:
+            result["bbox_error"] = note
+
+    return result
 
 
 def _collect_parent_non_unity_scales(prim, stage):
@@ -202,27 +351,53 @@ def _flag_highlights(info: dict) -> list:
             flags.append(f"NON-UNITY ancestor scale at {anc['path']}: {anc['scale']}")
 
     # Bbox dimension proximity
-    bbox_m = info.get("bbox_m")
-    if bbox_m:
+    bbox_size_m = info.get("bbox_size_m")
+    if bbox_size_m:
         for axis_idx, axis_label in enumerate(["X", "Y", "Z"]):
-            dim = bbox_m[axis_idx]
-            if _is_near(dim, BBOX_SUSPECT_CIRCLE_M):
+            dim = bbox_size_m[axis_idx]
+            if _is_near(dim, BBOX_SUSPECT_CIRCLE_M, BBOX_HIGHLIGHT_MARGIN_M):
                 flags.append(
                     f"bbox_{axis_label} = {dim*1000:.2f} mm "
                     f"≈ {BBOX_SUSPECT_CIRCLE_M*1000:.1f} mm (suspect oversized circle)"
                 )
-            if _is_near(dim, BBOX_EXPECTED_CIRCLE_M):
+            if _is_near(dim, BBOX_EXPECTED_CIRCLE_M, BBOX_HIGHLIGHT_MARGIN_M):
                 flags.append(
                     f"bbox_{axis_label} = {dim*1000:.2f} mm "
                     f"≈ {BBOX_EXPECTED_CIRCLE_M*1000:.1f} mm (matches CAD nominal)"
+                )
+            if _is_near(dim, BBOX_BOARD_THICKNESS_M, BBOX_BOARD_MARGIN_M):
+                flags.append(
+                    f"bbox_{axis_label} = {dim*1000:.2f} mm "
+                    f"≈ {BBOX_BOARD_THICKNESS_M*1000:.1f} mm (matches CAD board thickness)"
                 )
 
     return flags
 
 
+def _bbox_highlight_flags(bbox_size_m) -> list:
+    """
+    Return structured flag strings for the bbox_highlight_flags JSON field.
+    Uses the three highlight windows defined in config.
+    """
+    if not bbox_size_m:
+        return []
+    result = []
+    for dim in bbox_size_m:
+        if _is_near(dim, BBOX_EXPECTED_CIRCLE_M, BBOX_HIGHLIGHT_MARGIN_M):
+            if "near_51mm" not in result:
+                result.append("near_51mm")
+        if _is_near(dim, BBOX_SUSPECT_CIRCLE_M, BBOX_HIGHLIGHT_MARGIN_M):
+            if "near_60.84mm" not in result:
+                result.append("near_60.84mm")
+        if _is_near(dim, BBOX_BOARD_THICKNESS_M, BBOX_BOARD_MARGIN_M):
+            if "near_75mm" not in result:
+                result.append("near_75mm")
+    return result
+
+
 # ── MAIN INSPECTION ────────────────────────────────────────────────────────────
 
-def inspect_prim(prim, stage, bbox_cache) -> dict:
+def inspect_prim(prim, stage, bbox_cache, meters_per_unit: float = 1.0) -> dict:
     """
     Gather all inspection data for a single prim.
     Returns a dict with path, type, scale, transforms, bbox and flags.
@@ -234,6 +409,16 @@ def inspect_prim(prim, stage, bbox_cache) -> dict:
         "local_scale": None,
         "local_matrix": None,
         "world_matrix": None,
+        # New bbox fields (structured).
+        "bbox_available": False,
+        "bbox_method": "unavailable",
+        "bbox_min_m": None,
+        "bbox_max_m": None,
+        "bbox_size_m": None,
+        "bbox_size_mm": None,
+        "bbox_highlight_flags": [],
+        "bbox_error": None,
+        # Legacy aliases kept so existing report helpers still work.
         "bbox_m": None,
         "bbox_mm": None,
         "parent_non_unity_scales": [],
@@ -257,10 +442,14 @@ def inspect_prim(prim, stage, bbox_cache) -> dict:
         info["errors"].append(f"world_matrix: {exc}")
 
     try:
-        dims = _get_world_bbox(prim, bbox_cache)
-        if dims is not None:
-            info["bbox_m"] = list(dims)
-            info["bbox_mm"] = [round(d * 1000.0, 3) for d in dims]
+        bbox_data = _compute_world_bbox(prim, bbox_cache, meters_per_unit)
+        info.update(bbox_data)
+        # Keep legacy aliases in sync so existing report helpers work.
+        if bbox_data["bbox_available"]:
+            info["bbox_m"]  = bbox_data["bbox_size_m"]
+            info["bbox_mm"] = bbox_data["bbox_size_mm"]
+        if bbox_data["bbox_error"]:
+            info["errors"].append(f"bbox: {bbox_data['bbox_error']}")
     except Exception as exc:
         info["errors"].append(f"bbox: {exc}")
 
@@ -301,14 +490,22 @@ def _scale_str(scale) -> str:
 
 
 def _bbox_str(info: dict) -> str:
-    bbox_m = info.get("bbox_m")
-    bbox_mm = info.get("bbox_mm")
-    if bbox_m is None:
-        return "unavailable"
+    if not info.get("bbox_available"):
+        method = info.get("bbox_method", "unavailable")
+        err = info.get("bbox_error", "")
+        if err:
+            return f"unavailable [{method}] — {err}"
+        return f"unavailable [{method}]"
+    size_m = info.get("bbox_size_m")
+    size_mm = info.get("bbox_size_mm")
+    method = info.get("bbox_method", "?")
+    if size_m is None or size_mm is None:
+        return f"unavailable [{method}]"
     return (
-        f"X={bbox_m[0]:.5f} m ({bbox_mm[0]:.2f} mm)  "
-        f"Y={bbox_m[1]:.5f} m ({bbox_mm[1]:.2f} mm)  "
-        f"Z={bbox_m[2]:.5f} m ({bbox_mm[2]:.2f} mm)"
+        f"X={size_m[0]:.5f} m ({size_mm[0]:.2f} mm)  "
+        f"Y={size_m[1]:.5f} m ({size_mm[1]:.2f} mm)  "
+        f"Z={size_m[2]:.5f} m ({size_mm[2]:.2f} mm)  "
+        f"[method: {method}]"
     )
 
 
@@ -364,7 +561,12 @@ def build_markdown_report(
         lines.append("")
         lines.append(f"- **Type**: `{info['type_name']}`")
         lines.append(f"- **Local scale**: {_scale_str(info['local_scale'])}")
+        lines.append(f"- **BBox available**: `{info.get('bbox_available', False)}`")
+        lines.append(f"- **BBox method**: `{info.get('bbox_method', 'unavailable')}`")
         lines.append(f"- **BBox (world)**: {_bbox_str(info)}")
+        bbox_flags = info.get("bbox_highlight_flags", [])
+        if bbox_flags:
+            lines.append(f"- **BBox highlight flags**: {', '.join(bbox_flags)}")
 
         if info["parent_non_unity_scales"]:
             lines.append("- **Non-unity ancestor scales**:")
@@ -385,6 +587,35 @@ def build_markdown_report(
 
         lines.append("")
 
+    lines += ["---", ""]
+
+    # ── Forced inspection targets ─────────────────────────────────────────────
+    lines.append("## Forced Inspection Targets")
+    lines.append("")
+    lines.append(
+        "The following four prims are always reported, regardless of search terms."
+    )
+    lines.append("")
+    forced_path_set = set(FORCED_INSPECTION_PATHS)
+    for fp in FORCED_INSPECTION_PATHS:
+        matches = [p for p in all_prims_info if p["path"] == fp]
+        if matches:
+            info = matches[0]
+            lines.append(f"### `{fp}`")
+            lines.append(f"- **Found**: yes")
+            lines.append(f"- **Type**: `{info['type_name']}`")
+            lines.append(f"- **BBox available**: `{info.get('bbox_available', False)}`")
+            lines.append(f"- **BBox method**: `{info.get('bbox_method', 'unavailable')}`")
+            lines.append(f"- **BBox (world)**: {_bbox_str(info)}")
+            bbox_flags = info.get("bbox_highlight_flags", [])
+            if bbox_flags:
+                lines.append(f"- **BBox highlight flags**: {', '.join(bbox_flags)}")
+            if info.get("bbox_error"):
+                lines.append(f"- **BBox error**: `{info['bbox_error']}`")
+        else:
+            lines.append(f"### `{fp}`")
+            lines.append(f"- **Found**: no — prim does not exist in this stage")
+        lines.append("")
     lines += ["---", ""]
 
     # ── Candidate circular cavity prims ───────────────────────────────────────
@@ -446,19 +677,20 @@ def build_markdown_report(
     # ── Bbox summary table ────────────────────────────────────────────────────
     lines.append("## Measured Bounding Boxes Summary")
     lines.append("")
-    lines.append("| Prim Path | Type | BBox X (mm) | BBox Y (mm) | BBox Z (mm) | Flags |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| Prim Path | Type | BBox X (mm) | BBox Y (mm) | BBox Z (mm) | Method | Flags |")
+    lines.append("|---|---|---|---|---|---|---|")
     for info in all_prims_info:
-        bbox_mm = info.get("bbox_mm")
-        if bbox_mm:
+        bbox_mm = info.get("bbox_size_mm")
+        if bbox_mm and info.get("bbox_available"):
             bx, by, bz = f"{bbox_mm[0]:.2f}", f"{bbox_mm[1]:.2f}", f"{bbox_mm[2]:.2f}"
         else:
             bx = by = bz = "N/A"
+        method = info.get("bbox_method", "unavailable")
         flag_str = "; ".join(info["highlights"]) if info["highlights"] else ""
-        # Truncate long flag strings for table readability
+        # Truncate long flag strings for table readability.
         if len(flag_str) > 80:
             flag_str = flag_str[:77] + "..."
-        lines.append(f"| `{info['path']}` | {info['type_name']} | {bx} | {by} | {bz} | {flag_str} |")
+        lines.append(f"| `{info['path']}` | {info['type_name']} | {bx} | {by} | {bz} | {method} | {flag_str} |")
     lines += ["", "---", ""]
 
     # ── Likely explanation ─────────────────────────────────────────────────────
@@ -550,6 +782,53 @@ def build_markdown_report(
         )
 
     lines += ["", "---", ""]
+
+    # ── Conclusion candidates ──────────────────────────────────────────────────
+    lines.append("## Conclusion Candidates")
+    lines.append("")
+
+    # Identify circle-related meshes with bbox data.
+    circle_mesh_prims = [
+        p for p in all_prims_info
+        if ("circle" in p["path"].lower() or "cylinder" in p["path"].lower()
+            or p["type_name"] in ("Cylinder", "Sphere", "Disk", "Mesh"))
+        and p.get("bbox_available")
+        and p.get("bbox_size_m") is not None
+    ]
+
+    near_60_84 = any(
+        _is_near(dim, BBOX_SUSPECT_CIRCLE_M, 0.002)
+        for p in circle_mesh_prims
+        for dim in p["bbox_size_m"]
+    )
+    near_51 = any(
+        _is_near(dim, BBOX_EXPECTED_CIRCLE_M, 0.002)
+        for p in circle_mesh_prims
+        for dim in p["bbox_size_m"]
+    )
+
+    if near_60_84:
+        lines.append(
+            "**CONCLUSION**: Circle mesh appears authored oversized at ~60.84 mm — "
+            "CAD/Fusion export issue likely."
+        )
+    elif near_51:
+        lines.append(
+            "**CONCLUSION**: Circle mesh authored at correct ~51 mm — "
+            "inflation source must be elsewhere."
+        )
+    else:
+        lines.append(
+            "**CONCLUSION**: Insufficient evidence to conclude — "
+            "mesh extents fell outside expected windows."
+        )
+        if not circle_mesh_prims:
+            lines.append(
+                "_(No circle-related mesh prims with available bbox data were found. "
+                "BBoxCache or mesh-points fallback may have failed for all candidates.)_"
+            )
+
+    lines += ["", "---", ""]
     lines.append(
         "> **NOTE**: Baseline 1 (geometric matching) remains BLOCKED until "
         "the circular cavity is corrected in the scene and recaptured."
@@ -580,6 +859,63 @@ def build_json_report(
     ]
     highlighted_paths = [p["path"] for p in all_prims_info if p["highlights"]]
 
+    # ── Forced inspection targets section ─────────────────────────────────────
+    forced_targets = []
+    for fp in FORCED_INSPECTION_PATHS:
+        matches = [p for p in all_prims_info if p["path"] == fp]
+        if matches:
+            p = matches[0]
+            forced_targets.append({
+                "path": fp,
+                "found": True,
+                "type_name": p["type_name"],
+                "bbox_available": p.get("bbox_available", False),
+                "bbox_method": p.get("bbox_method", "unavailable"),
+                "bbox_min_m": p.get("bbox_min_m"),
+                "bbox_max_m": p.get("bbox_max_m"),
+                "bbox_size_m": p.get("bbox_size_m"),
+                "bbox_size_mm": p.get("bbox_size_mm"),
+                "bbox_highlight_flags": p.get("bbox_highlight_flags", []),
+                "bbox_error": p.get("bbox_error"),
+            })
+        else:
+            forced_targets.append({
+                "path": fp,
+                "found": False,
+                "bbox_available": False,
+                "bbox_method": "unavailable",
+            })
+
+    # ── Conclusion candidates ──────────────────────────────────────────────────
+    circle_mesh_prims = [
+        p for p in all_prims_info
+        if ("circle" in p["path"].lower() or "cylinder" in p["path"].lower()
+            or p["type_name"] in ("Cylinder", "Sphere", "Disk", "Mesh"))
+        and p.get("bbox_available")
+        and p.get("bbox_size_m") is not None
+    ]
+    near_60_84 = any(
+        _is_near(dim, BBOX_SUSPECT_CIRCLE_M, 0.002)
+        for p in circle_mesh_prims
+        for dim in p["bbox_size_m"]
+    )
+    near_51 = any(
+        _is_near(dim, BBOX_EXPECTED_CIRCLE_M, 0.002)
+        for p in circle_mesh_prims
+        for dim in p["bbox_size_m"]
+    )
+    if near_60_84:
+        conclusion = "Circle mesh appears authored oversized at ~60.84 mm — CAD/Fusion export issue likely."
+    elif near_51:
+        conclusion = "Circle mesh authored at correct ~51 mm — inflation source must be elsewhere."
+    else:
+        conclusion = "Insufficient evidence to conclude — mesh extents fell outside expected windows."
+
+    # Strip legacy-alias fields before serialising to keep JSON clean.
+    def _clean_prim(p: dict) -> dict:
+        out = {k: v for k, v in p.items() if k not in ("bbox_m", "bbox_mm")}
+        return out
+
     return {
         "script": SCRIPT_NAME,
         "timestamp": timestamp,
@@ -598,11 +934,13 @@ def build_json_report(
             "circular_candidates": len(circular_prims),
             "board_candidates": len(board_prims),
         },
+        "forced_inspection_targets": forced_targets,
+        "conclusion_candidates": conclusion,
         "candidate_circular_prims": circular_prims,
         "candidate_board_prims": board_prims,
         "non_unity_scale_paths": non_unity_paths,
         "highlighted_paths": highlighted_paths,
-        "candidates": all_prims_info,
+        "candidates": [_clean_prim(p) for p in all_prims_info],
     }
 
 
@@ -639,17 +977,28 @@ async def main():
         print(f"[ERROR] Cannot create output directory {OUT_DIR}: {exc}")
         return
 
-    # ── Build bbox cache ───────────────────────────────────────────────────────
+    # ── Read stage units ───────────────────────────────────────────────────────
     try:
         from pxr import UsdGeom
+        meters_per_unit = UsdGeom.GetStageMetersPerUnit(stage)
+        if meters_per_unit is None or meters_per_unit <= 0:
+            meters_per_unit = 1.0
+        print(f"[INFO] Stage metersPerUnit: {meters_per_unit}")
+    except Exception as exc:
+        meters_per_unit = 1.0
+        print(f"[WARN] Could not read metersPerUnit ({exc}), assuming 1.0 (metres).")
+
+    # ── Build bbox cache ───────────────────────────────────────────────────────
+    try:
+        from pxr import UsdGeom, Usd
         bbox_cache = UsdGeom.BBoxCache(
-            UsdGeom.Tokens.default_,
-            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+            Usd.TimeCode.Default(),
+            includedPurposes=[UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
             useExtentsHint=True,
         )
         print("[INFO] BBoxCache initialised.")
     except Exception as exc:
-        print(f"[WARN] Could not initialise BBoxCache: {exc}.  Bbox data will be unavailable.")
+        print(f"[WARN] Could not initialise BBoxCache: {exc}.  Bbox data will use mesh-points fallback only.")
         bbox_cache = None
 
     # ── Traverse and collect candidates ───────────────────────────────────────
@@ -663,11 +1012,51 @@ async def main():
 
     print(f"[INFO] Found {len(candidates)} candidate prim(s) matching search terms.")
 
+    # ── Forced inspection targets: always inspect these paths if they exist ───
+    forced_paths_seen = set()
+    for fp in FORCED_INSPECTION_PATHS:
+        try:
+            fp_prim = stage.GetPrimAtPath(fp)
+            if fp_prim and fp_prim.IsValid():
+                forced_paths_seen.add(fp)
+                print(f"[INFO] Forced inspection target found: {fp}")
+            else:
+                # Search case-insensitively for a partial match.
+                fp_lower = fp.lower()
+                # Extract the meaningful token (e.g. "circle" or "board_tese")
+                token = fp.lstrip("/").split("/")[0].lower()
+                for prim in stage.Traverse():
+                    if token in str(prim.GetPath()).lower():
+                        candidates_paths = [str(c.GetPath()) for c in candidates]
+                        if str(prim.GetPath()) not in candidates_paths:
+                            candidates.append(prim)
+                            print(f"[INFO] Forced target '{fp}' not found; including fuzzy match: {prim.GetPath()}")
+                        break
+                else:
+                    print(f"[INFO] Forced inspection target NOT in stage: {fp}")
+        except Exception as exc:
+            print(f"[WARN] Error checking forced path {fp}: {exc}")
+
+    # Ensure forced paths that exist are in candidates list (deduplicate by path string).
+    existing_candidate_paths = {str(c.GetPath()) for c in candidates}
+    for fp in FORCED_INSPECTION_PATHS:
+        if fp not in existing_candidate_paths:
+            try:
+                fp_prim = stage.GetPrimAtPath(fp)
+                if fp_prim and fp_prim.IsValid():
+                    candidates.append(fp_prim)
+                    print(f"[INFO] Added forced target to candidate list: {fp}")
+            except Exception:
+                pass
+
+    # Re-sort after additions.
+    candidates.sort(key=lambda p: str(p.GetPath()))
+
     # ── Inspect each candidate ─────────────────────────────────────────────────
     all_prims_info = []
     for prim in candidates:
         try:
-            info = inspect_prim(prim, stage, bbox_cache)
+            info = inspect_prim(prim, stage, bbox_cache, meters_per_unit)
             all_prims_info.append(info)
 
             # Console summary line
@@ -675,9 +1064,9 @@ async def main():
             if info["local_scale"] is not None and not _scale_is_unity(info["local_scale"]):
                 scale_tag = "  *** NON-UNITY SCALE ***"
             bbox_tag = ""
-            if info.get("bbox_mm"):
-                b = info["bbox_mm"]
-                bbox_tag = f"  bbox=({b[0]:.1f}, {b[1]:.1f}, {b[2]:.1f}) mm"
+            if info.get("bbox_size_mm"):
+                b = info["bbox_size_mm"]
+                bbox_tag = f"  bbox=({b[0]:.1f}, {b[1]:.1f}, {b[2]:.1f}) mm [{info['bbox_method']}]"
             flag_count = len(info["highlights"])
             flag_tag = f"  [{flag_count} flag(s)]" if flag_count else ""
             print(
@@ -693,6 +1082,14 @@ async def main():
                 "local_scale": None,
                 "local_matrix": None,
                 "world_matrix": None,
+                "bbox_available": False,
+                "bbox_method": "unavailable",
+                "bbox_min_m": None,
+                "bbox_max_m": None,
+                "bbox_size_m": None,
+                "bbox_size_mm": None,
+                "bbox_highlight_flags": [],
+                "bbox_error": str(exc),
                 "bbox_m": None,
                 "bbox_mm": None,
                 "parent_non_unity_scales": [],
