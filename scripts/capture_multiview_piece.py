@@ -1,10 +1,11 @@
 """
 capture_multiview_piece.py — Phase A: Multi-view Capture Proof-of-Life
 
-Capture multiple RGB-D views of a single geometric piece (rectangle) by
-sequentially relocating one camera prim.  This is a PROOF-OF-LIFE only:
-it validates the per-view capture loop and output layout before committing
-to a static multi-camera USD architecture.
+Capture multiple RGB-D views of geometric pieces (rectangle, square, circle,
+triangle) by sequentially relocating one camera prim.  When CAPTURE_ALL_PIECES
+is True the script iterates over all four MVP pieces, using visibility control
+to isolate each piece for its capture set.  When False the script falls back to
+the original single-piece (rectangle) behaviour for backward compatibility.
 
 Phase A note:
     Sequential-camera relocation is used here instead of multiple camera
@@ -12,23 +13,32 @@ Phase A note:
     three static cameras in the scene, so no costly stage edits happen at
     capture time.
 
-Outputs per view (under OUT_ROOT/view_NN_<name>/):
+Outputs per view (under PIECES_OUT_ROOT/<piece>/view_NN_<name>/):
     rgb.png           — raw RGB frame (BGR, OpenCV)
     depth.npy         — raw float32 depth in metres
     depth_vis.png     — colourised depth (viridis, matplotlib)
     metadata.json     — pose, intrinsics, depth window, timestamps,
-                        target-resolution fields
+                        target-resolution fields, visibility control fields
 
-Global outputs (under OUT_ROOT/):
+Global outputs (under PIECES_OUT_ROOT/<piece>/):
     views_contact_sheet.png    — 2 x N grid: RGB (top) / depth (bottom)
     multiview_capture_summary.json
     run_log.txt
+
+Global all-pieces summary (under PIECES_OUT_ROOT/):
+    multiview_phaseA_all_pieces_summary.json
 
 Run inside Isaac Sim 5.1 Script Editor.
 
 NOTE: __file__ is unreliable when pasted into the Script Editor — it
 resolves to a temporary path.  PROJECT_ROOT is therefore set explicitly
 via env-var override.
+
+IMPORTANT — use of piece identity in this script:
+    Piece names (rectangle, square, circle, triangle) are used ONLY for:
+      - driving scene setup automation (which prim to show/hide);
+      - labelling output directories and metadata files.
+    They are NEVER used for matching, classification, or scoring logic.
 """
 
 import asyncio
@@ -54,11 +64,58 @@ PROJECT_ROOT = Path(
     )
 )
 
-# All multi-view outputs land here.  The folder for the current piece is
-# completely replaced at the start of every run (siblings are not touched).
+# ── Multi-piece capture control ───────────────────────────────────────────────
+#
+# CAPTURE_ALL_PIECES = True
+#   Iterate over PIECE_CAPTURE_ORDER, hide all other MVP pieces, capture
+#   three views for each, save to PIECES_OUT_ROOT/<piece_name>/.
+#
+# CAPTURE_ALL_PIECES = False
+#   Fall back to the original single-piece (rectangle) behaviour using
+#   TARGET_PRIM_NAME_HINTS and OUT_ROOT.  Backward compatible — do not
+#   remove OUT_ROOT or TARGET_PRIM_NAME_HINTS.
+
+CAPTURE_ALL_PIECES = True
+
+PIECE_CAPTURE_ORDER = ["rectangle", "square", "circle", "triangle"]
+
+# Per-piece hint lists used when CAPTURE_ALL_PIECES = True.
+# Piece identity is used ONLY for scene setup — NOT for matching or scoring.
+PIECE_NAME_HINTS = {
+    "rectangle": ["rectangle", "Rectangle", "Rect", "rect"],
+    "square":    ["square", "Square"],
+    "circle":    ["circle", "Circle", "Cylinder"],
+    "triangle":  ["triangle", "Triangle"],
+}
+
+# Root directory for all per-piece outputs (dynamic per-piece subdir is
+# computed inside the loop as PIECES_OUT_ROOT / piece_name).
+PIECES_OUT_ROOT = PROJECT_ROOT / "data" / "multiview_captures" / "pieces"
+
+# ── Legacy single-piece config (backward compat — do NOT remove) ──────────────
+#
+# Used when CAPTURE_ALL_PIECES = False.  Keeps the script runnable in
+# single-piece mode exactly as before.
+
+# All multi-view outputs land here (single-piece mode).
 OUT_ROOT = PROJECT_ROOT / "data" / "multiview_captures" / "pieces" / "rectangle"
 
-# Camera USD prim path.
+# Case-insensitive substrings searched in every prim's path AND GetName().
+TARGET_PRIM_NAME_HINTS = ["rectangle", "Rectangle", "Rect", "rect"]
+
+# ── CAD sanity-warning constants ──────────────────────────────────────────────
+#
+# Read data/expected_cad_dimensions.json at startup.  For each captured piece,
+# compare the largest resolved bbox dimension against the CAD reference.  If
+# the ratio falls outside [1-SANITY_WARN_TOLERANCE, 1+SANITY_WARN_TOLERANCE],
+# print a [sanity_warn] line.  Capture continues regardless — the warning is
+# the action.
+
+SANITY_WARN_TOLERANCE = 0.30   # ±30% on largest dimension before warning
+
+CAD_DIMENSIONS_PATH = PROJECT_ROOT / "data" / "expected_cad_dimensions.json"
+
+# ── Camera USD prim path ──────────────────────────────────────────────────────
 # Phase A reuses the single existing camera prim and moves it sequentially
 # between views.  Phase B will replace this with three static prims in USD.
 CAMERA_PRIM_PATH = "/World/Camera"
@@ -80,6 +137,13 @@ PHASE_A_NOTE = (
     "sequential-camera proof-of-life; not final static multi-camera architecture"
 )
 
+# Disclaimer written into every metadata file — makes the role of piece identity
+# explicit so downstream consumers are not misled.
+IDENTITY_DISCLAIMER = (
+    "Piece identity used only for experimental scene setup, not for "
+    "perception/matching."
+)
+
 # ── TARGET-RESOLUTION CONFIG ──────────────────────────────────────────────────
 #
 # TARGET_MODE = "auto_prim_bbox"
@@ -91,9 +155,6 @@ PHASE_A_NOTE = (
 #   Use MANUAL_TARGET_LOOK_AT directly.  No stage traversal is performed.
 
 TARGET_MODE = "auto_prim_bbox"   # "auto_prim_bbox" | "manual"
-
-# Case-insensitive substrings searched in every prim's path AND GetName().
-TARGET_PRIM_NAME_HINTS = ["rectangle", "Rectangle", "Rect", "rect"]
 
 # Used when TARGET_MODE == "manual", or as emergency documentation of the
 # world origin that the previous Phase A run aimed at.
@@ -320,15 +381,23 @@ def _mesh_points_world_bbox_subtree(prim):
         return None
 
 
-def resolve_target_look_at(stage) -> dict:
+def resolve_target_look_at(stage, hints: list = None) -> dict:
     """
-    Read-only USD stage traversal to find the rectangle prim and return its
+    Read-only USD stage traversal to find a piece prim and return its
     world-space bounding-box centre as the camera look-at point.
+
+    Parameters
+    ----------
+    stage : Usd.Stage
+    hints : list of str, optional
+        Case-insensitive substrings searched in every prim's path AND
+        GetName().  Defaults to TARGET_PRIM_NAME_HINTS for backward
+        compatibility with CAPTURE_ALL_PIECES = False.
 
     Strategy
     --------
     1. Traverse all prims; collect candidates whose path or GetName() contains
-       any string in TARGET_PRIM_NAME_HINTS (case-insensitive substring).
+       any string in hints (case-insensitive substring).
     2. Filter out prims whose type name contains any of:
        'Material', 'Shader', 'Light', 'Camera', 'Scope'  (case-insensitive).
     3. For each surviving candidate, attempt bbox computation:
@@ -355,7 +424,9 @@ def resolve_target_look_at(stage) -> dict:
     """
     from pxr import UsdGeom, Usd
 
-    hints_lower = [h.lower() for h in TARGET_PRIM_NAME_HINTS]
+    # Use caller-supplied hints or fall back to the legacy constant.
+    active_hints = hints if hints is not None else TARGET_PRIM_NAME_HINTS
+    hints_lower  = [h.lower() for h in active_hints]
 
     # Types to exclude (case-insensitive substring in GetTypeName()).
     EXCLUDED_TYPE_SUBSTRINGS = ["material", "shader", "light", "camera", "scope"]
@@ -408,10 +479,10 @@ def resolve_target_look_at(stage) -> dict:
     if not filtered:
         raise RuntimeError(
             f"[target_resolve] Could not auto-resolve a target prim from hints: "
-            f"{TARGET_PRIM_NAME_HINTS}.\n"
+            f"{active_hints}.\n"
             f"Tried {len(raw_candidates)} candidates, all excluded by type filter. "
             f"Either:\n"
-            f"  - adjust TARGET_PRIM_NAME_HINTS at the top of the script, or\n"
+            f"  - adjust hints in PIECE_NAME_HINTS at the top of the script, or\n"
             f"  - set TARGET_MODE = \"manual\" and update MANUAL_TARGET_LOOK_AT."
         )
 
@@ -462,9 +533,9 @@ def resolve_target_look_at(stage) -> dict:
     if not valid_candidates:
         raise RuntimeError(
             f"[target_resolve] Could not auto-resolve a target prim from hints: "
-            f"{TARGET_PRIM_NAME_HINTS}.\n"
+            f"{active_hints}.\n"
             f"Tried {n_examined} candidates. All failed bbox computation. Either:\n"
-            f"  - adjust TARGET_PRIM_NAME_HINTS at the top of the script, or\n"
+            f"  - adjust hints in PIECE_NAME_HINTS at the top of the script, or\n"
             f"  - set TARGET_MODE = \"manual\" and update MANUAL_TARGET_LOOK_AT."
         )
 
@@ -504,6 +575,182 @@ def resolve_target_look_at(stage) -> dict:
         "bbox_method":           method,
         "n_candidates_examined": n_examined,
     }
+
+
+# ── VISIBILITY CONTROL HELPERS ────────────────────────────────────────────────
+
+def collect_mvp_piece_prims(stage) -> dict:
+    """
+    Walk the stage and return {piece_name: [prim_paths]} for every MVP piece
+    found via PIECE_NAME_HINTS.  Uses the same hint-substring matching and
+    type-filter (exclude Material/Shader/Light/Camera/Scope) as
+    resolve_target_look_at.  Returns a multi-prim mapping because a piece may
+    consist of an Xform with one or more Mesh descendants — the visibility
+    toggle is applied at the root prim only.
+
+    Only the shallowest (root-most) matching prim per piece name is returned as
+    the visibility-control target to avoid toggling both an Xform parent and
+    its Mesh children independently.
+    """
+    from pxr import UsdGeom
+
+    EXCLUDED_TYPE_SUBSTRINGS = ["material", "shader", "light", "camera", "scope"]
+
+    result = {}
+
+    for piece_name, hints in PIECE_NAME_HINTS.items():
+        hints_lower = [h.lower() for h in hints]
+        candidates = []
+
+        for prim in stage.Traverse():
+            if not prim.IsValid():
+                continue
+            type_lower = prim.GetTypeName().lower()
+            if any(ex in type_lower for ex in EXCLUDED_TYPE_SUBSTRINGS):
+                continue
+            prim_path_lower = str(prim.GetPath()).lower()
+            prim_name_lower = prim.GetName().lower()
+            if any(h in prim_path_lower or h in prim_name_lower for h in hints_lower):
+                candidates.append(str(prim.GetPath()))
+
+        if candidates:
+            # Sort by path depth ascending — shallowest prim first (root prim).
+            candidates.sort(key=lambda p: len(p.strip("/").split("/")))
+            # Keep only the shallowest candidate as the visibility root.
+            result[piece_name] = [candidates[0]]
+            print(f"[collect_mvp_prims] {piece_name}: found root prim "
+                  f"{candidates[0]}  ({len(candidates)} total candidates)")
+        else:
+            print(f"[collect_mvp_prims] {piece_name}: no candidates found")
+
+    return result
+
+
+def set_piece_visibility(stage, piece_paths: list, visible: bool) -> list:
+    """
+    For each prim path, toggle UsdGeom.Imageable visibility via
+    MakeVisible() or MakeInvisible().  Returns the list of paths that were
+    actually toggled (skips invalid prims and Material/Shader/Light/Camera/Scope
+    prims defensively).
+
+    Uses MakeInvisible() to set visibility = invisible and MakeVisible() to
+    set visibility = inherited (the USD inherited-visibility approach).
+    """
+    from pxr import UsdGeom
+
+    EXCLUDED_TYPE_SUBSTRINGS = ["material", "shader", "light", "camera", "scope"]
+    toggled = []
+
+    for path_str in piece_paths:
+        try:
+            prim = stage.GetPrimAtPath(path_str)
+            if not prim.IsValid():
+                print(f"[set_visibility] WARNING: prim not valid at {path_str} "
+                      "— skipping")
+                continue
+            type_lower = prim.GetTypeName().lower()
+            if any(ex in type_lower for ex in EXCLUDED_TYPE_SUBSTRINGS):
+                print(f"[set_visibility] WARNING: skipping excluded type "
+                      f"'{prim.GetTypeName()}' at {path_str}")
+                continue
+            imageable = UsdGeom.Imageable(prim)
+            if not imageable:
+                print(f"[set_visibility] WARNING: prim not Imageable at {path_str} "
+                      "— skipping")
+                continue
+            if visible:
+                imageable.MakeVisible()
+            else:
+                imageable.MakeInvisible()
+            toggled.append(path_str)
+        except Exception as exc:
+            print(f"[set_visibility] WARNING: could not set visibility on "
+                  f"{path_str}: {exc}")
+
+    return toggled
+
+
+# ── CAD SANITY WARNING ────────────────────────────────────────────────────────
+
+def load_cad_dimensions() -> dict:
+    """
+    Read data/expected_cad_dimensions.json.  Returns the parsed dict, or None
+    if the file cannot be read.  Logs a single warning on failure.
+    """
+    try:
+        with open(str(CAD_DIMENSIONS_PATH), "r") as fp:
+            data = json.load(fp)
+        print(f"[cad_dims] loaded {CAD_DIMENSIONS_PATH}")
+        return data
+    except Exception as exc:
+        print(f"[cad_dims] WARNING: could not read {CAD_DIMENSIONS_PATH}: {exc}")
+        print("[cad_dims] CAD sanity checks will be skipped for all pieces.")
+        return None
+
+
+def check_cad_sanity(piece_name: str, bbox_size_mm: list,
+                     cad_data: dict) -> tuple:
+    """
+    Compare the largest resolved bbox dimension against the corresponding CAD
+    reference for the piece.
+
+    Parameters
+    ----------
+    piece_name   : str
+    bbox_size_mm : list of three floats [dx, dy, dz] in mm
+    cad_data     : dict loaded from expected_cad_dimensions.json, or None
+
+    Returns
+    -------
+    (warning_flag: bool, warning_message: str or None)
+    """
+    if cad_data is None:
+        return False, None
+
+    pieces = cad_data.get("pieces", {})
+    if piece_name not in pieces:
+        print(f"[cad_sanity] no CAD entry for '{piece_name}' — skipping check")
+        return False, None
+
+    cad_entry = pieces[piece_name]
+
+    # Collect all numeric span/dimension values from the CAD entry.
+    cad_dims_m = [
+        v for k, v in cad_entry.items()
+        if isinstance(v, (int, float))
+    ]
+    if not cad_dims_m:
+        print(f"[cad_sanity] empty CAD entry for '{piece_name}' — skipping check")
+        return False, None
+
+    cad_largest_mm = max(cad_dims_m) * 1000.0   # metres -> mm
+    bbox_largest_mm = max(bbox_size_mm)
+
+    if cad_largest_mm <= 0.0:
+        return False, None
+
+    ratio = bbox_largest_mm / cad_largest_mm
+
+    lo = 1.0 - SANITY_WARN_TOLERANCE
+    hi = 1.0 + SANITY_WARN_TOLERANCE
+
+    if lo <= ratio <= hi:
+        print(f"[cad_sanity] piece={piece_name}  "
+              f"bbox_max={bbox_largest_mm:.1f} mm  "
+              f"cad_largest={cad_largest_mm:.1f} mm  "
+              f"ratio={ratio:.3f}  OK (within ±{int(SANITY_WARN_TOLERANCE*100)}%)")
+        return False, None
+    else:
+        msg = (
+            f"piece={piece_name} resolved bbox max = {bbox_largest_mm:.1f} mm; "
+            f"CAD largest = {cad_largest_mm:.1f} mm; "
+            f"ratio={ratio:.3f}; "
+            f"tolerance ±{int(SANITY_WARN_TOLERANCE*100)}%"
+        )
+        print(f"[sanity_warn] {msg}")
+        print(f"[sanity_warn] continuing capture, but the bbox may belong to a "
+              f"different prim. Check selected_prim_path.")
+        return True, msg
 
 
 # ── CAMERA POSE HELPERS ───────────────────────────────────────────────────────
@@ -818,13 +1065,22 @@ async def capture_view(view_cfg: dict, rgb_an, depth_an,
 
 def save_view_outputs(view_result: dict, view_idx: int,
                       intrinsics: dict, run_id: str, timestamp_utc: str,
-                      target_info: dict) -> Path:
+                      target_info: dict,
+                      piece_out_root: Path,
+                      visibility_meta: dict = None) -> Path:
     """
     Save rgb.png, depth.npy, depth_vis.png, and metadata.json for one view.
 
-    `target_info` is the dict returned by resolve_target_look_at() (or the
-    synthetic manual dict built in main()).  Its fields are written into
-    metadata.json under the target-resolution block.
+    Parameters
+    ----------
+    view_result      : dict returned by capture_view()
+    view_idx         : int index (0-based)
+    intrinsics       : dict from compute_intrinsics()
+    run_id           : str
+    timestamp_utc    : str
+    target_info      : dict from resolve_target_look_at() or manual dict
+    piece_out_root   : Path — per-piece output directory
+    visibility_meta  : dict with visibility control metadata to embed, or None
 
     Returns the view directory path.
     """
@@ -832,7 +1088,7 @@ def save_view_outputs(view_result: dict, view_idx: int,
     import cv2
 
     view_name = view_result["view_name"]
-    view_dir  = OUT_ROOT / f"view_{view_idx:02d}_{view_name}"
+    view_dir  = piece_out_root / f"view_{view_idx:02d}_{view_name}"
     view_dir.mkdir(parents=True, exist_ok=True)
 
     if not view_result["ok"]:
@@ -891,6 +1147,16 @@ def save_view_outputs(view_result: dict, view_idx: int,
     cam_offset = [round(req_pos[i] - tgt_ctr[i], 6) for i in range(3)]
 
     # ── Metadata JSON ─────────────────────────────────────────────────────────
+    # Default visibility metadata block when none is provided (single-piece mode).
+    vis_meta = visibility_meta or {
+        "target_piece_name":         None,
+        "visibility_control_enabled": False,
+        "hidden_piece_prim_paths":    [],
+        "shown_target_prim_path":     None,
+        "note":                       IDENTITY_DISCLAIMER,
+        "cad_sanity_warning":         False,
+    }
+
     meta = {
         "view_name":             view_name,
         "camera_prim_path":      CAMERA_PRIM_PATH,
@@ -919,6 +1185,13 @@ def save_view_outputs(view_result: dict, view_idx: int,
         "target_bbox_method":            target_info.get("bbox_method"),
         "requested_look_at":             view_result["requested_pose"]["look_at_m"],
         "camera_offset_from_target":     cam_offset,
+        # ── Visibility control fields ─────────────────────────────────────────
+        "target_piece_name":              vis_meta["target_piece_name"],
+        "visibility_control_enabled":     vis_meta["visibility_control_enabled"],
+        "hidden_piece_prim_paths":        vis_meta["hidden_piece_prim_paths"],
+        "shown_target_prim_path":         vis_meta["shown_target_prim_path"],
+        "note":                           vis_meta["note"],
+        "cad_sanity_warning":             vis_meta["cad_sanity_warning"],
     }
     meta_path = view_dir / "metadata.json"
     try:
@@ -933,14 +1206,15 @@ def save_view_outputs(view_result: dict, view_idx: int,
 
 # ── CONTACT SHEET ─────────────────────────────────────────────────────────────
 
-def build_contact_sheet(view_results: list, view_dirs: list) -> None:
+def build_contact_sheet(view_results: list, view_dirs: list,
+                        piece_name: str, piece_out_root: Path) -> None:
     """
     Build a 2 x N grid image:
       top row    — RGB per view
       bottom row — depth_vis per view (loaded from disk)
     Column titles are the view names.
 
-    Saved to OUT_ROOT/views_contact_sheet.png.
+    Saved to piece_out_root/views_contact_sheet.png.
     """
     try:
         import matplotlib
@@ -994,13 +1268,13 @@ def build_contact_sheet(view_results: list, view_dirs: list) -> None:
         axes[1, 0].set_ylabel("Depth", fontsize=11)
 
         fig.suptitle(
-            f"Multi-view capture — rectangle  ({n_views} views)\n"
+            f"Multi-view capture — {piece_name}  ({n_views} views)\n"
             f"Phase A: {PHASE_A_NOTE}",
             fontsize=10,
         )
         fig.tight_layout()
 
-        sheet_path = OUT_ROOT / "views_contact_sheet.png"
+        sheet_path = piece_out_root / "views_contact_sheet.png"
         fig.savefig(str(sheet_path), dpi=100, bbox_inches="tight")
         plt.close(fig)
         print(f"[contact_sheet] saved {sheet_path}")
@@ -1010,18 +1284,21 @@ def build_contact_sheet(view_results: list, view_dirs: list) -> None:
         traceback.print_exc()
 
 
-# ── GLOBAL SUMMARY ────────────────────────────────────────────────────────────
+# ── PER-PIECE SUMMARY ─────────────────────────────────────────────────────────
 
-def build_global_summary(view_results: list, view_dirs: list,
-                          run_id: str, timestamp_utc: str,
-                          intrinsics: dict,
-                          target_info: dict) -> None:
+def build_piece_summary(view_results: list, view_dirs: list,
+                        run_id: str, timestamp_utc: str,
+                        intrinsics: dict,
+                        target_info: dict,
+                        piece_name: str,
+                        piece_out_root: Path,
+                        visibility_meta: dict = None) -> None:
     """
     Write multiview_capture_summary.json with per-view records, top-level
     success/failure status, and a 'target_resolution' block.
 
-    `target_info` is the dict returned by resolve_target_look_at() (or the
-    synthetic manual dict built in main()).
+    Parameters match build_contact_sheet().  visibility_meta may be None for
+    single-piece (backward-compat) mode.
     """
     n_requested = len(view_results)
     n_succeeded = sum(1 for vr in view_results if vr["ok"])
@@ -1071,23 +1348,38 @@ def build_global_summary(view_results: list, view_dirs: list,
         "n_candidates_examined":     target_info.get("n_candidates_examined"),
     }
 
+    # Visibility control block.
+    vis_meta = visibility_meta or {
+        "visibility_control_enabled": False,
+        "hidden_piece_prim_paths":    [],
+        "shown_target_prim_path":     None,
+        "note":                       IDENTITY_DISCLAIMER,
+        "cad_sanity_warning":         False,
+    }
+
     summary = {
         "script_name":       "capture_multiview_piece.py",
         "phase":             "A",
         "phase_note":        PHASE_A_NOTE,
         "run_id":            run_id,
         "timestamp_utc":     timestamp_utc,
-        "piece":             "rectangle",
+        "piece":             piece_name,
         "n_views_requested": n_requested,
         "n_views_succeeded": n_succeeded,
         "success":           overall_ok,
         "target_resolution": target_resolution_block,
         "views":             view_records,
         "inputs_dir":        CAMERA_PRIM_PATH,
-        "output_dir":        str(OUT_ROOT),
+        "output_dir":        str(piece_out_root),
+        # Visibility control fields.
+        "visibility_control_enabled":  vis_meta["visibility_control_enabled"],
+        "hidden_piece_prim_paths":     vis_meta["hidden_piece_prim_paths"],
+        "shown_target_prim_path":      vis_meta["shown_target_prim_path"],
+        "note":                        vis_meta["note"],
+        "cad_sanity_warning":          vis_meta["cad_sanity_warning"],
     }
 
-    summary_path = OUT_ROOT / "multiview_capture_summary.json"
+    summary_path = piece_out_root / "multiview_capture_summary.json"
     try:
         with open(str(summary_path), "w") as fp:
             json.dump(summary, fp, indent=2)
@@ -1096,7 +1388,7 @@ def build_global_summary(view_results: list, view_dirs: list,
         print(f"[summary] WARNING: could not write summary JSON — {exc}")
 
     print("\n" + "=" * 60)
-    print(f"  success={overall_ok}  "
+    print(f"  piece={piece_name}  success={overall_ok}  "
           f"views_succeeded={n_succeeded}/{n_requested}")
     if not overall_ok:
         for vr in view_results:
@@ -1106,138 +1398,355 @@ def build_global_summary(view_results: list, view_dirs: list,
     print("=" * 60)
 
 
+# ── GLOBAL ALL-PIECES SUMMARY ─────────────────────────────────────────────────
+
+def build_all_pieces_summary(all_pieces_records: list,
+                              run_id: str, timestamp_utc: str) -> None:
+    """
+    Write multiview_phaseA_all_pieces_summary.json under PIECES_OUT_ROOT.
+
+    Parameters
+    ----------
+    all_pieces_records : list of per-piece record dicts
+    run_id             : str
+    timestamp_utc      : str
+    """
+    n_attempted  = len(all_pieces_records)
+    n_succeeded  = sum(1 for r in all_pieces_records if r.get("success", False))
+    overall_ok   = (n_succeeded == n_attempted) and (n_attempted > 0)
+
+    summary = {
+        "script_name":              "capture_multiview_piece.py",
+        "phase":                    "A",
+        "phase_note":               PHASE_A_NOTE,
+        "run_id":                   run_id,
+        "timestamp_utc":            timestamp_utc,
+        "n_pieces_attempted":       n_attempted,
+        "n_pieces_succeeded":       n_succeeded,
+        "success_overall":          overall_ok,
+        "pieces":                   all_pieces_records,
+        "pieces_output_root":       str(PIECES_OUT_ROOT),
+        "visibility_control_enabled": True,
+        "note":                     IDENTITY_DISCLAIMER,
+    }
+
+    summary_path = PIECES_OUT_ROOT / "multiview_phaseA_all_pieces_summary.json"
+    try:
+        PIECES_OUT_ROOT.mkdir(parents=True, exist_ok=True)
+        with open(str(summary_path), "w") as fp:
+            json.dump(summary, fp, indent=2)
+        print(f"[all_pieces_summary] saved {summary_path}")
+    except Exception as exc:
+        print(f"[all_pieces_summary] WARNING: could not write summary — {exc}")
+
+
+# ── RESULTS TABLE ─────────────────────────────────────────────────────────────
+
+def print_results_table(all_pieces_records: list) -> None:
+    """
+    Print a fixed-width console table with one row per piece.
+    Columns: name, selected_prim, bbox_size_mm, views_succeeded/total, success,
+             sanity_warning.
+    No external dependencies.
+    """
+    print("\n" + "=" * 100)
+    print("PHASE A RESULTS TABLE")
+    print("=" * 100)
+
+    col_w = {
+        "name":    12,
+        "prim":    40,
+        "bbox_mm": 30,
+        "views":    8,
+        "ok":       8,
+        "warn":    10,
+    }
+
+    header = (
+        f"{'piece':<{col_w['name']}} "
+        f"{'selected_prim':<{col_w['prim']}} "
+        f"{'bbox_size_mm (x,y,z)':<{col_w['bbox_mm']}} "
+        f"{'views':<{col_w['views']}} "
+        f"{'success':<{col_w['ok']}} "
+        f"{'cad_warn':<{col_w['warn']}}"
+    )
+    print(header)
+    print("-" * 100)
+
+    for rec in all_pieces_records:
+        name = rec.get("piece_name", "?")
+
+        prim = rec.get("selected_prim_path") or "n/a"
+        if len(prim) > col_w["prim"]:
+            prim = "..." + prim[-(col_w["prim"] - 3):]
+
+        bbox_mm = rec.get("bbox_size_mm")
+        if bbox_mm and len(bbox_mm) == 3:
+            bbox_str = f"({bbox_mm[0]:.1f}, {bbox_mm[1]:.1f}, {bbox_mm[2]:.1f})"
+        else:
+            bbox_str = "n/a"
+
+        views_ok    = rec.get("views_succeeded", 0)
+        views_total = rec.get("views_total", 0)
+        views_str   = f"{views_ok}/{views_total}"
+
+        ok_str = "YES" if rec.get("success", False) else "NO"
+
+        warn_flag = rec.get("cad_sanity_warning", False)
+        warn_str  = "WARN" if warn_flag else "ok"
+
+        row = (
+            f"{name:<{col_w['name']}} "
+            f"{prim:<{col_w['prim']}} "
+            f"{bbox_str:<{col_w['bbox_mm']}} "
+            f"{views_str:<{col_w['views']}} "
+            f"{ok_str:<{col_w['ok']}} "
+            f"{warn_str:<{col_w['warn']}}"
+        )
+        print(row)
+
+    print("=" * 100)
+
+
+# ── VISIBILITY SNAPSHOT ───────────────────────────────────────────────────────
+
+def snapshot_visibility(stage, mvp_piece_prims: dict) -> dict:
+    """
+    Record the current visibility token for every prim root in mvp_piece_prims.
+
+    Returns {prim_path_str: visibility_token_or_None}.
+    """
+    from pxr import UsdGeom
+
+    snapshot = {}
+    for piece_name, paths in mvp_piece_prims.items():
+        for path_str in paths:
+            try:
+                prim = stage.GetPrimAtPath(path_str)
+                if prim.IsValid():
+                    img = UsdGeom.Imageable(prim)
+                    attr = img.GetVisibilityAttr()
+                    snapshot[path_str] = attr.Get() if attr else None
+                else:
+                    snapshot[path_str] = None
+            except Exception:
+                snapshot[path_str] = None
+    return snapshot
+
+
+def restore_visibility(stage, snapshot: dict) -> None:
+    """
+    Restore visibility tokens captured by snapshot_visibility().
+
+    Logs each failure but does not raise — restore must always complete.
+    """
+    from pxr import UsdGeom
+
+    for path_str, token in snapshot.items():
+        try:
+            prim = stage.GetPrimAtPath(path_str)
+            if not prim.IsValid():
+                print(f"[restore_visibility] prim not valid at {path_str} — skipping")
+                continue
+            img = UsdGeom.Imageable(prim)
+            if token is None:
+                # No prior attr value — make visible (inherited) as safe default.
+                img.MakeVisible()
+            elif str(token) == "invisible":
+                img.MakeInvisible()
+            else:
+                img.MakeVisible()
+        except Exception as exc:
+            print(f"[restore_visibility] WARNING: could not restore {path_str}: {exc}")
+
+
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 
 async def main():
     import numpy as np
     import omni.usd
 
-    # ── Resolve output directory ───────────────────────────────────────────────
-    # Remove ONLY this script's own target directory, then recreate it.
-    # Sibling directories (e.g. other pieces) are never touched.
-    try:
-        if OUT_ROOT.exists():
-            shutil.rmtree(str(OUT_ROOT))
-            print(f"[multiview] cleared existing output dir: {OUT_ROOT}")
-    except Exception as exc:
-        print(f"[multiview] WARNING: could not remove {OUT_ROOT}: {exc}")
-
-    OUT_ROOT.mkdir(parents=True, exist_ok=True)
-
-    # ── Tee logging ───────────────────────────────────────────────────────────
-    log_path = setup_run_logging(OUT_ROOT)
-
-    # ── Banner ────────────────────────────────────────────────────────────────
+    # ── Run identifiers ────────────────────────────────────────────────────────
     run_id        = uuid.uuid4().hex[:8]
     timestamp_utc = datetime.now(timezone.utc).isoformat()
 
-    print("=" * 60)
-    print("capture_multiview_piece.py — Phase A: Multi-view Proof-of-Life")
-    print("=" * 60)
-    print(f"[multiview] phase_note     = {PHASE_A_NOTE}")
-    print(f"[multiview] camera_prim    = {CAMERA_PRIM_PATH}")
-    print(f"[multiview] output_dir     = {OUT_ROOT}")
-    print(f"[multiview] n_views        = {len(VIEWS)}")
-    print(f"[multiview] run_id         = {run_id}")
-    print(f"[multiview] timestamp_utc  = {timestamp_utc}")
-    print(f"[multiview] run_log        = {log_path}")
-    print(f"[multiview] target_mode    = {TARGET_MODE}")
-    print(f"[multiview] name_hints     = {TARGET_PRIM_NAME_HINTS}")
+    # ── Stage ─────────────────────────────────────────────────────────────────
+    stage = omni.usd.get_context().get_stage()
+    if stage is None:
+        print("[multiview] FATAL: no USD stage is open. Open the scene first.")
+        return
 
-    # ── Intrinsics (same for all views — one camera, one sensor) ─────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    # CAPTURE_ALL_PIECES = False  →  single-piece backward-compat path
+    # ─────────────────────────────────────────────────────────────────────────
+    if not CAPTURE_ALL_PIECES:
+        # Remove ONLY this script's own target directory, then recreate it.
+        try:
+            if OUT_ROOT.exists():
+                shutil.rmtree(str(OUT_ROOT))
+                print(f"[multiview] cleared existing output dir: {OUT_ROOT}")
+        except Exception as exc:
+            print(f"[multiview] WARNING: could not remove {OUT_ROOT}: {exc}")
+
+        OUT_ROOT.mkdir(parents=True, exist_ok=True)
+        log_path = setup_run_logging(OUT_ROOT)
+
+        print("=" * 60)
+        print("capture_multiview_piece.py — Phase A (single-piece mode)")
+        print("=" * 60)
+        print(f"[multiview] phase_note     = {PHASE_A_NOTE}")
+        print(f"[multiview] camera_prim    = {CAMERA_PRIM_PATH}")
+        print(f"[multiview] output_dir     = {OUT_ROOT}")
+        print(f"[multiview] n_views        = {len(VIEWS)}")
+        print(f"[multiview] run_id         = {run_id}")
+        print(f"[multiview] timestamp_utc  = {timestamp_utc}")
+        print(f"[multiview] run_log        = {log_path}")
+        print(f"[multiview] target_mode    = {TARGET_MODE}")
+        print(f"[multiview] name_hints     = {TARGET_PRIM_NAME_HINTS}")
+
+        intrinsics = compute_intrinsics()
+        print(f"[multiview] intrinsics: fx={intrinsics['fx_px']:.2f}  "
+              f"fy={intrinsics['fy_px']:.2f}  "
+              f"cx={intrinsics['cx_px']:.2f}  cy={intrinsics['cy_px']:.2f}  "
+              f"model={intrinsics['intrinsics_model']}")
+
+        if TARGET_MODE == "auto_prim_bbox":
+            print(f"\n[target_resolve] mode=auto_prim_bbox  "
+                  f"hints={TARGET_PRIM_NAME_HINTS}")
+            target_info = resolve_target_look_at(stage)
+        else:
+            print(f"[target_resolve] mode=manual  look_at={MANUAL_TARGET_LOOK_AT}")
+            ctr = list(MANUAL_TARGET_LOOK_AT)
+            target_info = {
+                "selected_prim_path":    None,
+                "prim_type_name":        None,
+                "bbox_min_m":            None,
+                "bbox_max_m":            None,
+                "bbox_center_m":         ctr,
+                "bbox_size_m":           None,
+                "bbox_size_mm":          None,
+                "bbox_method":           "manual",
+                "n_candidates_examined": 0,
+            }
+
+        print(f"[target_resolve] selected prim : {target_info['selected_prim_path']}")
+        sz_mm = target_info.get('bbox_size_mm') or []
+        if sz_mm:
+            print(f"[target_resolve] bbox size (mm): "
+                  f"({sz_mm[0]:.1f}, {sz_mm[1]:.1f}, {sz_mm[2]:.1f})")
+
+        cx, cy, cz = target_info["bbox_center_m"]
+        view_positions = {
+            "top_down":      (cx, cy,                  cz + TOP_DOWN_HEIGHT),
+            "front_oblique": (cx, cy - OBLIQUE_OFFSET, cz + OBLIQUE_HEIGHT),
+            "side_oblique":  (cx + OBLIQUE_OFFSET, cy, cz + OBLIQUE_HEIGHT),
+        }
+        look_at_point = (cx, cy, cz)
+        for view_cfg in VIEWS:
+            name = view_cfg["name"]
+            if name in view_positions:
+                view_cfg["position_m"] = view_positions[name]
+                view_cfg["look_at_m"]  = look_at_point
+
+        try:
+            rp, rgb_an, depth_an = create_render_product_and_annotators()
+        except Exception as exc:
+            print(f"[multiview] FATAL: could not create render product — {exc}")
+            traceback.print_exc()
+            teardown_run_logging()
+            return
+
+        view_results = []
+        view_dirs    = []
+        for idx, view_cfg in enumerate(VIEWS):
+            view_name = view_cfg["name"]
+            try:
+                vr = await capture_view(
+                    view_cfg, rgb_an, depth_an,
+                    run_id=run_id, timestamp_utc=timestamp_utc,
+                    intrinsics=intrinsics,
+                )
+            except Exception as exc:
+                msg = f"{type(exc).__name__}: {exc}"
+                print(f"[view_FAIL] {view_name}: {msg}")
+                traceback.print_exc()
+                vr = {
+                    "ok": False, "view_name": view_name,
+                    "rgb": None, "depth": None,
+                    "requested_pose": {
+                        "position_m": list(view_cfg["position_m"]),
+                        "look_at_m":  list(view_cfg["look_at_m"]),
+                        "up_axis":    list(view_cfg["up_axis"]),
+                    },
+                    "measured_pose": None,
+                    "depth_valid_min_m": None, "depth_valid_max_m": None,
+                    "n_valid_depth_pixels": 0, "error_message": msg,
+                }
+            vd = save_view_outputs(
+                vr, view_idx=idx, intrinsics=intrinsics,
+                run_id=run_id, timestamp_utc=timestamp_utc,
+                target_info=target_info, piece_out_root=OUT_ROOT,
+            )
+            view_results.append(vr)
+            view_dirs.append(vd)
+
+        print("\n[contact_sheet] building contact sheet ...")
+        build_contact_sheet(view_results, view_dirs,
+                            piece_name="rectangle",
+                            piece_out_root=OUT_ROOT)
+        print("\n[summary] writing per-piece summary ...")
+        build_piece_summary(
+            view_results, view_dirs,
+            run_id=run_id, timestamp_utc=timestamp_utc,
+            intrinsics=intrinsics, target_info=target_info,
+            piece_name="rectangle", piece_out_root=OUT_ROOT,
+        )
+        teardown_run_logging()
+        return
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # CAPTURE_ALL_PIECES = True  →  multi-piece loop with visibility control
+    # ─────────────────────────────────────────────────────────────────────────
+
+    # Logging goes to the pieces root (one shared run_log for the whole run).
+    PIECES_OUT_ROOT.mkdir(parents=True, exist_ok=True)
+    log_path = setup_run_logging(PIECES_OUT_ROOT)
+
+    print("=" * 80)
+    print("capture_multiview_piece.py — Phase A: Multi-piece Capture")
+    print("=" * 80)
+    print(f"[multiview] CAPTURE_ALL_PIECES = True")
+    print(f"[multiview] piece_order        = {PIECE_CAPTURE_ORDER}")
+    print(f"[multiview] phase_note         = {PHASE_A_NOTE}")
+    print(f"[multiview] camera_prim        = {CAMERA_PRIM_PATH}")
+    print(f"[multiview] pieces_out_root    = {PIECES_OUT_ROOT}")
+    print(f"[multiview] n_views_per_piece  = {len(VIEWS)}")
+    print(f"[multiview] run_id             = {run_id}")
+    print(f"[multiview] timestamp_utc      = {timestamp_utc}")
+    print(f"[multiview] run_log            = {log_path}")
+
+    # ── Intrinsics (fixed across all pieces — one camera, one sensor) ─────────
     intrinsics = compute_intrinsics()
     print(f"[multiview] intrinsics: fx={intrinsics['fx_px']:.2f}  "
           f"fy={intrinsics['fy_px']:.2f}  "
           f"cx={intrinsics['cx_px']:.2f}  cy={intrinsics['cy_px']:.2f}  "
           f"model={intrinsics['intrinsics_model']}")
 
-    # ── Resolve target look-at ────────────────────────────────────────────────
-    stage = omni.usd.get_context().get_stage()
-    if stage is None:
-        print("[multiview] FATAL: no USD stage is open. Open the scene first.")
-        teardown_run_logging()
-        return
+    # ── Load CAD dimensions once ───────────────────────────────────────────────
+    cad_data = load_cad_dimensions()
 
-    if TARGET_MODE == "auto_prim_bbox":
-        print(f"\n[target_resolve] mode=auto_prim_bbox  "
-              f"hints={TARGET_PRIM_NAME_HINTS}")
-        # resolve_target_look_at raises RuntimeError on failure — let it propagate.
-        target_info = resolve_target_look_at(stage)
+    # ── Discover MVP piece prims ──────────────────────────────────────────────
+    print("\n[collect_mvp_prims] scanning stage for MVP piece prims ...")
+    mvp_piece_prims = collect_mvp_piece_prims(stage)
+    print(f"[collect_mvp_prims] found prims for pieces: "
+          f"{list(mvp_piece_prims.keys())}")
 
-        print(f"[target_resolve] selected prim : {target_info['selected_prim_path']}")
-        print(f"[target_resolve] prim type     : {target_info['prim_type_name']}")
-        print(f"[target_resolve] bbox method   : {target_info['bbox_method']}")
-        print(f"[target_resolve] bbox min (m)  : {target_info['bbox_min_m']}")
-        print(f"[target_resolve] bbox max (m)  : {target_info['bbox_max_m']}")
-        sz_mm = target_info['bbox_size_mm']
-        print(f"[target_resolve] bbox size (mm): "
-              f"({sz_mm[0]:.1f}, {sz_mm[1]:.1f}, {sz_mm[2]:.1f})")
-        ctr = target_info['bbox_center_m']
-        print(f"[target_resolve] bbox centre (m): "
-              f"({ctr[0]:.4f}, {ctr[1]:.4f}, {ctr[2]:.4f})")
-        print(f"[target_resolve] candidates examined: "
-              f"{target_info['n_candidates_examined']}")
+    # ── Snapshot current visibility state ─────────────────────────────────────
+    visibility_snapshot = snapshot_visibility(stage, mvp_piece_prims)
+    print(f"[visibility] captured original visibility for "
+          f"{len(visibility_snapshot)} prims")
 
-    else:
-        # Manual mode — build a synthetic info dict; no stage traversal.
-        print(f"[target_resolve] mode=manual  look_at={MANUAL_TARGET_LOOK_AT}")
-        ctr = list(MANUAL_TARGET_LOOK_AT)
-        target_info = {
-            "selected_prim_path":    None,
-            "prim_type_name":        None,
-            "bbox_min_m":            None,
-            "bbox_max_m":            None,
-            "bbox_center_m":         ctr,
-            "bbox_size_m":           None,
-            "bbox_size_mm":          None,
-            "bbox_method":           "manual",
-            "n_candidates_examined": 0,
-        }
-
-    # ── Compute per-view positions from resolved target centre ─────────────────
-    cx, cy, cz = target_info["bbox_center_m"]
-
-    # top_down:      straight above the target (Z-axis view).
-    # front_oblique: −Y offset from target at oblique height (Y-axis view).
-    # side_oblique:  +X offset from target at oblique height (X-axis view).
-    # Angle from vertical for oblique views:
-    #   atan(OBLIQUE_OFFSET / OBLIQUE_HEIGHT) = atan(0.30/0.40) ≈ 36.9°
-
-    view_positions = {
-        "top_down":      (cx,                  cy - 0,              cz + TOP_DOWN_HEIGHT),
-        "front_oblique": (cx,                  cy - OBLIQUE_OFFSET, cz + OBLIQUE_HEIGHT),
-        "side_oblique":  (cx + OBLIQUE_OFFSET, cy,                  cz + OBLIQUE_HEIGHT),
-    }
-    look_at_point = (cx, cy, cz)
-
-    # Update VIEWS list in-place with the computed positions and look-at.
-    for view_cfg in VIEWS:
-        name = view_cfg["name"]
-        if name in view_positions:
-            view_cfg["position_m"] = view_positions[name]
-            view_cfg["look_at_m"]  = look_at_point
-            offset = (
-                round(view_positions[name][0] - cx, 4),
-                round(view_positions[name][1] - cy, 4),
-                round(view_positions[name][2] - cz, 4),
-            )
-            print(f"[multiview] requested view {name}: "
-                  f"position={view_positions[name]}  "
-                  f"look_at={look_at_point}  "
-                  f"offset_from_target={offset}")
-
-    # ── View-config summary log ───────────────────────────────────────────────
-    print("\n[view_config] layout (offsets are relative to target centre):")
-    print(f"[view_config] top_down       offset = "
-          f"( 0.00,  0.00, +{TOP_DOWN_HEIGHT:.2f}) m")
-    print(f"[view_config] front_oblique  offset = "
-          f"( 0.00, -{OBLIQUE_OFFSET:.2f}, +{OBLIQUE_HEIGHT:.2f}) m"
-          f"   (~37 deg from vertical)")
-    print(f"[view_config] side_oblique   offset = "
-          f"(+{OBLIQUE_OFFSET:.2f},  0.00, +{OBLIQUE_HEIGHT:.2f}) m"
-          f"   (~37 deg from vertical)")
-
-    # ── Create render product and annotators ONCE ─────────────────────────────
+    # ── Create render product once (reused across all pieces and views) ────────
     try:
         rp, rgb_an, depth_an = create_render_product_and_annotators()
     except Exception as exc:
@@ -1246,80 +1755,262 @@ async def main():
         teardown_run_logging()
         return
 
-    # ── Per-view capture loop ─────────────────────────────────────────────────
-    view_results = []
-    view_dirs    = []
+    # ── Per-piece capture loop (with visibility restore in finally) ────────────
+    all_pieces_records = []
 
-    for idx, view_cfg in enumerate(VIEWS):
-        view_name = view_cfg["name"]
-        try:
-            vr = await capture_view(
-                view_cfg, rgb_an, depth_an,
-                run_id=run_id, timestamp_utc=timestamp_utc,
-                intrinsics=intrinsics,
-            )
-        except Exception as exc:
-            msg = f"{type(exc).__name__}: {exc}"
-            print(f"[view_FAIL] {view_name}: {msg}")
-            traceback.print_exc()
-            vr = {
-                "ok":              False,
-                "view_name":       view_name,
-                "rgb":             None,
-                "depth":           None,
-                "requested_pose":  {
-                    "position_m": list(view_cfg["position_m"]),
-                    "look_at_m":  list(view_cfg["look_at_m"]),
-                    "up_axis":    list(view_cfg["up_axis"]),
-                },
-                "measured_pose":          None,
-                "depth_valid_min_m":      None,
-                "depth_valid_max_m":      None,
-                "n_valid_depth_pixels":   0,
-                "error_message":          msg,
-            }
+    try:
+        for piece_name in PIECE_CAPTURE_ORDER:
 
-        vd = save_view_outputs(
-            vr, view_idx=idx,
-            intrinsics=intrinsics,
-            run_id=run_id,
-            timestamp_utc=timestamp_utc,
-            target_info=target_info,
-        )
-        view_results.append(vr)
-        view_dirs.append(vd)
+            # ── Banner ────────────────────────────────────────────────────────
+            print(f"\n{'#'*70}")
+            print(f"[piece {piece_name}] target piece = {piece_name}")
+            print(f"{'#'*70}")
 
-        # One summary line per view
-        d_window = (
-            f"[{vr['depth_valid_min_m']:.4f}, {vr['depth_valid_max_m']:.4f}] m"
-            if vr["ok"] else "n/a"
-        )
-        req_pos = view_cfg["position_m"]
-        meas_pos = (
-            vr["measured_pose"]["position"] if vr["measured_pose"] else "n/a"
-        )
-        print(
-            f"[view_{view_name}] ok={vr['ok']}  "
-            f"req_pos=({req_pos[0]:.4f},{req_pos[1]:.4f},{req_pos[2]:.4f})  "
-            f"meas_pos={meas_pos}  "
-            f"depth={d_window}  "
-            f"n_valid={vr['n_valid_depth_pixels']}  "
-            f"save={vd}"
-        )
+            # Skip if no prims found for this piece.
+            if piece_name not in mvp_piece_prims:
+                msg = "no candidate prim"
+                print(f"[piece {piece_name}] no candidate prim found, skipping")
+                all_pieces_records.append({
+                    "piece_name":           piece_name,
+                    "selected_prim_path":   None,
+                    "bbox_size_mm":         None,
+                    "bbox_method":          None,
+                    "views_succeeded":      0,
+                    "views_total":          len(VIEWS),
+                    "success":              False,
+                    "output_dir":           None,
+                    "cad_sanity_warning":   False,
+                    "cad_sanity_message":   None,
+                    "error_message":        msg,
+                })
+                continue
 
-    # ── Contact sheet ─────────────────────────────────────────────────────────
-    print("\n[contact_sheet] building contact sheet ...")
-    build_contact_sheet(view_results, view_dirs)
+            # ── Per-piece try/except — one failure must not stop the run ──────
+            try:
+                active_hints = PIECE_NAME_HINTS[piece_name]
+                print(f"[piece {piece_name}] hint search    = {active_hints}")
 
-    # ── Global summary ────────────────────────────────────────────────────────
-    print("\n[summary] writing global summary ...")
-    build_global_summary(
-        view_results, view_dirs,
-        run_id=run_id,
-        timestamp_utc=timestamp_utc,
-        intrinsics=intrinsics,
-        target_info=target_info,
-    )
+                # ── Visibility control: hide all other pieces, show this one ──
+                target_paths = mvp_piece_prims[piece_name]
+                hidden_paths = []
+                for other_name, other_paths in mvp_piece_prims.items():
+                    if other_name != piece_name:
+                        toggled = set_piece_visibility(stage, other_paths,
+                                                       visible=False)
+                        hidden_paths.extend(toggled)
+
+                shown_paths = set_piece_visibility(stage, target_paths, visible=True)
+                shown_prim_path = shown_paths[0] if shown_paths else None
+
+                print(f"[visibility] hidden prims     = {hidden_paths}")
+                print(f"[visibility] shown prim       = {shown_prim_path}")
+
+                # ── Per-piece output directory ─────────────────────────────────
+                piece_out_root = PIECES_OUT_ROOT / piece_name
+                if piece_out_root.exists():
+                    shutil.rmtree(str(piece_out_root))
+                    print(f"[piece {piece_name}] cleared output dir: {piece_out_root}")
+                piece_out_root.mkdir(parents=True, exist_ok=True)
+                print(f"[piece {piece_name}] output dir     = {piece_out_root}")
+
+                # ── Resolve target bbox ────────────────────────────────────────
+                print(f"\n[target_resolve] mode={TARGET_MODE}  "
+                      f"hints={active_hints}")
+                if TARGET_MODE == "auto_prim_bbox":
+                    target_info = resolve_target_look_at(stage, hints=active_hints)
+                else:
+                    ctr = list(MANUAL_TARGET_LOOK_AT)
+                    target_info = {
+                        "selected_prim_path":    None,
+                        "prim_type_name":        None,
+                        "bbox_min_m":            None,
+                        "bbox_max_m":            None,
+                        "bbox_center_m":         ctr,
+                        "bbox_size_m":           None,
+                        "bbox_size_mm":          None,
+                        "bbox_method":           "manual",
+                        "n_candidates_examined": 0,
+                    }
+
+                print(f"[target_resolve] selected prim : "
+                      f"{target_info['selected_prim_path']}")
+                print(f"[target_resolve] prim type     : "
+                      f"{target_info['prim_type_name']}")
+                print(f"[target_resolve] bbox method   : "
+                      f"{target_info['bbox_method']}")
+                sz_mm = target_info.get("bbox_size_mm") or [0, 0, 0]
+                print(f"[target_resolve] bbox size (mm): "
+                      f"({sz_mm[0]:.1f}, {sz_mm[1]:.1f}, {sz_mm[2]:.1f})")
+                ctr_m = target_info["bbox_center_m"]
+                print(f"[target_resolve] bbox centre (m): "
+                      f"({ctr_m[0]:.4f}, {ctr_m[1]:.4f}, {ctr_m[2]:.4f})")
+                print(f"[target_resolve] candidates examined: "
+                      f"{target_info['n_candidates_examined']}")
+
+                # ── CAD sanity warning ─────────────────────────────────────────
+                cad_warn_flag, cad_warn_msg = check_cad_sanity(
+                    piece_name, sz_mm, cad_data
+                )
+                cad_sanity_value = cad_warn_msg if cad_warn_flag else False
+
+                # ── Compute per-view camera positions ──────────────────────────
+                cx, cy, cz = target_info["bbox_center_m"]
+                view_positions = {
+                    "top_down":      (cx,                  cy,                  cz + TOP_DOWN_HEIGHT),
+                    "front_oblique": (cx,                  cy - OBLIQUE_OFFSET, cz + OBLIQUE_HEIGHT),
+                    "side_oblique":  (cx + OBLIQUE_OFFSET, cy,                  cz + OBLIQUE_HEIGHT),
+                }
+                look_at_point = (cx, cy, cz)
+
+                # Update VIEWS in-place with resolved positions.
+                for view_cfg in VIEWS:
+                    name = view_cfg["name"]
+                    if name in view_positions:
+                        view_cfg["position_m"] = view_positions[name]
+                        view_cfg["look_at_m"]  = look_at_point
+                        offset = (
+                            round(view_positions[name][0] - cx, 4),
+                            round(view_positions[name][1] - cy, 4),
+                            round(view_positions[name][2] - cz, 4),
+                        )
+                        print(f"[view_config] {name}: "
+                              f"position={view_positions[name]}  "
+                              f"look_at={look_at_point}  "
+                              f"offset_from_target={offset}")
+
+                # ── Build visibility metadata block (shared across views) ───────
+                vis_meta_block = {
+                    "target_piece_name":          piece_name,
+                    "visibility_control_enabled":  True,
+                    "hidden_piece_prim_paths":     hidden_paths,
+                    "shown_target_prim_path":      shown_prim_path,
+                    "note":                        IDENTITY_DISCLAIMER,
+                    "cad_sanity_warning":          cad_sanity_value,
+                }
+
+                # ── Per-view capture ───────────────────────────────────────────
+                view_results = []
+                view_dirs    = []
+
+                for idx, view_cfg in enumerate(VIEWS):
+                    view_name = view_cfg["name"]
+                    try:
+                        vr = await capture_view(
+                            view_cfg, rgb_an, depth_an,
+                            run_id=run_id, timestamp_utc=timestamp_utc,
+                            intrinsics=intrinsics,
+                        )
+                    except Exception as exc:
+                        msg = f"{type(exc).__name__}: {exc}"
+                        print(f"[view_FAIL] {piece_name}/{view_name}: {msg}")
+                        traceback.print_exc()
+                        vr = {
+                            "ok": False, "view_name": view_name,
+                            "rgb": None, "depth": None,
+                            "requested_pose": {
+                                "position_m": list(view_cfg["position_m"]),
+                                "look_at_m":  list(view_cfg["look_at_m"]),
+                                "up_axis":    list(view_cfg["up_axis"]),
+                            },
+                            "measured_pose": None,
+                            "depth_valid_min_m": None, "depth_valid_max_m": None,
+                            "n_valid_depth_pixels": 0, "error_message": msg,
+                        }
+
+                    vd = save_view_outputs(
+                        vr, view_idx=idx, intrinsics=intrinsics,
+                        run_id=run_id, timestamp_utc=timestamp_utc,
+                        target_info=target_info,
+                        piece_out_root=piece_out_root,
+                        visibility_meta=vis_meta_block,
+                    )
+                    view_results.append(vr)
+                    view_dirs.append(vd)
+
+                    # One summary line per view.
+                    d_window = (
+                        f"[{vr['depth_valid_min_m']:.4f}, "
+                        f"{vr['depth_valid_max_m']:.4f}] m"
+                        if vr["ok"] else "n/a"
+                    )
+                    req_pos  = view_cfg["position_m"]
+                    meas_pos = (
+                        vr["measured_pose"]["position"]
+                        if vr["measured_pose"] else "n/a"
+                    )
+                    print(
+                        f"[view_{view_name}] ok={vr['ok']}  "
+                        f"req_pos=({req_pos[0]:.4f},{req_pos[1]:.4f},{req_pos[2]:.4f})  "
+                        f"meas_pos={meas_pos}  "
+                        f"depth={d_window}  "
+                        f"n_valid={vr['n_valid_depth_pixels']}  "
+                        f"save={vd}"
+                    )
+
+                # ── Contact sheet ──────────────────────────────────────────────
+                print(f"\n[contact_sheet] building contact sheet for {piece_name} ...")
+                build_contact_sheet(view_results, view_dirs,
+                                    piece_name=piece_name,
+                                    piece_out_root=piece_out_root)
+
+                # ── Per-piece summary JSON ─────────────────────────────────────
+                print(f"\n[summary] writing per-piece summary for {piece_name} ...")
+                build_piece_summary(
+                    view_results, view_dirs,
+                    run_id=run_id, timestamp_utc=timestamp_utc,
+                    intrinsics=intrinsics, target_info=target_info,
+                    piece_name=piece_name, piece_out_root=piece_out_root,
+                    visibility_meta=vis_meta_block,
+                )
+
+                # ── Append global record ───────────────────────────────────────
+                n_succeeded = sum(1 for vr in view_results if vr["ok"])
+                all_pieces_records.append({
+                    "piece_name":         piece_name,
+                    "selected_prim_path": target_info.get("selected_prim_path"),
+                    "bbox_size_mm":       target_info.get("bbox_size_mm"),
+                    "bbox_method":        target_info.get("bbox_method"),
+                    "views_succeeded":    n_succeeded,
+                    "views_total":        len(VIEWS),
+                    "success":            (n_succeeded == len(VIEWS)),
+                    "output_dir":         str(piece_out_root),
+                    "cad_sanity_warning": cad_warn_flag,
+                    "cad_sanity_message": cad_warn_msg,
+                    "error_message":      None,
+                })
+
+            except Exception as piece_exc:
+                msg = f"{type(piece_exc).__name__}: {piece_exc}"
+                print(f"[piece_FAIL] {piece_name}: {msg}")
+                traceback.print_exc()
+                all_pieces_records.append({
+                    "piece_name":         piece_name,
+                    "selected_prim_path": None,
+                    "bbox_size_mm":       None,
+                    "bbox_method":        None,
+                    "views_succeeded":    0,
+                    "views_total":        len(VIEWS),
+                    "success":            False,
+                    "output_dir":         None,
+                    "cad_sanity_warning": False,
+                    "cad_sanity_message": None,
+                    "error_message":      msg,
+                })
+                # Continue to the next piece — do not abort the loop.
+                continue
+
+    finally:
+        # ── Restore original visibility regardless of success/failure ──────────
+        print("\n[visibility] restoring original visibility states ...")
+        restore_visibility(stage, visibility_snapshot)
+        print("[visibility] restore complete")
+
+    # ── Global all-pieces summary ──────────────────────────────────────────────
+    print("\n[all_pieces_summary] writing global summary ...")
+    build_all_pieces_summary(all_pieces_records, run_id, timestamp_utc)
+
+    # ── Results table ──────────────────────────────────────────────────────────
+    print_results_table(all_pieces_records)
 
     teardown_run_logging()
 

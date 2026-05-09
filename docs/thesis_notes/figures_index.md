@@ -173,6 +173,30 @@ report.
 
 ---
 
+## Table of figures — Baseline 2 Phase A: multi-view capture proof-of-life
+
+> Note: these figures correspond to the **multi-view capture
+> proof-of-life** of Baseline 2 Phase A, documented in doc 04 —
+> section 1. They are infrastructure evidence (capture chain,
+> target auto-resolution, intrinsics consistency, pose
+> round-trip) and **must not** be presented as evidence of fusion
+> or of multi-view matching: neither is implemented at this
+> phase. The current capture uses a sequential-camera proof-of-life
+> layout, not the final static multi-camera architecture (see
+> doc 04 — sections 1.4 and 1.7).
+
+| Figure ID | Source file | Suggested LaTeX filename | Suggested caption | Related section | Notes |
+|---|---|---|---|---|---|
+| `fig:baseline2_phaseA_contact_sheet` | `data/multiview_captures/pieces/rectangle/views_contact_sheet.png` | `fig43_baseline2_phaseA_contact_sheet.png` | Contact sheet of the three views captured for the rectangle in Baseline 2 Phase A (`top_down`, `front_oblique`, `side_oblique`); sequential-camera proof-of-life, not final static multi-camera architecture. | Baseline 2 Phase A — sections 1.4–1.6 | Synthesis figure for Phase A; intended as opening figure of the multi-view chapter. |
+| `fig:baseline2_phaseA_top_down_rgb` | `data/multiview_captures/pieces/rectangle/view_00_top_down/rgb.png` | `fig44_baseline2_phaseA_top_down_rgb.png` | RGB image of the rectangle from the `top_down` view (camera offset `(0, 0, +0.50)` m relative to the resolved target centre); sequential-camera proof-of-life, not final static multi-camera architecture. | Baseline 2 Phase A — sections 1.4 and 1.6 | Reference top-down view; note the scene intruder (grey box) in the bottom-right corner discussed in section 1.6. |
+| `fig:baseline2_phaseA_top_down_depth_vis` | `data/multiview_captures/pieces/rectangle/view_00_top_down/depth_vis.png` | `fig45_baseline2_phaseA_top_down_depth_vis.png` | Coloured depth visualization of the `top_down` view; depth range `[0.4475, 0.9525]` m, three distinct levels (floor, board, top of piece) visible. | Baseline 2 Phase A — section 1.6 | Useful for commenting on the depth ordering and on the scene intruder overlapping the depth band of the piece. |
+| `fig:baseline2_phaseA_front_oblique_rgb` | `data/multiview_captures/pieces/rectangle/view_01_front_oblique/rgb.png` | `fig46_baseline2_phaseA_front_oblique_rgb.png` | RGB image of the rectangle from the `front_oblique` view (camera offset `(0, −0.30, +0.40)` m, ≈ 36.9° from vertical); sequential-camera proof-of-life, not final static multi-camera architecture. | Baseline 2 Phase A — sections 1.4 and 1.6 | Genuinely complementary to `top_down`: front face of the board is exposed. |
+| `fig:baseline2_phaseA_front_oblique_depth_vis` | `data/multiview_captures/pieces/rectangle/view_01_front_oblique/depth_vis.png` | `fig47_baseline2_phaseA_front_oblique_depth_vis.png` | Coloured depth visualization of the `front_oblique` view; depth range `[0.4355, 1.8405]` m, smooth gradient. | Baseline 2 Phase A — section 1.6 | Non-degenerate depth; useful as evidence of complementary geometric coverage. |
+| `fig:baseline2_phaseA_side_oblique_rgb` | `data/multiview_captures/pieces/rectangle/view_02_side_oblique/rgb.png` | `fig48_baseline2_phaseA_side_oblique_rgb.png` | RGB image of the rectangle from the `side_oblique` view (camera offset `(+0.30, 0, +0.40)` m, ≈ 36.9° from vertical); sequential-camera proof-of-life, not final static multi-camera architecture. | Baseline 2 Phase A — sections 1.4, 1.6 and 1.7 | Piece visibly off-centre to the left; cause and optional offset adjustment discussed in section 1.7, item 3. |
+| `fig:baseline2_phaseA_side_oblique_depth_vis` | `data/multiview_captures/pieces/rectangle/view_02_side_oblique/depth_vis.png` | `fig49_baseline2_phaseA_side_oblique_depth_vis.png` | Coloured depth visualization of the `side_oblique` view; depth range `[0.3622, 2.4308]` m, wider range compresses the colour map so the piece appears only subtly distinct from the board (raw `.npy` retains the signal). | Baseline 2 Phase A — section 1.6 | Caption must explicitly mention the colour-map compression to avoid misreading as a degenerate capture. |
+
+---
+
 ## Gaps and figures to consider later
 
 Items **not** available yet but potentially relevant for the
