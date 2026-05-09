@@ -65,7 +65,7 @@ report.
 
 ---
 
-## Table of figures — Baseline 1: deterministic geometric matching
+## Table of figures — Baseline 1: deterministic geometric matching (star-set, historical)
 
 > Methodological note: from the next execution onwards the set of
 > pieces will be `rectangle, square, circle, triangle` — the star
@@ -73,16 +73,55 @@ report.
 > Baseline 1 — section 11). The figures below are from the
 > execution validated with the star and should be used with
 > captions that reflect that experimental decision.
+>
+> **Status:** historical / pre-correction (star-set Baseline 1 —
+> preserved as intermediate diagnostic). The canonical paths
+> `data/baseline1_geometric_matching/score_matrix_heatmap.png`,
+> `.../best_match_grid.png` and the per-piece overlays under
+> `rectangle/vs_cavity_01/`, `square/vs_cavity_03/`,
+> `circle/vs_cavity_02/` were overwritten by the post-correction
+> run C (see the table for the **final main set** below);
+> consequently the file paths in this table no longer point to
+> the star-set artefacts on disk and the entries are kept as a
+> documentary record of the intermediate state described in
+> Baseline 1 — sections 9–11. The `star/...` entries refer to
+> files that were never overwritten by the post-correction run
+> (the star is out of scope for run C) and may still exist on
+> disk at the recorded paths.
 
 | Figure ID | Source file | Suggested LaTeX filename | Suggested caption | Related section | Notes |
 |---|---|---|---|---|---|
-| `fig:baseline1_score_matrix` | `data/baseline1_geometric_matching/score_matrix_heatmap.png` | `fig19_baseline1_score_matrix.png` | 4 × 4 heat map with the composite *score* between each piece and each cavity at the optimal rotation. | Baseline 1 — section 9 | Clean diagonal: proof that the baseline discovers the matching without any manual mapping. |
-| `fig:baseline1_best_grid` | `data/baseline1_geometric_matching/best_match_grid.png` | `fig20_baseline1_best_grid.png` | Grid of the optimal matchings: for each piece, piece mask, cavity mask and overlay at the optimal rotation. | Baseline 1 — sections 9 and 10 | Synthesis figure for the report; simultaneously illustrates the matching and the scale discrepancy. |
-| `fig:baseline1_rectangle_overlay` | `data/baseline1_geometric_matching/rectangle/vs_cavity_01/overlay_best.png` | `fig21_baseline1_rectangle_overlay.png` | Piece-cavity overlay for `rectangle ↔ cavity_01` at the optimal 90° rotation. | Baseline 1 — section 10 | Cleanest case of long-axis alignment via rotation search. |
-| `fig:baseline1_square_overlay` | `data/baseline1_geometric_matching/square/vs_cavity_03/overlay_best.png` | `fig22_baseline1_square_overlay.png` | `square ↔ cavity_03` overlay at the optimal 180° rotation. | Baseline 1 — section 10 | Highest-IoU case (≈ 0.945). |
-| `fig:baseline1_circle_overlay` | `data/baseline1_geometric_matching/circle/vs_cavity_02/overlay_best.png` | `fig23_baseline1_circle_overlay.png` | `circle ↔ cavity_02` overlay at the optimal 192° rotation. | Baseline 1 — section 10 | Weak margin (0.080) over the second best. |
-| `fig:baseline1_star_overlay` | `data/baseline1_geometric_matching/star/vs_cavity_00/overlay_best.png` | `fig24_baseline1_star_overlay.png` | `star ↔ cavity_00` overlay at the optimal 16° rotation: central body of the star inside the cavity, points outside. | Baseline 1 — sections 10 and 11 | **Critical figure** for the justification of the decision to replace the star by the triangle in the MVP. |
-| `fig:baseline1_star_all_cavities` | `data/baseline1_geometric_matching/star/all_cavities_comparison.png` | `fig25_baseline1_star_all_cavities.png` | Comparison of the star against the four cavities: in the three large ones it fits entirely (`inside_ratio = 1.0`) with low IoU; in `cavity_00` it is geometric matching but with points outside. | Baseline 1 — section 11 | Key image to show **why** the isolated `inside_ratio` criterion is insufficient. |
+| `fig:baseline1_score_matrix` | `data/baseline1_geometric_matching/score_matrix_heatmap.png` | `fig19_baseline1_score_matrix.png` | 4 × 4 heat map with the composite *score* between each piece and each cavity at the optimal rotation. | Baseline 1 — section 9 | Clean diagonal: proof that the baseline discovers the matching without any manual mapping. **Status:** historical / pre-correction (star-set Baseline 1 — preserved as intermediate diagnostic). |
+| `fig:baseline1_best_grid` | `data/baseline1_geometric_matching/best_match_grid.png` | `fig20_baseline1_best_grid.png` | Grid of the optimal matchings: for each piece, piece mask, cavity mask and overlay at the optimal rotation. | Baseline 1 — sections 9 and 10 | Synthesis figure for the report; simultaneously illustrates the matching and the scale discrepancy. **Status:** historical / pre-correction (star-set Baseline 1 — preserved as intermediate diagnostic). |
+| `fig:baseline1_rectangle_overlay` | `data/baseline1_geometric_matching/rectangle/vs_cavity_01/overlay_best.png` | `fig21_baseline1_rectangle_overlay.png` | Piece-cavity overlay for `rectangle ↔ cavity_01` at the optimal 90° rotation. | Baseline 1 — section 10 | Cleanest case of long-axis alignment via rotation search. **Status:** historical / pre-correction (star-set Baseline 1 — preserved as intermediate diagnostic). |
+| `fig:baseline1_square_overlay` | `data/baseline1_geometric_matching/square/vs_cavity_03/overlay_best.png` | `fig22_baseline1_square_overlay.png` | `square ↔ cavity_03` overlay at the optimal 180° rotation. | Baseline 1 — section 10 | Highest-IoU case (≈ 0.945). **Status:** historical / pre-correction (star-set Baseline 1 — preserved as intermediate diagnostic). |
+| `fig:baseline1_circle_overlay` | `data/baseline1_geometric_matching/circle/vs_cavity_02/overlay_best.png` | `fig23_baseline1_circle_overlay.png` | `circle ↔ cavity_02` overlay at the optimal 192° rotation. | Baseline 1 — section 10 | Weak margin (0.080) over the second best. **Status:** historical / pre-correction (star-set Baseline 1 — preserved as intermediate diagnostic). |
+| `fig:baseline1_star_overlay` | `data/baseline1_geometric_matching/star/vs_cavity_00/overlay_best.png` | `fig24_baseline1_star_overlay.png` | `star ↔ cavity_00` overlay at the optimal 16° rotation: central body of the star inside the cavity, points outside. | Baseline 1 — sections 10 and 11 | **Critical figure** for the justification of the decision to replace the star by the triangle in the MVP. **Status:** historical / pre-correction (star-set Baseline 1 — preserved as intermediate diagnostic). |
+| `fig:baseline1_star_all_cavities` | `data/baseline1_geometric_matching/star/all_cavities_comparison.png` | `fig25_baseline1_star_all_cavities.png` | Comparison of the star against the four cavities: in the three large ones it fits entirely (`inside_ratio = 1.0`) with low IoU; in `cavity_00` it is geometric matching but with points outside. | Baseline 1 — section 11 | Key image to show **why** the isolated `inside_ratio` criterion is insufficient. **Status:** historical / pre-correction (star-set Baseline 1 — preserved as intermediate diagnostic). |
+
+---
+
+## Table of figures — Baseline 1, final main set (post-corrections, run C)
+
+> Note: these figures correspond to the **final-state** Baseline 1
+> execution on the post-correction main set
+> (`rectangle, square, circle, triangle`), after closure of the
+> piece intrinsics, cavity intrinsics, CAD circular-cavity scale
+> and cavity-recapture corrections, and after the
+> representation-normalisation correction (convex-hull fallback
+> under fragmentation triggers) documented in Baseline 1 —
+> section 17.3. They overwrite the canonical paths previously
+> occupied by the star-set artefacts above. Prefer these for any
+> discussion of the final-state Baseline 1 in the report.
+
+| Figure ID | Source file | Suggested LaTeX filename | Suggested caption | Related section | Notes |
+|---|---|---|---|---|---|
+| `fig:baseline1_final_score_matrix` | `data/baseline1_geometric_matching/score_matrix_heatmap.png` | `fig37_baseline1_final_score_matrix.png` | 4 × 4 heat map of the composite *score* between each piece (`rectangle, square, circle, triangle`) and each cavity at the optimal rotation, after representation normalisation. | Baseline 1 — sections 17.4 and 17.5 | Final-state matrix; clean diagonal with `compatible = True` on every diagonal pair (first run for which the joint thresholds are met). |
+| `fig:baseline1_final_best_grid` | `data/baseline1_geometric_matching/best_match_grid.png` | `fig38_baseline1_final_best_grid.png` | Grid of the optimal matchings on the final main set: per piece, piece mask, cavity mask and overlay at the optimal rotation. | Baseline 1 — sections 17.4 and 17.5 | Synthesis figure for the final-state report; replaces `fig:baseline1_best_grid` (canonical path overwritten by run C). |
+| `fig:baseline1_final_rectangle_overlay` | `data/baseline1_geometric_matching/rectangle/vs_cavity_00/overlay_best.png` | `fig39_baseline1_final_rectangle_overlay.png` | Piece-cavity overlay for `rectangle ↔ cavity_00` at the optimal 180° rotation, run C (representation-normalised). Score 0.883, IoU 0.969, margin 0.293 over the second best. | Baseline 1 — section 17.4 | Strong-margin diagonal pair on the final main set. |
+| `fig:baseline1_final_square_overlay` | `data/baseline1_geometric_matching/square/vs_cavity_02/overlay_best.png` | `fig40_baseline1_final_square_overlay.png` | `square ↔ cavity_02` overlay at the optimal 270° rotation, run C. Score 0.884, IoU 0.971, margin 0.168. | Baseline 1 — section 17.4 | Diagonal pair with intermediate margin on the final main set. |
+| `fig:baseline1_final_circle_overlay` | `data/baseline1_geometric_matching/circle/vs_cavity_03/overlay_best.png` | `fig41_baseline1_final_circle_overlay.png` | `circle ↔ cavity_03` overlay at the optimal 254° rotation, run C. Score 0.889, IoU 0.980, margin 0.114 (smallest margin of the final main set). | Baseline 1 — section 17.4 | Smallest-margin diagonal pair on the final main set. |
+| `fig:baseline1_final_triangle_overlay` | `data/baseline1_geometric_matching/triangle/vs_cavity_01/overlay_best.png` | `fig42_baseline1_final_triangle_overlay.png` | `triangle ↔ cavity_01` overlay at the optimal 0° rotation, run C. Score 0.886, IoU 0.975, margin 0.227. The triangle is the piece that replaces the star in the main set. | Baseline 1 — sections 11 and 17.4 | Diagonal pair on the final main set; also illustrates the role of the triangle as the rotation-relevant convex test case introduced in section 11. |
 
 ---
 

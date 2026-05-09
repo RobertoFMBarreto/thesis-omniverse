@@ -78,6 +78,11 @@ _DIL_KERNEL    = cv2.getStructuringElement(
     cv2.MORPH_ELLIPSE, (2 * _DIL_RADIUS_PX + 1, 2 * _DIL_RADIUS_PX + 1)
 )
 
+# Rasteriser convex-hull fallback trigger thresholds
+MIN_FILL_RATIO_VS_BBOX            = 0.20   # filled_px / bbox_area must exceed this
+MAX_CONTOUR_COUNT_FOR_FILLED_MASK = 20     # too many fragments → hull fallback
+MIN_LARGEST_CONTOUR_FRACTION      = 0.50   # largest contour / filled_px must exceed this
+
 # ── LOGGING / TEE ─────────────────────────────────────────────────────────────
 
 _log_fh   = None
@@ -223,11 +228,17 @@ def rasterise_xy_to_mask(xy_m: np.ndarray) -> tuple[np.ndarray, dict]:
     Returns (mask_uint8, info_dict).
     """
     info = {
-        "n_input_points":    int(len(xy_m)),
-        "n_unique_points":   0,
-        "n_pixels_after_splat":  0,
-        "n_pixels_after_close":  0,
-        "convex_hull_fallback":  False,
+        "n_input_points":           int(len(xy_m)),
+        "n_unique_points":          0,
+        "n_pixels_after_splat":     0,
+        "n_pixels_after_close":     0,
+        "convex_hull_fallback":     False,
+        "fallback_reason":          "none",
+        "pre_fallback_filled_px":   0,
+        "post_fallback_filled_px":  0,
+        "bbox_area_px":             0,
+        "n_external_contours":      0,
+        "largest_contour_area_px":  0,
     }
 
     # 1. Dedup: round to half-pixel resolution, keep unique rows
@@ -257,25 +268,56 @@ def rasterise_xy_to_mask(xy_m: np.ndarray) -> tuple[np.ndarray, dict]:
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, close_kernel)
     info["n_pixels_after_close"] = int((mask > 0).sum())
 
+    # Compute bbox_area from surviving (in_canvas) splat coordinates
+    if len(u) > 0:
+        bbox_area = int((int(u.max()) - int(u.min()) + 1) * (int(v.max()) - int(v.min()) + 1))
+    else:
+        bbox_area = 0
+    info["bbox_area_px"] = bbox_area
+
     # 5. Fill external contours (RETR_EXTERNAL + CHAIN_APPROX_NONE preserves concavities)
     filled = np.zeros_like(mask)
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if contours:
         cv2.drawContours(filled, contours, -1, 255, thickness=cv2.FILLED)
 
-    # 6. Convex-hull fallback
-    if (filled > 0).sum() < 50:
+    n_external_contours     = len(contours)
+    largest_contour_area_px = int(max((cv2.contourArea(c) for c in contours), default=0))
+    info["n_external_contours"]     = n_external_contours
+    info["largest_contour_area_px"] = largest_contour_area_px
+
+    filled_px = int((filled > 0).sum())
+    info["pre_fallback_filled_px"] = filled_px
+
+    # 6. Extended convex-hull fallback — triggers if ANY condition is met:
+    #    (a) fewer than 50 filled pixels (original gate)
+    #    (b) fill ratio vs bounding-box area is too low
+    #    (c) too many disconnected contour fragments
+    #    (d) largest contour is not dominant among filled pixels
+    fallback_reason = "none"
+    if filled_px < 50:
+        fallback_reason = "too_few_pixels"
+    elif bbox_area > 0 and (filled_px / bbox_area) < MIN_FILL_RATIO_VS_BBOX:
+        fallback_reason = "low_fill_vs_bbox"
+    elif n_external_contours > MAX_CONTOUR_COUNT_FOR_FILLED_MASK:
+        fallback_reason = "too_many_contours"
+    elif filled_px > 0 and (largest_contour_area_px / filled_px) < MIN_LARGEST_CONTOUR_FRACTION:
+        fallback_reason = "largest_contour_too_small"
+
+    info["fallback_reason"] = fallback_reason
+
+    if fallback_reason != "none":
         info["convex_hull_fallback"] = True
-        # Gather splatted pixel coordinates as points for hull computation
         if len(u) >= 3:
             pts = np.stack([u, v], axis=1).reshape(-1, 1, 2).astype(np.int32)
             hull = cv2.convexHull(pts)
             filled = np.zeros((CANVAS_PX, CANVAS_PX), dtype=np.uint8)
             cv2.fillPoly(filled, [hull], 255)
         elif len(u) > 0:
-            # Too few points for a hull; mark them individually
             filled = mask.copy()
         # else: remains all-zero
+
+    info["post_fallback_filled_px"] = int((filled > 0).sum())
 
     return filled, info
 
@@ -318,21 +360,30 @@ def score_pair(
         mask_p, p_info = rasterise_xy_to_mask(xy_rot)
 
         p_area = float((mask_p > 0).sum())
-        inter  = float(((mask_p > 0) & (mask_c > 0)).sum())
-        union  = float(((mask_p > 0) | (mask_c > 0)).sum())
 
-        inside  = inter / max(p_area, 1.0)
-        outside = 1.0 - inside
-        iou     = inter / max(union, 1.0)
+        # Containment metrics use the DILATED cavity mask (tolerance/clearance intent)
+        inter_dil = float(((mask_p > 0) & (mask_c > 0)).sum())
+        inside    = inter_dil / max(p_area, 1.0)
+        outside   = 1.0 - inside
+
+        # IoU uses the NON-DILATED cavity opening mask (true geometric overlap)
+        p_bin   = mask_p > 0
+        c_bin   = mask_c_undil > 0
+        iou_inter = float((p_bin & c_bin).sum())
+        iou_union = float((p_bin | c_bin).sum())
+        iou       = iou_inter / max(iou_union, 1.0)
+
         score   = W_IOU * iou + W_INSIDE * inside - W_OUTSIDE * outside
 
         record = {
-            "rotation_deg": theta,
-            "inside_ratio":  round(inside,  6),
-            "outside_ratio": round(outside, 6),
-            "iou":           round(iou,     6),
-            "score":         round(score,   6),
-            "p_area_px":     int(p_area),
+            "rotation_deg":       theta,
+            "inside_ratio":       round(inside,    6),
+            "outside_ratio":      round(outside,   6),
+            "iou":                round(iou,       6),
+            "score":              round(score,     6),
+            "p_area_px":          int(p_area),
+            "iou_intersection_px": int(iou_inter),
+            "iou_union_px":        int(iou_union),
             "convex_hull_fallback_piece": p_info["convex_hull_fallback"],
         }
         rotation_records.append(record)
@@ -359,6 +410,12 @@ def score_pair(
     best_record["area_ratio"]            = round(area_ratio, 6)
     best_record["suspicious_scale"]      = suspicious
     best_record["mask_p_best"]           = mask_p_best   # retained for overlay; not serialised
+    # New diagnostic fields (four required by experiment spec)
+    best_record["opening_mask_area_px"]  = int(c_area)       # non-dilated opening area
+    best_record["dilated_mask_area_px"]  = int(c_dil_area)   # dilated mask area
+    # iou_intersection_px / iou_union_px already stored per-rotation; expose best-rotation values
+    best_record["iou_intersection_px"]   = int(best_record.get("iou_intersection_px", 0))
+    best_record["iou_union_px"]          = int(best_record.get("iou_union_px", 0))
 
     return rotation_records, best_record
 
@@ -821,8 +878,19 @@ def process_pair(
         "p_area_at_best_px":       int(best_record.get("p_area_at_best_px", 0)),
         "c_undilated_area_px":     int(best_record.get("c_undilated_area_px", 0)),
         "c_dilated_area_px":       int(best_record.get("c_dilated_area_px", 0)),
+        "opening_mask_area_px":    int(best_record.get("opening_mask_area_px", 0)),
+        "dilated_mask_area_px":    int(best_record.get("dilated_mask_area_px", 0)),
+        "iou_intersection_px":     int(best_record.get("iou_intersection_px", 0)),
+        "iou_union_px":            int(best_record.get("iou_union_px", 0)),
         "failed":                  False,
         "failure_reason":          "",
+        # Cavity rasteriser fallback diagnostics (new fields — run C)
+        "cavity_fallback_reason":          str(c_info.get("fallback_reason", "none")),
+        "cavity_pre_fallback_filled_px":   int(c_info.get("pre_fallback_filled_px", 0)),
+        "cavity_post_fallback_filled_px":  int(c_info.get("post_fallback_filled_px", 0)),
+        "cavity_bbox_area_px":             int(c_info.get("bbox_area_px", 0)),
+        "cavity_n_external_contours":      int(c_info.get("n_external_contours", 0)),
+        "cavity_largest_contour_area_px":  int(c_info.get("largest_contour_area_px", 0)),
     }
 
     with open(str(pair_out_dir / "pair_summary.json"), "w", encoding="utf-8") as f:

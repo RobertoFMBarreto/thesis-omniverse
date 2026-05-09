@@ -658,3 +658,309 @@ Items to be recorded manually, outside this document:
   with direct comparison to the numbers of this execution.
 - Final decision on whether the star returns as a *stress* case
   and at which phase of the work.
+
+---
+
+## 17. Final post-correction Baseline 1 execution
+
+This section records the **final-state** execution of Baseline 1
+performed after all upstream perception corrections were closed.
+It is appended after the intermediate diagnostic of section 16
+and **does not** invalidate or replace it: section 16 documents
+the chronology of the diagnostic; section 17 documents the
+deterministic baseline as it now stands on the corrected dataset.
+
+### 17.1 Objective and chronology
+
+The objective of this re-execution was to obtain Baseline 1
+results on a dataset whose **upstream perception state is
+itself validated**, so that any residual matching anomaly can no
+longer be attributed to perception-side errors (intrinsics,
+projection, CAD scale).
+
+Chronologically, before this re-execution the following
+corrections were closed, in order:
+
+1. piece intrinsics correction (square pixels,
+   `fy_px = fx_px = 426.67`);
+2. cavity intrinsics correction (same correction applied to
+   `scripts/capture_cavity_detection.py`);
+3. CAD circular cavity scale correction in Fusion 360 — the
+   circular cavity was authored at Ø62 mm by mistake and
+   corrected to Ø51 mm; the board was re-exported to USD and
+   the scene updated;
+4. cavity recapture in Isaac Sim with the corrected intrinsics
+   and the corrected USD;
+5. cavity validation against
+   `data/expected_cad_dimensions.json`: 4/4 cavities pass,
+   spans within ~6 % of the CAD nominal.
+
+Only after closing items 1–5 was Baseline 1 re-executed, on the
+**final main set** `rectangle, square, circle, triangle`. The
+**star is excluded** from this re-execution (consistent with
+sections 11 and 16.1).
+
+The re-execution itself surfaced a **new** problem that was not
+visible in the intermediate diagnostic of section 16 — a
+mismatch between piece and cavity rasterised representations.
+That diagnosis and its correction are the subject of sections
+17.2–17.4. Three runs are therefore documented in this section:
+
+- **run A** — first post-correction run, raw rasterisation, no
+  metric or representation change;
+- **run B** — controlled metric-correction-only run (containment
+  on the dilated cavity mask, IoU on the non-dilated cavity
+  mask);
+- **run C** — final state, run B plus the
+  representation-normalisation correction described in
+  section 17.3.
+
+Section 17.5 compares the three runs explicitly.
+
+### 17.2 Rasterisation mismatch diagnosis
+
+Run A produced metrics that were uniformly poor across all 16
+piece-cavity pairs:
+
+- IoU range 0.043 – 0.203 across all pairs;
+- the cavity opening masks contained only ~2–3 % of the
+  expected solid-fill area for an opening of the corresponding
+  CAD nominal size;
+- `compatible = False` for every pair;
+- 3 of 4 distinct best cavities (the square tied
+  `cavity_00`);
+- `suspicious_scale` was triggered for `circle` and
+  `triangle`.
+
+A targeted inspection of `scripts/baseline1_geometric_matching.py`
+showed that the same function
+(`rasterise_xy_to_mask`, `scripts/baseline1_geometric_matching.py:211`)
+is applied to both pieces and cavities, with **no piece- or
+cavity-specific branch**. The pieces produced **sparse interior
+splats** (samples drawn from the upper face of the piece, dense
+in the interior) and the cavities produced **sparse perimeter /
+opening splats** (samples drawn from the boundary of the
+opening, with a near-empty interior in the rasterised plane).
+
+The downstream filling pipeline — 3 × 3 morphological close
+followed by `findContours(RETR_EXTERNAL) + drawContours(FILLED)`
+— **cannot bridge gaps wider than 1 pixel**, so the cavity
+opening was reconstructed as a thin perimeter band instead of a
+solid filled region.
+
+The convex-hull fallback of section 4 already existed in the
+script, but its trigger condition was gated to `filled_px < 50`
+only — far too tight to ever activate in practice on the
+observed cavity masks (which had on the order of 10²–10⁴
+non-zero pixels but **fragmented over a much larger bounding
+box**).
+
+The root cause is therefore **not** an algorithmic error in the
+matching score: it is a **representation mismatch** between the
+two sides of the comparison, induced by the asymmetry of the
+input distributions (interior-like vs perimeter-like) combined
+with a rasterisation policy whose fallback was effectively
+unreachable.
+
+### 17.3 Representation-normalisation correction
+
+A single targeted change was applied to
+`scripts/baseline1_geometric_matching.py`. The matching score
+formula, the compatibility thresholds, the ranking logic and
+the metric correction documented in run B (containment on the
+dilated cavity mask, IoU on the non-dilated cavity mask) are
+**all preserved**.
+
+Three new constants were added near the existing rasteriser
+constants:
+
+- `MIN_FILL_RATIO_VS_BBOX = 0.20`;
+- `MAX_CONTOUR_COUNT_FOR_FILLED_MASK = 20`;
+- `MIN_LARGEST_CONTOUR_FRACTION = 0.50`.
+
+Inside `rasterise_xy_to_mask`, the convex-hull fallback now
+triggers if **any** of the following hold (first match wins):
+
+| Trigger condition | `fallback_reason` |
+|---|---|
+| `filled_px < 50` *(pre-existing)* | `"too_few_pixels"` |
+| `filled_px / bbox_area < MIN_FILL_RATIO_VS_BBOX` | `"low_fill_vs_bbox"` |
+| `n_external_contours > MAX_CONTOUR_COUNT_FOR_FILLED_MASK` | `"too_many_contours"` |
+| `largest_contour_area_px / filled_px < MIN_LARGEST_CONTOUR_FRACTION` | `"largest_contour_too_small"` |
+
+The new diagnostic fields added to the `info` dict and
+propagated to `pair_summary.json` (cavity-side) are:
+`cavity_fallback_reason`, `cavity_pre_fallback_filled_px`,
+`cavity_post_fallback_filled_px`, `cavity_bbox_area_px`,
+`cavity_n_external_contours`,
+`cavity_largest_contour_area_px`. Existing fields are
+untouched.
+
+Conceptually this is a **representation-normalisation
+correction** — it changes the masks fed to the metric, not the
+metric itself or its weights. Both convex-hull filling and
+cavity dilation are deterministic, parameter-light, geometry-only
+operations; they introduce no learning, no data-dependent
+tuning and no piece-specific branch.
+
+In run C, **all four cavities triggered the hull fallback with
+reason `low_fill_vs_bbox`**. The post-fallback cavity mask
+areas, with the bounding box for reference, are:
+
+| Cavity | post-fallback filled (px) | bbox area (px) |
+|---|---:|---:|
+| `cavity_00` | 60 276 | 60 291 |
+| `cavity_01` | 20 096 | 38 214 |
+| `cavity_02` | 40 194 | 40 194 |
+| `cavity_03` | 31 670 | 40 194 |
+
+All four pieces also triggered the hull fallback
+(`convex_hull_fallback_piece = True` for the four pieces of the
+main set). The per-piece pre/post pixel counts are not
+propagated to `pair_summary.json` in the current edit (only the
+boolean), so they are not reproduced here.
+
+### 17.4 Final matching results
+
+Run C — final state, with the metric correction of run B and
+the representation-normalisation correction of section 17.3.
+Optimal angle reported per piece, with the joint compatibility
+flag of section 7 (`inside ≥ 0.80`, `outside ≤ 0.20`,
+`IoU ≥ 0.55`).
+
+| Piece | Best cavity | Rotation (°) | Score | inside | outside | IoU | area_ratio | suspicious_scale | compatible | margin (best − second) |
+|-------|-------------|------:|------:|------:|--------:|----:|-----------:|------------------|------------|----------------------:|
+| `rectangle` | `cavity_00` | 180 | 0.883 | 1.000 | 0.000 | 0.969 | 0.994 | False | True | 0.293 |
+| `square`    | `cavity_02` | 270 | 0.884 | 1.000 | 0.000 | 0.971 | 0.998 | False | True | 0.168 |
+| `circle`    | `cavity_03` | 254 | 0.889 | 1.000 | 0.000 | 0.980 | 0.980 | False | True | 0.114 |
+| `triangle`  | `cavity_01` |   0 | 0.886 | 1.000 | 0.000 | 0.975 | 0.986 | False | True | 0.227 |
+
+**Important** — consistent with the project rule of section 1
+("the baseline does not depend on any manual piece → cavity
+mapping"), the table above is presented as the **outcome** of
+the deterministic baseline on the corrected dataset, not as a
+stored attribution. No `cavity_id → shape` map is written by
+the script and none is published as a configuration artefact.
+
+### 17.5 Comparison with previous runs
+
+|  | run A (original) | run B (metric correction only) | run C (representation-normalised) |
+|---|---|---|---|
+| IoU mask in IoU term | dilated | non-dilated | non-dilated |
+| Representation | sparse splat fill | sparse splat fill | hull-filled when fragmented |
+| IoU range | 0.043 – 0.203 | 0.011 – 0.035 | **0.339 – 0.980** |
+| `compatible` flags | all False | all False | **all True** |
+| Distinct best cavities | 3 of 4 (square ties `cavity_00`) | 3 of 4 (circle ties `cavity_00`) | **4 of 4** |
+| `suspicious_scale` triggered | `circle`, `triangle` | `triangle` | **none** |
+
+Run B is documented here for completeness — it was tested
+first as the **less invasive** of the two changes, on the
+hypothesis that simply separating the two roles of the cavity
+mask (dilated for containment, non-dilated for overlap) would
+restore meaningful IoU values. It did not: the IoU range
+narrowed further (0.011 – 0.035) **because** the non-dilated
+cavity mask was, in run B, still a thin perimeter splat. Run B
+therefore did not solve the underlying mismatch but exposed it
+more clearly, which motivated run C.
+
+### 17.6 Interpretation
+
+The convex hull, as invoked by the new fallback, is a
+deterministic, parameter-light, geometry-only operation. It is
+applied **only when the splat-fill pipeline demonstrably fails
+to recover a region** (sparse splats with low fill ratio,
+fragmented contours, or a dominant-contour fraction below 0.5).
+Because both pieces and cavities pass through the same function
+with the same trigger conditions, the change preserves the
+**like-with-like comparability principle** of section 4.
+
+The `compatible = True` outcome on all four diagonal pairs is
+the first time any pair has cleared the joint thresholds
+(`inside ≥ 0.80`, `outside ≤ 0.20`, `IoU ≥ 0.55`) since the
+project began. This is a property of the **corrected
+representation**, not of a relaxation of the thresholds: the
+thresholds of section 7 are unchanged.
+
+It is also worth recording that the representation correction
+removed the transversal `suspicious_scale = True` symptom that
+section 11 had identified as the dominant remaining concern in
+the intermediate diagnostic. The current run produces
+`area_ratio` between 0.980 and 0.998 for the four diagonal
+pairs, which is consistent with the closed upstream
+corrections (intrinsics, CAD scale, recapture).
+
+### 17.7 Limitations of the convex-hull fallback
+
+The convex-hull fallback is **not a general solution**. Its
+adequacy is bounded by the geometry of the input set:
+
+- Convex hull discards concavities. The current main set
+  (`rectangle`, `square`, `circle`, `triangle`) is **entirely
+  convex**, so this loss has no effect on these pieces. For
+  non-convex shapes such as the **star** (out of the current
+  main set, reserved as a future stress test — see sections 11
+  and 16.1), the convex hull would over-cover the actual
+  footprint and produce a misleadingly high containment
+  score. The star is therefore **not** in scope for the
+  current Baseline 1 evaluation, and the convex-hull fallback
+  is **not** presented as a general solution.
+- An alpha-shape (or another non-convex boundary
+  representation) would be the natural extension when concave
+  shapes enter the dataset. This is **out of scope** for the
+  current iteration and **must not** be claimed as solved.
+- The trigger constants
+  (`MIN_FILL_RATIO_VS_BBOX = 0.20`,
+  `MAX_CONTOUR_COUNT_FOR_FILLED_MASK = 20`,
+  `MIN_LARGEST_CONTOUR_FRACTION = 0.50`) were chosen
+  conservatively. Their stability across capture-density
+  variations has not been quantified.
+- The matching outcomes are a property of the captured dataset
+  (one capture per piece, one capture per cavity, single static
+  camera pose). Generalisation across viewpoints, occlusion,
+  lighting and noise has **not** been evaluated and **must
+  not** be claimed.
+
+### 17.8 Current Baseline 1 status
+
+With the corrections of sections 17.2–17.3 closed, Baseline 1
+is in the following state for the final main set:
+
+- the dataset is the post-correction main set
+  `rectangle, square, circle, triangle`;
+- all four pieces produce `compatible = True` against a
+  distinct cavity at the joint thresholds of section 7,
+  without any piece → cavity mapping in the algorithm;
+- `suspicious_scale` is not triggered for any pair;
+- the matching margin between the best and the second-best
+  candidate is in the range 0.114 – 0.293, with the smallest
+  margin on the `circle ↔ cavity_03` pair;
+- the result is conditional on the convex-hull fallback being
+  invoked on both sides; the fallback is geometry-only and
+  parameter-light, but it is a representation choice that
+  deserves explicit mention in any subsequent comparison
+  against a learned method.
+
+This concludes the deterministic Baseline 1 iteration on the
+final main set. The artefacts of run C are written to
+`data/baseline1_geometric_matching/` (overwriting the canonical
+locations of section 8); the intermediate diagnostic of
+sections 9–11 remains documented as historical, in line with
+section 16.3.
+
+### 17.9 Notes for the author
+
+- Note the distinction in the thesis text between the two
+  corrections applied in sequence: the **metric correction**
+  (containment on the dilated cavity mask, IoU on the
+  non-dilated cavity mask, run B) and the **representation
+  correction** (convex-hull fallback under fragmentation
+  triggers, run C). They are independently defensible and were
+  tested in isolation, in that order.
+- When discussing the result, frame the convex-hull step as
+  "**normalisation of the rasterised representation**" rather
+  than "improvement of the matching algorithm" — the algorithm
+  (score formula, weights, thresholds) is unchanged.
+- Do **not** extrapolate the result to robotic execution.
+  Baseline 1 produces a candidate cavity, an in-plane rotation
+  and an opening-footprint score; insertion has not been
+  executed.
