@@ -4,34 +4,34 @@
   "primary_matching_representation": "cavity_opening_pointcloud",
   "footprint_source": "opening_from_board_region",
   "xy_projection_depth_mode": "board_surface_depth",
-  "board_surface_depth_m": 0.3245000000000002,
-  "opening_area_px": 4422,
+  "board_surface_depth_m": 0.525499976158142,
+  "opening_area_px": 1722,
   "opening_xy_span_m": {
-    "x": 0.0501960925757885,
-    "y": 0.04943554848432541
+    "x": 0.05049726366996765,
+    "y": 0.04926562309265137
   },
-  "depth_area_px": 876,
+  "depth_area_px": 0,
   "depth_xy_span_m": {
-    "x": 0.050606243312358856,
-    "y": 0.04977065324783325
+    "x": 0.0,
+    "y": 0.0
   },
-  "z_depth_min_m": 0.0037050489336252213,
-  "z_depth_max_m": 0.029091203585267067,
-  "z_depth_median_m": 0.015202874317765236,
-  "area_px": 4422,
+  "z_depth_min_m": 0.0,
+  "z_depth_max_m": 0.0,
+  "z_depth_median_m": 0.0,
+  "area_px": 1722,
   "centroid_px": {
-    "x": 271.0,
-    "y": 304.5
+    "x": 289.5,
+    "y": 239.0
   },
   "bbox_px": {
-    "x": 238,
-    "y": 272,
-    "w": 67,
-    "h": 66
+    "x": 269,
+    "y": 219,
+    "w": 42,
+    "h": 41
   },
   "centroid_world_m": {
-    "x": 0.2627332031249999,
-    "y": -0.049055273437500026
+    "x": 0.21243496264182032,
+    "y": 0.0012316405691206462
   },
   "point_count": 2048,
   "files": {

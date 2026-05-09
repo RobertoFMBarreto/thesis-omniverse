@@ -1,14 +1,14 @@
 {
   "script": "capture_cavity_detection.py",
-  "timestamp": "2026-05-02T15:04:12",
+  "timestamp": "2026-05-09T10:32:32",
   "project_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse",
   "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected",
   "run_log_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/run_log.txt",
   "success": true,
   "camera_pose": {
-    "x": 0.3,
+    "x": 0.25,
     "y": 0.0,
-    "z": 0.8,
+    "z": 1.0,
     "rot_z_deg": null,
     "source": "stage"
   },
@@ -19,19 +19,19 @@
   },
   "auto_detect_board": true,
   "board_detected": true,
-  "board_component_area_px": 49025,
+  "board_component_area_px": 18570,
   "board_bbox_px": {
-    "x": 205,
-    "y": 109,
-    "w": 230,
-    "h": 262
+    "x": 249,
+    "y": 118,
+    "w": 142,
+    "h": 163
   },
   "board_centroid_px": {
-    "x": 321.39726670066295,
-    "y": 237.3372157062723
+    "x": 321.8325255788907,
+    "y": 196.76300484652666
   },
-  "board_region_pixels": 60260,
-  "table_or_background_depth_m": 0.40050000000000024,
+  "board_region_pixels": 23146,
+  "table_or_background_depth_m": 0.6004999761581421,
   "cavity_detection_restricted_to_board_region": true,
   "cavity_detection_mode": "opening_from_board_region",
   "intrinsics_model": "pinhole_tangent_aspect_corrected",
@@ -62,8 +62,8 @@
     "board_rectangularity_min": 0.7,
     "board_fill_mode": "contour"
   },
-  "board_surface_depth_m": 0.3245000000000002,
-  "raw_cavity_pixels": 18515,
+  "board_surface_depth_m": 0.525499976158142,
+  "raw_cavity_pixels": 6454,
   "n_detected_cavities": 4,
   "cavities": [
     {
@@ -72,34 +72,34 @@
       "primary_matching_representation": "cavity_opening_pointcloud",
       "footprint_source": "opening_from_board_region",
       "xy_projection_depth_mode": "board_surface_depth",
-      "board_surface_depth_m": 0.3245000000000002,
-      "opening_area_px": 6700,
+      "board_surface_depth_m": 0.525499976158142,
+      "opening_area_px": 2562,
       "opening_xy_span_m": {
-        "x": 0.0501960925757885,
-        "y": 0.0752941370010376
+        "x": 0.05049726366996765,
+        "y": 0.07389843463897705
       },
-      "depth_area_px": 1074,
+      "depth_area_px": 205,
       "depth_xy_span_m": {
-        "x": 0.050568755716085434,
-        "y": 0.07563892751932144
+        "x": 0.05073058605194092,
+        "y": 0.0029085343703627586
       },
-      "z_depth_min_m": 0.004704738035798073,
-      "z_depth_max_m": 0.0298899058252573,
-      "z_depth_median_m": 0.015202874317765236,
-      "area_px": 6700,
+      "z_depth_min_m": 0.004154765047132969,
+      "z_depth_max_m": 0.025883996859192848,
+      "z_depth_median_m": 0.01480110827833414,
+      "area_px": 2562,
       "centroid_px": {
-        "x": 271.0,
-        "y": 189.5
+        "x": 289.5,
+        "y": 168.0
       },
       "bbox_px": {
-        "x": 238,
-        "y": 140,
-        "w": 67,
-        "h": 100
+        "x": 269,
+        "y": 138,
+        "w": 42,
+        "h": 61
       },
       "centroid_world_m": {
-        "x": 0.262733203125,
-        "y": 0.038407617187500014
+        "x": 0.21243496264182032,
+        "y": 0.08867812097668645
       },
       "point_count": 2048,
       "files": {
@@ -120,34 +120,34 @@
       "primary_matching_representation": "cavity_opening_pointcloud",
       "footprint_source": "opening_from_board_region",
       "xy_projection_depth_mode": "board_surface_depth",
-      "board_surface_depth_m": 0.3245000000000002,
-      "opening_area_px": 2239,
+      "board_surface_depth_m": 0.525499976158142,
+      "opening_area_px": 838,
       "opening_xy_span_m": {
-        "x": 0.04943554848432541,
-        "y": 0.04943554848432541
+        "x": 0.04803398251533508,
+        "y": 0.04926562309265137
       },
-      "depth_area_px": 421,
+      "depth_area_px": 141,
       "depth_xy_span_m": {
-        "x": 0.02552972361445427,
-        "y": 0.05007368326187134
+        "x": 0.024614937603473663,
+        "y": 0.04827369749546051
       },
-      "z_depth_min_m": 0.0030245427042245865,
-      "z_depth_max_m": 0.029932672157883644,
-      "z_depth_median_m": 0.01563745178282261,
-      "area_px": 2239,
+      "z_depth_min_m": 0.003056013025343418,
+      "z_depth_max_m": 0.029867136850953102,
+      "z_depth_median_m": 0.016919219866394997,
+      "area_px": 838,
       "centroid_px": {
-        "x": 369.08887896382316,
-        "y": 204.18937025457794
+        "x": 350.11217183770884,
+        "y": 176.79116945107398
       },
       "bbox_px": {
-        "x": 337,
-        "y": 161,
-        "w": 66,
-        "h": 66
+        "x": 331,
+        "y": 150,
+        "w": 40,
+        "h": 41
       },
       "centroid_world_m": {
-        "x": 0.33733439349318894,
-        "y": 0.02723566254466281
+        "x": 0.2870873724596544,
+        "y": 0.07785056003072968
       },
       "point_count": 2048,
       "files": {
@@ -168,34 +168,34 @@
       "primary_matching_representation": "cavity_opening_pointcloud",
       "footprint_source": "opening_from_board_region",
       "xy_projection_depth_mode": "board_surface_depth",
-      "board_surface_depth_m": 0.3245000000000002,
-      "opening_area_px": 4422,
+      "board_surface_depth_m": 0.525499976158142,
+      "opening_area_px": 1722,
       "opening_xy_span_m": {
-        "x": 0.0501960925757885,
-        "y": 0.04943554848432541
+        "x": 0.05049726366996765,
+        "y": 0.04926562309265137
       },
-      "depth_area_px": 876,
+      "depth_area_px": 0,
       "depth_xy_span_m": {
-        "x": 0.050606243312358856,
-        "y": 0.04977065324783325
+        "x": 0.0,
+        "y": 0.0
       },
-      "z_depth_min_m": 0.0037050489336252213,
-      "z_depth_max_m": 0.029091203585267067,
-      "z_depth_median_m": 0.015202874317765236,
-      "area_px": 4422,
+      "z_depth_min_m": 0.0,
+      "z_depth_max_m": 0.0,
+      "z_depth_median_m": 0.0,
+      "area_px": 1722,
       "centroid_px": {
-        "x": 271.0,
-        "y": 304.5
+        "x": 289.5,
+        "y": 239.0
       },
       "bbox_px": {
-        "x": 238,
-        "y": 272,
-        "w": 67,
-        "h": 66
+        "x": 269,
+        "y": 219,
+        "w": 42,
+        "h": 41
       },
       "centroid_world_m": {
-        "x": 0.2627332031249999,
-        "y": -0.049055273437500026
+        "x": 0.21243496264182032,
+        "y": 0.0012316405691206462
       },
       "point_count": 2048,
       "files": {
@@ -216,34 +216,34 @@
       "primary_matching_representation": "cavity_opening_pointcloud",
       "footprint_source": "opening_from_board_region",
       "xy_projection_depth_mode": "board_surface_depth",
-      "board_surface_depth_m": 0.3245000000000002,
-      "opening_area_px": 5154,
+      "board_surface_depth_m": 0.525499976158142,
+      "opening_area_px": 1332,
       "opening_xy_span_m": {
-        "x": 0.06084375083446503,
-        "y": 0.06084375083446503
+        "x": 0.04926562309265137,
+        "y": 0.05049726366996765
       },
-      "depth_area_px": 855,
+      "depth_area_px": 18,
       "depth_xy_span_m": {
-        "x": 0.0565570667386055,
-        "y": 0.05031289905309677
+        "x": 0.0001586671860422939,
+        "y": 0.006467508152127266
       },
-      "z_depth_min_m": 0.0030089858919382095,
-      "z_depth_max_m": 0.029906952753663063,
-      "z_depth_median_m": 0.015473389998078346,
-      "area_px": 5154,
+      "z_depth_min_m": 0.004756533540785313,
+      "z_depth_max_m": 0.02757641114294529,
+      "z_depth_median_m": 0.016403162851929665,
+      "area_px": 1332,
       "centroid_px": {
-        "x": 368.65405510283273,
-        "y": 305.05161039968954
+        "x": 349.92792792792795,
+        "y": 239.5
       },
       "bbox_px": {
-        "x": 329,
-        "y": 265,
-        "w": 81,
-        "h": 81
+        "x": 330,
+        "y": 219,
+        "w": 41,
+        "h": 42
       },
       "centroid_world_m": {
-        "x": 0.33700368956453725,
-        "y": -0.04947479900320142
+        "x": 0.2868604501857548,
+        "y": 0.0006158202845603229
       },
       "point_count": 2048,
       "files": {
@@ -262,64 +262,64 @@
   "all_components": [
     {
       "label": 1,
-      "area_px": 6700,
+      "area_px": 2562,
       "centroid_px": {
-        "x": 271.0,
-        "y": 189.5
+        "x": 289.5,
+        "y": 168.0
       },
       "bbox_px": {
-        "x": 238,
-        "y": 140,
-        "w": 67,
-        "h": 100
+        "x": 269,
+        "y": 138,
+        "w": 42,
+        "h": 61
       },
       "status": "accepted",
       "reason": null
     },
     {
       "label": 2,
-      "area_px": 2239,
+      "area_px": 838,
       "centroid_px": {
-        "x": 369.08887896382316,
-        "y": 204.18937025457794
+        "x": 350.11217183770884,
+        "y": 176.79116945107398
       },
       "bbox_px": {
-        "x": 337,
-        "y": 161,
-        "w": 66,
-        "h": 66
+        "x": 331,
+        "y": 150,
+        "w": 40,
+        "h": 41
       },
       "status": "accepted",
       "reason": null
     },
     {
       "label": 3,
-      "area_px": 5154,
+      "area_px": 1722,
       "centroid_px": {
-        "x": 368.65405510283273,
-        "y": 305.05161039968954
+        "x": 289.5,
+        "y": 239.0
       },
       "bbox_px": {
-        "x": 329,
-        "y": 265,
-        "w": 81,
-        "h": 81
+        "x": 269,
+        "y": 219,
+        "w": 42,
+        "h": 41
       },
       "status": "accepted",
       "reason": null
     },
     {
       "label": 4,
-      "area_px": 4422,
+      "area_px": 1332,
       "centroid_px": {
-        "x": 271.0,
-        "y": 304.5
+        "x": 349.92792792792795,
+        "y": 239.5
       },
       "bbox_px": {
-        "x": 238,
-        "y": 272,
-        "w": 67,
-        "h": 66
+        "x": 330,
+        "y": 219,
+        "w": 41,
+        "h": 42
       },
       "status": "accepted",
       "reason": null

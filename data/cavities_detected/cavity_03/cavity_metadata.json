@@ -4,34 +4,34 @@
   "primary_matching_representation": "cavity_opening_pointcloud",
   "footprint_source": "opening_from_board_region",
   "xy_projection_depth_mode": "board_surface_depth",
-  "board_surface_depth_m": 0.3245000000000002,
-  "opening_area_px": 5154,
+  "board_surface_depth_m": 0.525499976158142,
+  "opening_area_px": 1332,
   "opening_xy_span_m": {
-    "x": 0.06084375083446503,
-    "y": 0.06084375083446503
+    "x": 0.04926562309265137,
+    "y": 0.05049726366996765
   },
-  "depth_area_px": 855,
+  "depth_area_px": 18,
   "depth_xy_span_m": {
-    "x": 0.0565570667386055,
-    "y": 0.05031289905309677
+    "x": 0.0001586671860422939,
+    "y": 0.006467508152127266
   },
-  "z_depth_min_m": 0.0030089858919382095,
-  "z_depth_max_m": 0.029906952753663063,
-  "z_depth_median_m": 0.015473389998078346,
-  "area_px": 5154,
+  "z_depth_min_m": 0.004756533540785313,
+  "z_depth_max_m": 0.02757641114294529,
+  "z_depth_median_m": 0.016403162851929665,
+  "area_px": 1332,
   "centroid_px": {
-    "x": 368.65405510283273,
-    "y": 305.05161039968954
+    "x": 349.92792792792795,
+    "y": 239.5
   },
   "bbox_px": {
-    "x": 329,
-    "y": 265,
-    "w": 81,
-    "h": 81
+    "x": 330,
+    "y": 219,
+    "w": 41,
+    "h": 42
   },
   "centroid_world_m": {
-    "x": 0.33700368956453725,
-    "y": -0.04947479900320142
+    "x": 0.2868604501857548,
+    "y": 0.0006158202845603229
   },
   "point_count": 2048,
   "files": {
