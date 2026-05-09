@@ -16,7 +16,8 @@ Outputs per view (under OUT_ROOT/view_NN_<name>/):
     rgb.png           — raw RGB frame (BGR, OpenCV)
     depth.npy         — raw float32 depth in metres
     depth_vis.png     — colourised depth (viridis, matplotlib)
-    metadata.json     — pose, intrinsics, depth window, timestamps
+    metadata.json     — pose, intrinsics, depth window, timestamps,
+                        target-resolution fields
 
 Global outputs (under OUT_ROOT/):
     views_contact_sheet.png    — 2 x N grid: RGB (top) / depth (bottom)
@@ -79,54 +80,71 @@ PHASE_A_NOTE = (
     "sequential-camera proof-of-life; not final static multi-camera architecture"
 )
 
+# ── TARGET-RESOLUTION CONFIG ──────────────────────────────────────────────────
+#
+# TARGET_MODE = "auto_prim_bbox"
+#   Walk the stage, find the rectangle prim by name hint, compute its
+#   world-space bounding-box centre, and use that as the look-at point.
+#   Fails loudly with a RuntimeError if no matching prim is found.
+#
+# TARGET_MODE = "manual"
+#   Use MANUAL_TARGET_LOOK_AT directly.  No stage traversal is performed.
+
+TARGET_MODE = "auto_prim_bbox"   # "auto_prim_bbox" | "manual"
+
+# Case-insensitive substrings searched in every prim's path AND GetName().
+TARGET_PRIM_NAME_HINTS = ["rectangle", "Rectangle", "Rect", "rect"]
+
+# Used when TARGET_MODE == "manual", or as emergency documentation of the
+# world origin that the previous Phase A run aimed at.
+MANUAL_TARGET_LOOK_AT = (0.0, 0.0, 0.0)
+
+# ── CAMERA PLACEMENT (relative to resolved target centre) ─────────────────────
+#
+# Geometry rationale:
+#   top-down:  camera directly above the target centre.
+#     elevation from vertical = 0°.
+#
+#   oblique views: camera shifted ±OBLIQUE_OFFSET_X = 0.30 m and raised
+#     OBLIQUE_HEIGHT = 0.40 m above the target centre.
+#     angle from vertical = atan(0.30 / 0.40) ≈ 36.9°  (~37° oblique).
+#     This sits comfortably in the 35–45° target range stated in the spec.
+#
+#   Top-down uses a larger height (0.50 m) so the full rectangle footprint
+#   is captured within the 640×480 FOV.
+
+TOP_DOWN_HEIGHT  = 0.50   # m above target centre (z+)
+OBLIQUE_HEIGHT   = 0.40   # m above target centre (z+); gives ~37° from vertical
+OBLIQUE_OFFSET_X = 0.30   # m lateral offset (±x) for oblique views
+
 # ── VIEW CONFIGS ──────────────────────────────────────────────────────────────
 #
-# These are CONSERVATIVE INITIAL GUESSES.  The exact camera heights and
-# lateral offsets will need empirical tuning after the first run:
-#   - inspect depth_vis.png for each view to check that the piece is visible
-#     and within a sensible depth range;
-#   - adjust position_m and look_at_m accordingly.
+# Positions and look-ats are placeholders here; they are overwritten in
+# main() after resolve_target_look_at() returns the actual target centre.
+# The static fields (name, up_axis) remain as authored.
 #
-# For production multi-view capture we will switch to three static cameras
-# authored directly in USD, so no programmatic camera relocation occurs at
-# capture time.  These sequential poses are placeholders only.
-#
-# Oblique view geometry (for reference):
-#   top-down  : camera directly above the look-at point, Z-axis aligned.
-#   oblique   : camera offset ~0.25 m laterally (±X) and at the same height,
-#               resulting in an elevation angle of ~45° from vertical.
-#               Both oblique cameras look at the same world point as the
-#               top-down view.
-#
-# The top-down position uses the same height as the validated single-view
-# piece capture (CAM_Z ~0.70 m in capture_piece_detection.py).  If your
-# scene places the piece at a different world position, adjust look_at_m.
+# up_axis choice:
+#   top_down    → (0, 1, 0)  — Y-up keeps the image right-way-up.
+#   oblique_*   → (0, 1, 0)  — consistent Y-up for both obliques.
 
 VIEWS = [
     {
-        # Straight down, replicating the validated single-view setup.
         "name":         "top_down",
-        "position_m":   (0.0, 0.0, 0.70),
-        "look_at_m":    (0.0, 0.0, 0.0),
+        "position_m":   (0.0, 0.0, 0.50),   # placeholder; recomputed in main()
+        "look_at_m":    (0.0, 0.0, 0.0),     # placeholder; recomputed in main()
         "up_axis":      (0, 1, 0),
     },
     {
-        # Oblique from the +X side, ~45° from vertical.
-        # position offset: +0.25 m in X, same height as top-down.
-        # At equal X-offset and Z, the elevation angle from vertical is
-        # atan(0.25/0.70) ≈ 19.6° — a modest oblique.  Raise X to ~0.50 m
-        # to get closer to 35° if a steeper angle is needed empirically.
         "name":         "oblique_left",
-        "position_m":   (0.50, 0.0, 0.70),
-        "look_at_m":    (0.0, 0.0, 0.0),
-        "up_axis":      (0, 0, 1),
+        "position_m":   (-0.30, 0.0, 0.40),  # placeholder; recomputed in main()
+        "look_at_m":    (0.0, 0.0, 0.0),     # placeholder; recomputed in main()
+        "up_axis":      (0, 1, 0),
     },
     {
-        # Oblique from the -X side, symmetric to oblique_left.
         "name":         "oblique_right",
-        "position_m":   (-0.50, 0.0, 0.70),
-        "look_at_m":    (0.0, 0.0, 0.0),
-        "up_axis":      (0, 0, 1),
+        "position_m":   (0.30, 0.0, 0.40),   # placeholder; recomputed in main()
+        "look_at_m":    (0.0, 0.0, 0.0),     # placeholder; recomputed in main()
+        "up_axis":      (0, 1, 0),
     },
 ]
 
@@ -244,6 +262,235 @@ def compute_intrinsics() -> dict:
         "fov_v_rad":        round(fov_v, 6),
         "image_width":      IMG_WIDTH,
         "image_height":     IMG_HEIGHT,
+    }
+
+
+# ── TARGET RESOLUTION ─────────────────────────────────────────────────────────
+
+def _mesh_points_world_bbox_subtree(prim):
+    """
+    Walk the subtree rooted at `prim` (inclusive), collect world-space points
+    from every UsdGeom.Mesh, and return the union AABB as (mn, mx) where both
+    are Gf.Vec3d.  Returns None if no mesh points are found.
+
+    This is a local copy of the pattern from inspect_cavity_scene_scale.py —
+    do NOT import that script.
+    """
+    try:
+        from pxr import UsdGeom, Usd, Gf
+
+        xs, ys, zs = [], [], []
+        for p in Usd.PrimRange(prim):
+            mesh = UsdGeom.Mesh(p)
+            if not mesh:
+                continue
+            pts_attr = mesh.GetPointsAttr()
+            if not pts_attr or not pts_attr.HasAuthoredValue():
+                continue
+            local_pts = pts_attr.Get()
+            if local_pts is None or len(local_pts) == 0:
+                continue
+            xform = UsdGeom.Xformable(p).ComputeLocalToWorldTransform(
+                Usd.TimeCode.Default()
+            )
+            for pt in local_pts:
+                wp = xform.Transform(Gf.Vec3d(float(pt[0]), float(pt[1]), float(pt[2])))
+                xs.append(wp[0])
+                ys.append(wp[1])
+                zs.append(wp[2])
+
+        if not xs:
+            return None
+        mn = Gf.Vec3d(min(xs), min(ys), min(zs))
+        mx = Gf.Vec3d(max(xs), max(ys), max(zs))
+        return (mn, mx)
+    except Exception:
+        return None
+
+
+def resolve_target_look_at(stage) -> dict:
+    """
+    Read-only USD stage traversal to find the rectangle prim and return its
+    world-space bounding-box centre as the camera look-at point.
+
+    Strategy
+    --------
+    1. Traverse all prims; collect candidates whose path or GetName() contains
+       any string in TARGET_PRIM_NAME_HINTS (case-insensitive substring).
+    2. Filter out prims whose type name contains any of:
+       'Material', 'Shader', 'Light', 'Camera', 'Scope'  (case-insensitive).
+    3. For each surviving candidate, attempt bbox computation:
+       a) UsdGeom.BBoxCache.ComputeWorldBound — primary strategy.
+       b) mesh-points subtree walk — fallback if (a) returns an empty range.
+    4. From candidates with a valid bbox, select ONE:
+       - prefer exact name-level match over partial path match;
+       - then prefer the largest bbox volume;
+       - then prefer shorter prim-path depth (closer to root).
+    5. Return a result dict.  Raise RuntimeError if no valid candidate exists.
+
+    Returns
+    -------
+    dict with keys:
+        selected_prim_path        str
+        prim_type_name            str
+        bbox_min_m                [x, y, z]
+        bbox_max_m                [x, y, z]
+        bbox_center_m             [x, y, z]
+        bbox_size_m               [dx, dy, dz]
+        bbox_size_mm              [dx, dy, dz]
+        bbox_method               "BBoxCache" | "mesh_points_fallback"
+        n_candidates_examined     int
+    """
+    from pxr import UsdGeom, Usd
+
+    hints_lower = [h.lower() for h in TARGET_PRIM_NAME_HINTS]
+
+    # Types to exclude (case-insensitive substring in GetTypeName()).
+    EXCLUDED_TYPE_SUBSTRINGS = ["material", "shader", "light", "camera", "scope"]
+
+    # ── Stage units ───────────────────────────────────────────────────────────
+    try:
+        meters_per_unit = UsdGeom.GetStageMetersPerUnit(stage)
+        if meters_per_unit is None or meters_per_unit <= 0.0:
+            meters_per_unit = 1.0
+    except Exception:
+        meters_per_unit = 1.0
+    print(f"[target_resolve] stage metersPerUnit = {meters_per_unit}")
+
+    # ── Build BBoxCache ───────────────────────────────────────────────────────
+    try:
+        bbox_cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            includedPurposes=[UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+            useExtentsHint=True,
+        )
+    except Exception as exc:
+        print(f"[target_resolve] WARNING: BBoxCache init failed ({exc}); "
+              "will rely on mesh-points fallback only.")
+        bbox_cache = None
+
+    # ── Collect raw candidates ────────────────────────────────────────────────
+    raw_candidates = []
+    for prim in stage.Traverse():
+        if not prim.IsValid():
+            continue
+        prim_path_lower = str(prim.GetPath()).lower()
+        prim_name_lower = prim.GetName().lower()
+        if any(h in prim_path_lower or h in prim_name_lower for h in hints_lower):
+            raw_candidates.append(prim)
+
+    print(f"[target_resolve] raw candidates matching hints: {len(raw_candidates)}")
+
+    # ── Filter out excluded types ─────────────────────────────────────────────
+    filtered = []
+    for prim in raw_candidates:
+        type_lower = prim.GetTypeName().lower()
+        if any(ex in type_lower for ex in EXCLUDED_TYPE_SUBSTRINGS):
+            print(f"[target_resolve]   excluded by type '{prim.GetTypeName()}': "
+                  f"{prim.GetPath()}")
+            continue
+        filtered.append(prim)
+
+    print(f"[target_resolve] candidates after type filter: {len(filtered)}")
+
+    if not filtered:
+        raise RuntimeError(
+            f"[target_resolve] Could not auto-resolve a target prim from hints: "
+            f"{TARGET_PRIM_NAME_HINTS}.\n"
+            f"Tried {len(raw_candidates)} candidates, all excluded by type filter. "
+            f"Either:\n"
+            f"  - adjust TARGET_PRIM_NAME_HINTS at the top of the script, or\n"
+            f"  - set TARGET_MODE = \"manual\" and update MANUAL_TARGET_LOOK_AT."
+        )
+
+    # ── Compute bbox for each surviving candidate ─────────────────────────────
+    valid_candidates = []   # list of (prim, bbox_min_m, bbox_max_m, method)
+    n_examined = 0
+
+    for prim in filtered:
+        n_examined += 1
+        path_str = str(prim.GetPath())
+        bbox_min_m = bbox_max_m = None
+        method = None
+
+        # Strategy 1: BBoxCache
+        if bbox_cache is not None:
+            try:
+                world_bbox = bbox_cache.ComputeWorldBound(prim)
+                rng = world_bbox.ComputeAlignedRange()
+                if not rng.IsEmpty():
+                    mn = rng.GetMin()
+                    mx = rng.GetMax()
+                    bbox_min_m = [float(mn[i] * meters_per_unit) for i in range(3)]
+                    bbox_max_m = [float(mx[i] * meters_per_unit) for i in range(3)]
+                    method = "BBoxCache"
+            except Exception as exc:
+                print(f"[target_resolve]   BBoxCache failed for {path_str}: {exc}")
+
+        # Strategy 2: mesh-points subtree fallback
+        if method is None:
+            r = _mesh_points_world_bbox_subtree(prim)
+            if r is not None:
+                mn, mx = r
+                bbox_min_m = [float(mn[i] * meters_per_unit) for i in range(3)]
+                bbox_max_m = [float(mx[i] * meters_per_unit) for i in range(3)]
+                method = "mesh_points_fallback"
+
+        if bbox_min_m is None:
+            print(f"[target_resolve]   both bbox strategies failed for {path_str} "
+                  f"— skipping")
+            continue
+
+        valid_candidates.append((prim, bbox_min_m, bbox_max_m, method))
+        sz = [bbox_max_m[i] - bbox_min_m[i] for i in range(3)]
+        print(f"[target_resolve]   valid: {path_str}  type={prim.GetTypeName()}  "
+              f"method={method}  "
+              f"size=({sz[0]*1000:.1f}, {sz[1]*1000:.1f}, {sz[2]*1000:.1f}) mm")
+
+    if not valid_candidates:
+        raise RuntimeError(
+            f"[target_resolve] Could not auto-resolve a target prim from hints: "
+            f"{TARGET_PRIM_NAME_HINTS}.\n"
+            f"Tried {n_examined} candidates. All failed bbox computation. Either:\n"
+            f"  - adjust TARGET_PRIM_NAME_HINTS at the top of the script, or\n"
+            f"  - set TARGET_MODE = \"manual\" and update MANUAL_TARGET_LOOK_AT."
+        )
+
+    # ── Select the best candidate ─────────────────────────────────────────────
+    # Scoring (higher = better, applied lexicographically):
+    #   1. exact_name_match: 1 if any hint == prim.GetName().lower(), else 0
+    #   2. bbox_volume (larger is better, we negate for min-sort)
+    #   3. path depth (fewer components = closer to root = better; negate)
+
+    def _candidate_sort_key(entry):
+        prim, bmn, bmx, _ = entry
+        name_lower = prim.GetName().lower()
+        exact = 1 if any(h == name_lower for h in hints_lower) else 0
+        vol = ((bmx[0] - bmn[0]) * (bmx[1] - bmn[1]) * (bmx[2] - bmn[2]))
+        depth = len(str(prim.GetPath()).strip("/").split("/"))
+        # We want (exact DESC, volume DESC, depth ASC) so we negate exact and vol.
+        return (-exact, -vol, depth)
+
+    valid_candidates.sort(key=_candidate_sort_key)
+    selected_prim, bbox_min_m, bbox_max_m, method = valid_candidates[0]
+
+    # ── Build result dict ─────────────────────────────────────────────────────
+    bbox_size_m  = [bbox_max_m[i] - bbox_min_m[i] for i in range(3)]
+    bbox_size_mm = [round(v * 1000.0, 3) for v in bbox_size_m]
+    bbox_center_m = [
+        round((bbox_min_m[i] + bbox_max_m[i]) / 2.0, 6) for i in range(3)
+    ]
+
+    return {
+        "selected_prim_path":    str(selected_prim.GetPath()),
+        "prim_type_name":        selected_prim.GetTypeName(),
+        "bbox_min_m":            [round(v, 6) for v in bbox_min_m],
+        "bbox_max_m":            [round(v, 6) for v in bbox_max_m],
+        "bbox_center_m":         bbox_center_m,
+        "bbox_size_m":           [round(v, 6) for v in bbox_size_m],
+        "bbox_size_mm":          bbox_size_mm,
+        "bbox_method":           method,
+        "n_candidates_examined": n_examined,
     }
 
 
@@ -558,9 +805,15 @@ async def capture_view(view_cfg: dict, rgb_an, depth_an,
 # ── SAVE PER-VIEW OUTPUTS ─────────────────────────────────────────────────────
 
 def save_view_outputs(view_result: dict, view_idx: int,
-                      intrinsics: dict, run_id: str, timestamp_utc: str) -> Path:
+                      intrinsics: dict, run_id: str, timestamp_utc: str,
+                      target_info: dict) -> Path:
     """
     Save rgb.png, depth.npy, depth_vis.png, and metadata.json for one view.
+
+    `target_info` is the dict returned by resolve_target_look_at() (or the
+    synthetic manual dict built in main()).  Its fields are written into
+    metadata.json under the target-resolution block.
+
     Returns the view directory path.
     """
     import numpy as np
@@ -620,6 +873,11 @@ def save_view_outputs(view_result: dict, view_idx: int,
     except Exception as exc:
         print(f"[view_{view_name}] WARNING: could not save depth_vis.png — {exc}")
 
+    # ── Per-view offset from target ───────────────────────────────────────────
+    req_pos  = view_result["requested_pose"]["position_m"]   # list[3]
+    tgt_ctr  = target_info.get("bbox_center_m", [0.0, 0.0, 0.0])
+    cam_offset = [round(req_pos[i] - tgt_ctr[i], 6) for i in range(3)]
+
     # ── Metadata JSON ─────────────────────────────────────────────────────────
     meta = {
         "view_name":             view_name,
@@ -641,6 +899,14 @@ def save_view_outputs(view_result: dict, view_idx: int,
         "timestamp_utc":         timestamp_utc,
         "run_id":                run_id,
         "phase_note":            PHASE_A_NOTE,
+        # ── Target-resolution fields ──────────────────────────────────────────
+        "target_mode":                   TARGET_MODE,
+        "selected_target_prim_path":     target_info.get("selected_prim_path"),
+        "target_bbox_center_world_m":    target_info.get("bbox_center_m"),
+        "target_bbox_size_mm":           target_info.get("bbox_size_mm"),
+        "target_bbox_method":            target_info.get("bbox_method"),
+        "requested_look_at":             view_result["requested_pose"]["look_at_m"],
+        "camera_offset_from_target":     cam_offset,
     }
     meta_path = view_dir / "metadata.json"
     try:
@@ -736,10 +1002,14 @@ def build_contact_sheet(view_results: list, view_dirs: list) -> None:
 
 def build_global_summary(view_results: list, view_dirs: list,
                           run_id: str, timestamp_utc: str,
-                          intrinsics: dict) -> None:
+                          intrinsics: dict,
+                          target_info: dict) -> None:
     """
-    Write multiview_capture_summary.json with per-view records and top-level
-    success/failure status.
+    Write multiview_capture_summary.json with per-view records, top-level
+    success/failure status, and a 'target_resolution' block.
+
+    `target_info` is the dict returned by resolve_target_look_at() (or the
+    synthetic manual dict built in main()).
     """
     n_requested = len(view_results)
     n_succeeded = sum(1 for vr in view_results if vr["ok"])
@@ -747,6 +1017,10 @@ def build_global_summary(view_results: list, view_dirs: list,
 
     view_records = []
     for idx, (vr, vd) in enumerate(zip(view_results, view_dirs)):
+        req_pos  = vr["requested_pose"]["position_m"]
+        tgt_ctr  = target_info.get("bbox_center_m", [0.0, 0.0, 0.0])
+        cam_offset = [round(req_pos[i] - tgt_ctr[i], 6) for i in range(3)]
+
         rec = {
             "view_index":       idx,
             "name":             vr["view_name"],
@@ -764,11 +1038,26 @@ def build_global_summary(view_results: list, view_dirs: list,
             "depth_valid_min_m":    vr["depth_valid_min_m"],
             "depth_valid_max_m":    vr["depth_valid_max_m"],
             "n_valid_depth_pixels": vr["n_valid_depth_pixels"],
-            "save_path":  str(vd),
-            "ok":         vr["ok"],
-            "error_message": vr.get("error_message"),
+            "save_path":             str(vd),
+            "ok":                    vr["ok"],
+            "error_message":         vr.get("error_message"),
+            "camera_offset_from_target": cam_offset,
         }
         view_records.append(rec)
+
+    # Target-resolution block — single source of truth for the run.
+    target_resolution_block = {
+        "target_mode":               TARGET_MODE,
+        "selected_target_prim_path": target_info.get("selected_prim_path"),
+        "target_prim_type_name":     target_info.get("prim_type_name"),
+        "bbox_min_m":                target_info.get("bbox_min_m"),
+        "bbox_max_m":                target_info.get("bbox_max_m"),
+        "bbox_center_m":             target_info.get("bbox_center_m"),
+        "bbox_size_m":               target_info.get("bbox_size_m"),
+        "bbox_size_mm":              target_info.get("bbox_size_mm"),
+        "bbox_method":               target_info.get("bbox_method"),
+        "n_candidates_examined":     target_info.get("n_candidates_examined"),
+    }
 
     summary = {
         "script_name":       "capture_multiview_piece.py",
@@ -780,6 +1069,7 @@ def build_global_summary(view_results: list, view_dirs: list,
         "n_views_requested": n_requested,
         "n_views_succeeded": n_succeeded,
         "success":           overall_ok,
+        "target_resolution": target_resolution_block,
         "views":             view_records,
         "inputs_dir":        CAMERA_PRIM_PATH,
         "output_dir":        str(OUT_ROOT),
@@ -808,6 +1098,7 @@ def build_global_summary(view_results: list, view_dirs: list,
 
 async def main():
     import numpy as np
+    import omni.usd
 
     # ── Resolve output directory ───────────────────────────────────────────────
     # Remove ONLY this script's own target directory, then recreate it.
@@ -838,6 +1129,8 @@ async def main():
     print(f"[multiview] run_id         = {run_id}")
     print(f"[multiview] timestamp_utc  = {timestamp_utc}")
     print(f"[multiview] run_log        = {log_path}")
+    print(f"[multiview] target_mode    = {TARGET_MODE}")
+    print(f"[multiview] name_hints     = {TARGET_PRIM_NAME_HINTS}")
 
     # ── Intrinsics (same for all views — one camera, one sensor) ─────────────
     intrinsics = compute_intrinsics()
@@ -845,6 +1138,81 @@ async def main():
           f"fy={intrinsics['fy_px']:.2f}  "
           f"cx={intrinsics['cx_px']:.2f}  cy={intrinsics['cy_px']:.2f}  "
           f"model={intrinsics['intrinsics_model']}")
+
+    # ── Resolve target look-at ────────────────────────────────────────────────
+    stage = omni.usd.get_context().get_stage()
+    if stage is None:
+        print("[multiview] FATAL: no USD stage is open. Open the scene first.")
+        teardown_run_logging()
+        return
+
+    if TARGET_MODE == "auto_prim_bbox":
+        print(f"\n[target_resolve] mode=auto_prim_bbox  "
+              f"hints={TARGET_PRIM_NAME_HINTS}")
+        # resolve_target_look_at raises RuntimeError on failure — let it propagate.
+        target_info = resolve_target_look_at(stage)
+
+        print(f"[target_resolve] selected prim : {target_info['selected_prim_path']}")
+        print(f"[target_resolve] prim type     : {target_info['prim_type_name']}")
+        print(f"[target_resolve] bbox method   : {target_info['bbox_method']}")
+        print(f"[target_resolve] bbox min (m)  : {target_info['bbox_min_m']}")
+        print(f"[target_resolve] bbox max (m)  : {target_info['bbox_max_m']}")
+        sz_mm = target_info['bbox_size_mm']
+        print(f"[target_resolve] bbox size (mm): "
+              f"({sz_mm[0]:.1f}, {sz_mm[1]:.1f}, {sz_mm[2]:.1f})")
+        ctr = target_info['bbox_center_m']
+        print(f"[target_resolve] bbox centre (m): "
+              f"({ctr[0]:.4f}, {ctr[1]:.4f}, {ctr[2]:.4f})")
+        print(f"[target_resolve] candidates examined: "
+              f"{target_info['n_candidates_examined']}")
+
+    else:
+        # Manual mode — build a synthetic info dict; no stage traversal.
+        print(f"[target_resolve] mode=manual  look_at={MANUAL_TARGET_LOOK_AT}")
+        ctr = list(MANUAL_TARGET_LOOK_AT)
+        target_info = {
+            "selected_prim_path":    None,
+            "prim_type_name":        None,
+            "bbox_min_m":            None,
+            "bbox_max_m":            None,
+            "bbox_center_m":         ctr,
+            "bbox_size_m":           None,
+            "bbox_size_mm":          None,
+            "bbox_method":           "manual",
+            "n_candidates_examined": 0,
+        }
+
+    # ── Compute per-view positions from resolved target centre ─────────────────
+    cx, cy, cz = target_info["bbox_center_m"]
+
+    # top_down: straight above the target.
+    # oblique_left:  −X offset from target at oblique height.
+    # oblique_right: +X offset from target at oblique height.
+    # Angle from vertical for oblique views:
+    #   atan(OBLIQUE_OFFSET_X / OBLIQUE_HEIGHT) = atan(0.30/0.40) ≈ 36.9°
+
+    view_positions = {
+        "top_down":      (cx,                    cy, cz + TOP_DOWN_HEIGHT),
+        "oblique_left":  (cx - OBLIQUE_OFFSET_X, cy, cz + OBLIQUE_HEIGHT),
+        "oblique_right": (cx + OBLIQUE_OFFSET_X, cy, cz + OBLIQUE_HEIGHT),
+    }
+    look_at_point = (cx, cy, cz)
+
+    # Update VIEWS list in-place with the computed positions and look-at.
+    for view_cfg in VIEWS:
+        name = view_cfg["name"]
+        if name in view_positions:
+            view_cfg["position_m"] = view_positions[name]
+            view_cfg["look_at_m"]  = look_at_point
+            offset = (
+                round(view_positions[name][0] - cx, 4),
+                round(view_positions[name][1] - cy, 4),
+                round(view_positions[name][2] - cz, 4),
+            )
+            print(f"[multiview] requested view {name}: "
+                  f"position={view_positions[name]}  "
+                  f"look_at={look_at_point}  "
+                  f"offset_from_target={offset}")
 
     # ── Create render product and annotators ONCE ─────────────────────────────
     try:
@@ -893,6 +1261,7 @@ async def main():
             intrinsics=intrinsics,
             run_id=run_id,
             timestamp_utc=timestamp_utc,
+            target_info=target_info,
         )
         view_results.append(vr)
         view_dirs.append(vd)
@@ -926,6 +1295,7 @@ async def main():
         run_id=run_id,
         timestamp_utc=timestamp_utc,
         intrinsics=intrinsics,
+        target_info=target_info,
     )
 
     teardown_run_logging()
