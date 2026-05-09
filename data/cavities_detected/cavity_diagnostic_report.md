@@ -1,6 +1,6 @@
 # Cavity diagnostic report
 
-- Generated: `2026-05-02T16:09:00`
+- Generated: `2026-05-09T11:33:10`
 - Source: `/Users/robertofmbarreto/Documents/Mestrado/tese/code/thesis-omniverse/data/cavities_detected`
 - PNG: `cavity_diagnostic_report.png`
 
@@ -78,10 +78,10 @@ Auxiliary mask is **`cavity_depth_mask.png`** (visible deeper pixels inside each
 
 | Cavity | classification | usability for Baseline 1 | opening_xy (mm) | opening_area px | depth_area px | z_depth median (mm) |
 |---|---|---|---|---|---|---|
-| `cavity_00` | full_opening | USABLE | 50.2 × 75.3 | 6700 | 1074 | 15.2 |
-| `cavity_01` | full_opening | USABLE | 49.4 × 49.4 | 2239 | 421 | 15.6 |
-| `cavity_02` | full_opening | USABLE | 50.2 × 49.4 | 4422 | 876 | 15.2 |
-| `cavity_03` | full_opening | USABLE | 60.8 × 60.8 | 5154 | 855 | 15.5 |
+| `cavity_00` | full_opening | USABLE | 50.5 × 73.9 | 2562 | 205 | 14.8 |
+| `cavity_01` | full_opening | USABLE | 48.0 × 49.3 | 838 | 141 | 16.9 |
+| `cavity_02` | full_opening | USABLE | 50.5 × 49.3 | 1722 | 0 | 0.0 |
+| `cavity_03` | full_opening | USABLE | 49.3 × 50.5 | 1332 | 18 | 16.4 |
 
 ## 4. Baseline 1 readiness
 

@@ -1,650 +1,641 @@
-# 01 — Detecção de peça (vista única)
+# 01 — Piece detection (single view)
 
-> Nota de implementação para futura conversão em secção LaTeX.
-> Estado: Fase 1 — perceção determinística, sem componente aprendida.
-> Data: 2026-05-01.
-
----
-
-## 1. Objetivo da fase
-
-Esta fase tem como objetivo obter uma representação geométrica fiável de uma
-peça visível na cena, a partir de uma única captura RGB-D em ambiente
-simulado. Pretende-se construir os artefactos de entrada que mais tarde
-alimentarão a baseline determinística de correspondência peça-cavidade
-(*footprint matching*).
-
-A fase **não** classifica formas, **não** infere afinidades de inserção e
-**não** envolve qualquer modelo aprendido. Trata-se exclusivamente de um
-passo de perceção geométrica.
+> Implementation note for future conversion into a LaTeX section.
+> Status: Phase 1 — deterministic perception, no learned component.
+> Date: 2026-05-01.
 
 ---
 
-## 2. Contexto experimental
+## 1. Objective of the phase
 
-O sistema completo é inspirado nos brinquedos infantis de classificação de
-formas (*shape sorter*). A bancada experimental contém:
+The objective of this phase is to obtain a reliable geometric
+representation of a piece visible in the scene, from a single RGB-D
+capture in a simulated environment. The intent is to construct the
+input artifacts that will later feed the deterministic baseline for
+piece-cavity matching (*footprint matching*).
 
-- um tabuleiro com cavidades geométricas;
-- peças geométricas modeladas em Fusion (rectângulo, quadrado, círculo e
-  estrela), aqui usadas como conjunto inicial;
-- uma câmara RGB-D virtual no NVIDIA Isaac Sim 5.1, executado em contentor
-  e acedido através do cliente WebRTC.
-
-A captura é orquestrada via *Script Editor* do Isaac Sim, usando o padrão
-assíncrono compatível e os anotadores `rgb` e `distance_to_image_plane` do
-módulo `omni.replicator.core`.
+This phase **does not** classify shapes, **does not** infer insertion
+affinities, and **does not** involve any learned model. It is
+exclusively a step of geometric perception.
 
 ---
 
-## 3. Dados de entrada e pressupostos da cena
+## 2. Experimental context
 
-Pressupostos atuais para a Fase 1:
+The complete system is inspired by children's shape-sorting toys
+(*shape sorter*). The experimental bench contains:
 
-- **Vista única**: a câmara está colocada acima do tabuleiro, com
-  orientação aproximadamente vertical (*top-down*).
-- **Peça única visível por captura**: as restantes peças são manualmente
-  ocultadas no Isaac Sim. Esta restrição é uma decisão experimental, não
-  uma limitação intrínseca do detetor — o algoritmo deteta múltiplos
-  componentes ligados, mas o pipeline atual seleciona apenas um.
-- **Superfície de suporte aproximadamente plana** dentro do campo de
-  visão.
-- **Escala real preservada**: profundidade em metros, sem normalização
-  global.
+- a board with geometric cavities;
+- geometric pieces modelled in Fusion (rectangle, square, circle and
+  star), used here as the initial set;
+- a virtual RGB-D camera in NVIDIA Isaac Sim 5.1, executed inside a
+  container and accessed through the WebRTC client.
 
-Os nomes das pastas das capturas (`rectangle/`, `square/`, `circle/`,
-`star/`) são **rótulos de organização experimental** e não influenciam
-nenhuma decisão geométrica do *script*. O detetor desconhece a forma
-nominal da peça.
+Capture is orchestrated via the Isaac Sim *Script Editor*, using the
+compatible asynchronous pattern and the `rgb` and
+`distance_to_image_plane` annotators of the `omni.replicator.core`
+module.
 
 ---
 
-## 4. Aquisição RGB-D no Isaac Sim
+## 3. Input data and scene assumptions
 
-O módulo de captura é implementado em `scripts/capture_piece_detection.py`
-e segue o padrão recomendado para o *Script Editor*:
+Current assumptions for Phase 1:
 
-- Criação de um *render product* sobre a câmara configurada
+- **Single view**: the camera is placed above the board, with
+  approximately vertical orientation (*top-down*).
+- **Single visible piece per capture**: the remaining pieces are
+  manually hidden in Isaac Sim. This restriction is an experimental
+  decision, not an intrinsic limitation of the detector — the
+  algorithm detects multiple connected components, but the current
+  pipeline selects only one.
+- **Approximately planar support surface** within the field of view.
+- **Real-world scale preserved**: depth in metres, without any global
+  normalization.
+
+The names of the capture folders (`rectangle/`, `square/`, `circle/`,
+`star/`) are **experimental organization labels** and do not influence
+any geometric decision of the *script*. The detector is unaware of the
+nominal shape of the piece.
+
+---
+
+## 4. RGB-D acquisition in Isaac Sim
+
+The capture module is implemented in `scripts/capture_piece_detection.py`
+and follows the recommended pattern for the *Script Editor*:
+
+- Creation of a *render product* over the configured camera
   (`/World/Camera`).
-- Anexação dos anotadores `rgb` (imagem a cores) e
-  `distance_to_image_plane` (profundidade em metros, distância ao plano
-  da imagem).
-- Execução de um passo de simulação assíncrono via
-  `rep.orchestrator.step_async(rt_subframes=RT_SUBFRAMES)`, com
-  `RT_SUBFRAMES = 8` para estabilizar o *render*.
-- Leitura dos dados via `get_data()`, com normalização defensiva entre
-  os formatos *ndarray* e dicionário com chave `"data"` que diferentes
-  versões do Replicator podem retornar.
+- Attachment of the `rgb` (colour image) and
+  `distance_to_image_plane` (depth in metres, distance to image
+  plane) annotators.
+- Execution of an asynchronous simulation step via
+  `rep.orchestrator.step_async(rt_subframes=RT_SUBFRAMES)`, with
+  `RT_SUBFRAMES = 8` to stabilise the *render*.
+- Reading of the data via `get_data()`, with defensive normalization
+  between the *ndarray* and dictionary-with-`"data"`-key formats that
+  different Replicator versions may return.
 
-A pose da câmara é definida programaticamente através de constantes
-`CAM_X`, `CAM_Y`, `CAM_Z`, `CAM_ROT_Z_DEG`. A função `setup_camera`
-suporta as operações de transformação USD `xformOp:orient`,
-`xformOp:rotateXYZ` e `xformOp:rotateZ`.
+The camera pose is defined programmatically through the constants
+`CAM_X`, `CAM_Y`, `CAM_Z`, `CAM_ROT_Z_DEG`. The function `setup_camera`
+supports the USD transformation operations `xformOp:orient`,
+`xformOp:rotateXYZ` and `xformOp:rotateZ`.
 
-**Resolução por omissão**: 640 × 480 *pixels*.
-**Intrínsecos**: distância focal de 24 mm e abertura horizontal de
-36 mm, definidos como constantes e correspondendo aos atributos
-`UsdGeom.Camera` do *prim* da câmara.
-
----
-
-## 5. Estimação da superfície de suporte
-
-A profundidade da superfície de suporte (mesa/tabuleiro) é estimada
-automaticamente a partir do histograma da imagem de profundidade,
-restringido ao intervalo configurável `[SURFACE_DEPTH_MIN,
-SURFACE_DEPTH_MAX]` (por omissão `[0.10, 0.50]` m).
-
-O valor estimado é o centro do *bin* dominante, com largura de *bin*
-de 1 mm. O algoritmo emite um aviso explícito quando a fração de
-*pixels* no *bin* dominante é inferior a 5 %, sinalizando histograma
-ruidoso ou superfície de suporte mal enquadrada.
-
-Esta abordagem assume que a superfície de suporte ocupa uma fração
-não desprezável do campo de visão. Se a peça preencher quase todo o
-campo, o pico do histograma pode corresponder à própria peça e não à
-mesa.
+**Default resolution**: 640 × 480 *pixels*.
+**Intrinsics**: focal length of 24 mm and horizontal aperture of
+36 mm, defined as constants and matching the `UsdGeom.Camera`
+attributes of the camera *prim*.
 
 ---
 
-## 6. Segmentação da peça
+## 5. Estimation of the support surface
 
-A segmentação opera sobre a imagem de profundidade, **não** sobre a
-imagem RGB. A peça é tratada como geometria positiva acima da
-superfície de suporte: um *pixel* pertence à peça se a sua
-profundidade for inferior à profundidade da superfície subtraída de
-uma tolerância configurável `SURFACE_TOLERANCE` (por omissão 4 mm).
+The depth of the support surface (table/board) is estimated
+automatically from the histogram of the depth image, restricted to
+the configurable interval `[SURFACE_DEPTH_MIN, SURFACE_DEPTH_MAX]`
+(by default `[0.10, 0.50]` m).
 
-Esta convenção respeita a geometria do mundo: distância à câmara
-menor significa mais próximo da câmara, ou seja, mais alto em
-relação à mesa numa vista *top-down*.
+The estimated value is the centre of the dominant *bin*, with a *bin*
+width of 1 mm. The algorithm emits an explicit warning when the
+fraction of *pixels* in the dominant *bin* is below 5 %, signalling a
+noisy histogram or a poorly framed support surface.
 
-A escolha da tolerância é um compromisso:
-
-- valores demasiado pequenos deixam passar ruído da própria
-  superfície de suporte;
-- valores demasiado grandes eliminam peças finas ou prismas baixos.
+This approach assumes that the support surface occupies a
+non-negligible fraction of the field of view. If the piece fills
+almost the entire field, the histogram peak may correspond to the
+piece itself and not to the table.
 
 ---
 
-## 7. Seleção do componente ligado
+## 6. Piece segmentation
 
-Após a segmentação binária, é executada análise de componentes
-ligados (`cv2.connectedComponentsWithStats`) com filtragem por área
+Segmentation operates on the depth image, **not** on the RGB image.
+The piece is treated as positive geometry above the support surface:
+a *pixel* belongs to the piece if its depth is lower than the surface
+depth subtracted by a configurable tolerance `SURFACE_TOLERANCE` (by
+default 4 mm).
+
+This convention respects world geometry: a smaller distance to the
+camera means closer to the camera, that is, higher relative to the
+table in a *top-down* view.
+
+The choice of tolerance is a trade-off:
+
+- values that are too small let through noise from the support
+  surface itself;
+- values that are too large eliminate thin pieces or low prisms.
+
+---
+
+## 7. Connected-component selection
+
+After binary segmentation, connected-component analysis
+(`cv2.connectedComponentsWithStats`) is executed with area filtering
 (`CC_MIN_AREA_PX`, `CC_MAX_AREA_PX`).
 
-Os componentes válidos são ordenados de forma determinística por
-área decrescente, com desempate por coordenada x do centróide
-ascendente. A seleção do componente de interesse é controlada por
-três modos configuráveis:
+Valid components are ordered deterministically by decreasing area,
+with ties broken by ascending centroid x-coordinate. The selection of
+the component of interest is controlled by three configurable modes:
 
-- `largest` — escolhe o componente de maior área (rank 0). É o modo
-  por omissão e foi usado em todas as capturas validadas.
-- `closest_to_center` — escolhe o componente cujo centróide está
-  mais próximo do centro da imagem. Útil para capturar uma peça
-  específica reposicionando a câmara, sem recurso a classificação.
-- `manual_index` — escolhe o componente na posição
-  `MANUAL_COMPONENT_INDEX` da lista ordenada.
+- `largest` — selects the component with the largest area (rank 0).
+  This is the default mode and was used in all validated captures.
+- `closest_to_center` — selects the component whose centroid is
+  closest to the centre of the image. Useful for capturing a specific
+  piece by repositioning the camera, without resorting to shape
+  classification.
+- `manual_index` — selects the component at position
+  `MANUAL_COMPONENT_INDEX` of the ordered list.
 
-Em qualquer modo, o número total de componentes válidos detetados é
-registado nos metadados (campos `n_valid_components` e
-`multiple_valid_components`), permitindo posterior diagnóstico de
-ambiguidade na cena.
-
----
-
-## 8. Geração da nuvem de pontos
-
-A nuvem de pontos é construída por *backprojection* dos *pixels* da
-máscara da peça selecionada, usando intrínsecos de câmara *pinhole*
-(`mpp_x`, `mpp_y` derivados da focal, abertura e da distância à
-superfície estimada `surface_z`).
-
-Convenções:
-
-- **Eixos X e Y**: centrados no centróide mundial da peça, expressos
-  em metros.
-- **Eixo Z**: representa a altura acima da superfície de suporte,
-  calculado como `surface_z - depth[pixel]`. É sempre não-negativo.
-- **Escala real preservada**: as coordenadas estão em metros e
-  **não** são normalizadas para uma escala unitária. Esta decisão é
-  fundamental para a correspondência peça-cavidade futura, em que o
-  tamanho absoluto é parte da informação geométrica relevante.
-- **Amostragem fixa**: cada nuvem de pontos contém exatamente
-  `N_POINTS = 2048` pontos. Quando a máscara contém menos *pixels*
-  do que `N_POINTS`, é feita amostragem com reposição (registado nos
-  metadados).
-
-A intrínseca é avaliada em `surface_z` (e não numa altura nominal da
-câmara) para que a relação metros-por-pixel seja correta à
-profundidade efetiva da peça.
+In any mode, the total number of valid detected components is
+recorded in the metadata (`n_valid_components` and
+`multiple_valid_components` fields), allowing later diagnosis of
+scene ambiguity.
 
 ---
 
-## 9. Geração da pegada (*footprint*)
+## 8. Point cloud generation
 
-A pegada 2D é a projeção *top-down* da nuvem de pontos no plano XY,
-renderizada numa tela quadrada de 256 *pixels* com resolução de
-0,5 mm por *pixel*. A imagem é guardada com mapa de cores quente
-para facilitar inspeção visual.
+The point cloud is constructed by *backprojection* of the *pixels* of
+the selected piece mask, using *pinhole* camera intrinsics (`mpp_x`,
+`mpp_y` derived from the focal length, aperture and the distance to
+the estimated surface `surface_z`).
 
-A pegada é o artefacto principal a ser consumido pela baseline
-geométrica determinística da fase seguinte: a comparação por
-sobreposição (IoU) ou Chamfer entre a pegada da peça e a pegada das
-cavidades, sob diferentes rotações.
+Conventions:
+
+- **X and Y axes**: centred on the world centroid of the piece,
+  expressed in metres.
+- **Z axis**: represents the height above the support surface,
+  computed as `surface_z - depth[pixel]`. It is always non-negative.
+- **Real-world scale preserved**: coordinates are in metres and are
+  **not** normalized to a unit scale. This decision is fundamental
+  for the future piece-cavity matching, in which absolute size is
+  part of the relevant geometric information.
+- **Fixed sampling**: each point cloud contains exactly
+  `N_POINTS = 2048` points. When the mask contains fewer *pixels*
+  than `N_POINTS`, sampling with replacement is performed (recorded
+  in the metadata).
+
+The intrinsics are evaluated at `surface_z` (and not at a nominal
+camera height) so that the metres-per-pixel relation is correct at
+the effective depth of the piece.
 
 ---
 
-## 10. Saídas guardadas
+## 9. Footprint generation
 
-Cada captura produz, por omissão, uma subpasta dentro de
-`data/pieces_detected/<CAPTURE_NAME>/` com os seguintes ficheiros:
+The 2D footprint is the *top-down* projection of the point cloud onto
+the XY plane, rendered on a square canvas of 256 *pixels* with a
+resolution of 0.5 mm per *pixel*. The image is saved with a hot
+colour map to facilitate visual inspection.
 
-| Ficheiro | Conteúdo |
+The footprint is the main artifact to be consumed by the
+deterministic geometric baseline of the next phase: comparison by
+overlap (IoU) or Chamfer between the piece footprint and the cavity
+footprints, under different rotations.
+
+---
+
+## 10. Saved outputs
+
+By default, each capture produces a subfolder inside
+`data/pieces_detected/<CAPTURE_NAME>/` with the following files:
+
+| File | Content |
 |---|---|
-| `rgb.png` | Imagem a cores capturada. |
-| `depth_vis.png` | Visualização colorida da imagem de profundidade. |
-| `raw_piece_mask.png` | Máscara binária após o limiar de profundidade. |
-| `piece_mask.png` | Máscara do componente ligado selecionado. |
-| `piece_debug.png` | Sobreposição da máscara, caixa envolvente e centróide sobre a imagem RGB. |
-| `piece_footprint.png` | Pegada 2D *top-down*. |
-| `piece_pointcloud.npy` | Nuvem de pontos 3D em metros, *shape* `(N_POINTS, 3)`. |
-| `piece_metadata.json` | Metadados completos da captura (parâmetros, intrínsecos, métricas, lista de componentes válidos). |
+| `rgb.png` | Captured colour image. |
+| `depth_vis.png` | Coloured visualization of the depth image. |
+| `raw_piece_mask.png` | Binary mask after the depth threshold. |
+| `piece_mask.png` | Mask of the selected connected component. |
+| `piece_debug.png` | Overlay of the mask, bounding box and centroid over the RGB image. |
+| `piece_footprint.png` | 2D *top-down* footprint. |
+| `piece_pointcloud.npy` | 3D point cloud in metres, *shape* `(N_POINTS, 3)`. |
+| `piece_metadata.json` | Full capture metadata (parameters, intrinsics, metrics, list of valid components). |
 
-A política de escrita garante que, em caso de falha numa etapa
-intermédia, **não** são produzidos ficheiros placebo: artefactos
-inválidos ou de execuções anteriores são removidos no início e
-apenas os artefactos efetivamente produzidos na execução atual são
-gravados. O `piece_metadata.json` é sempre escrito, com
-`success=False` e a mensagem de erro quando aplicável.
+The write policy guarantees that, in case of failure at an
+intermediate stage, **no** placebo files are produced: invalid
+artifacts or those from previous executions are removed at the
+beginning and only artifacts effectively produced in the current
+execution are written. The `piece_metadata.json` is always written,
+with `success=False` and the error message when applicable.
 
 ---
 
-## 11. Procedimento de validação
+## 11. Validation procedure
 
-Foi implementado um *script* independente,
-`scripts/validate_piece_captures.py`, que corre fora do Isaac Sim
-em Python convencional. Para cada subpasta de captura esperada
-(`rectangle`, `square`, `circle`, `star`), a validação verifica:
+An independent *script* was implemented,
+`scripts/validate_piece_captures.py`, which runs outside Isaac Sim in
+conventional Python. For each expected capture subfolder
+(`rectangle`, `square`, `circle`, `star`), the validation checks:
 
-1. presença dos ficheiros essenciais (`piece_metadata.json`,
+1. presence of essential files (`piece_metadata.json`,
    `piece_pointcloud.npy`, `piece_footprint.png`,
    `piece_debug.png`);
-2. coerência dos metadados — em particular, `n_valid_components == 1`
-   e `multiple_valid_components == false`;
-3. estrutura da nuvem de pontos: dimensão 2, segunda dimensão igual
-   a 3, pelo menos 100 pontos;
-4. limites geométricos da nuvem: amplitudes em X e Y positivas,
-   amplitude em Z não-negativa, ausência de NaN e de infinitos;
-5. *footprint* legível e não vazio.
+2. coherence of the metadata — in particular, `n_valid_components == 1`
+   and `multiple_valid_components == false`;
+3. point cloud structure: dimension 2, second dimension equal to 3,
+   at least 100 points;
+4. geometric bounds of the cloud: positive X and Y spans, non-negative
+   Z span, absence of NaN and infinities;
+5. *footprint* readable and non-empty.
 
-A validação produz três artefactos:
+The validation produces three artifacts:
 
 - `data/pieces_detected/validation_summary.json`
 - `data/pieces_detected/validation_summary.csv`
-- `data/pieces_detected/footprints_grid.png` (grelha 2 × 2 com os
-  *footprints* das quatro peças, com rótulo da pasta).
+- `data/pieces_detected/footprints_grid.png` (2 × 2 grid with the
+  *footprints* of the four pieces, labelled by folder).
 
 ---
 
-## 12. Resumo dos resultados de validação
+## 12. Summary of validation results
 
-Todos os critérios passaram para as quatro peças capturadas. O
-quadro abaixo resume as amplitudes da nuvem de pontos e a contagem
-de pontos, extraídos diretamente de
-`data/pieces_detected/validation_summary.json`.
+All criteria passed for the four captured pieces. The table below
+summarises the point cloud spans and the point counts, extracted
+directly from `data/pieces_detected/validation_summary.json`.
 
-| Peça      | Amplitude X (mm) | Amplitude Y (mm) | Amplitude Z (mm) | Pontos |
-|-----------|------------------|------------------|------------------|--------|
-| rectangle | 37,7             | 19,7             | 0,0              | 2048   |
-| square    | 21,2             | 20,1             | 20,7             | 2048   |
-| circle    | 21,2             | 19,7             | 0,0              | 2048   |
-| star      | 19,9             | 17,7             | 26,3             | 2048   |
+| Piece     | X span (mm) | Y span (mm) | Z span (mm) | Points |
+|-----------|-------------|-------------|-------------|--------|
+| rectangle | 37.7        | 19.7        | 0.0         | 2048   |
+| square    | 21.2        | 20.1        | 20.7        | 2048   |
+| circle    | 21.2        | 19.7        | 0.0         | 2048   |
+| star      | 19.9        | 17.7        | 26.3        | 2048   |
 
-Limites em Z (em metros), também extraídos da validação:
+Z bounds (in metres), also extracted from validation:
 
-| Peça      | Z mínimo | Z máximo |
-|-----------|----------|----------|
-| rectangle | 0,03050  | 0,03050  |
-| square    | 0,00983  | 0,03050  |
-| circle    | 0,03050  | 0,03050  |
-| star      | 0,00418  | 0,03050  |
+| Piece     | Z minimum | Z maximum |
+|-----------|-----------|-----------|
+| rectangle | 0.03050   | 0.03050   |
+| square    | 0.00983   | 0.03050   |
+| circle    | 0.03050   | 0.03050   |
+| star      | 0.00418   | 0.03050   |
 
-A amplitude Z nula nas peças `rectangle` e `circle` é coerente com
-a hipótese de que a face superior dessas peças é estritamente
-plana e a única visível numa vista *top-down*. Todos os *pixels*
-visíveis projetam para o mesmo valor de profundidade ao nível da
-quantização de `float32` do anotador, resultando em Z constante.
-Não é, à luz da inspeção feita, um defeito do *pipeline*: é uma
-propriedade da geometria observada combinada com a precisão do
-*render*.
+The null Z span on the `rectangle` and `circle` pieces is consistent
+with the hypothesis that the upper face of those pieces is strictly
+planar and the only one visible in a *top-down* view. All visible
+*pixels* project to the same depth value at the level of the
+`float32` quantization of the annotator, resulting in constant Z. In
+light of the inspection performed, this is not a defect of the
+*pipeline*: it is a property of the observed geometry combined with
+the precision of the *render*.
 
 ---
 
-## 13. Problemas encontrados e correções
+## 13. Problems encountered and corrections
 
-Esta secção documenta os problemas técnicos efetivamente observados
-durante o desenvolvimento da Fase 1 e as correções aplicadas, para
-que o relatório final possa apresentar o percurso de
-desenvolvimento e não apenas o método final.
+This section documents the technical problems effectively observed
+during the development of Phase 1 and the corrections applied, so
+that the final report can present the development trajectory and not
+only the final method.
 
-1. **Inicialização do orquestrador do Replicator inexistente**.
-   A primeira versão do *script* invocava
-   `rep.orchestrator.initialize_async()` antes do
-   `step_async(...)`. No ambiente Isaac Sim 5.1 utilizado, esse
-   método não existe e a captura falhava com `AttributeError`.
-   *Correção*: remoção da chamada e adoção do padrão já validado
-   nos *scripts* anteriores do projeto: criar *render product*,
-   anexar anotadores, executar `await
-   rep.orchestrator.step_async(rt_subframes=...)` e ler com
+1. **Non-existent initialization of the Replicator orchestrator**.
+   The first version of the *script* invoked
+   `rep.orchestrator.initialize_async()` before the
+   `step_async(...)`. In the Isaac Sim 5.1 environment used, that
+   method does not exist and the capture failed with `AttributeError`.
+   *Correction*: removal of the call and adoption of the pattern
+   already validated in the project's earlier *scripts*: create a
+   *render product*, attach annotators, execute
+   `await rep.orchestrator.step_async(rt_subframes=...)` and read with
    `get_data()`.
 
-2. **Resolução de caminhos via `__file__` no *Script Editor***.
-   Inicialmente, o diretório de saída era derivado de
-   `Path(__file__).resolve().parent.parent`. Quando o *script* é
-   colado/executado no *Script Editor* do Isaac Sim, `__file__`
-   pode resolver para um caminho temporário do tipo
-   `/tmp/carb.../script_*.py`, fazendo com que as saídas fossem
-   gravadas fora do repositório.
-   *Correção*: definição explícita de `PROJECT_ROOT`, com
-   variável de ambiente opcional `SHAPE_INSERTION_PROJECT_ROOT`
-   para sobreposição em outros ambientes (ex. máquina de
-   desenvolvimento). O caminho passou a ser estável
-   independentemente do contexto de execução.
+2. **Path resolution via `__file__` in the *Script Editor***.
+   Initially, the output directory was derived from
+   `Path(__file__).resolve().parent.parent`. When the *script* is
+   pasted/executed in the Isaac Sim *Script Editor*, `__file__` may
+   resolve to a temporary path of the form
+   `/tmp/carb.../script_*.py`, causing the outputs to be written
+   outside the repository.
+   *Correction*: explicit definition of `PROJECT_ROOT`, with optional
+   environment variable `SHAPE_INSERTION_PROJECT_ROOT` for override
+   in other environments (e.g. development machine). The path became
+   stable independently of the execution context.
 
-3. **Múltiplas peças visíveis simultaneamente**.
-   Em capturas iniciais, várias peças permaneciam visíveis na
-   cena. O *pipeline* selecionava o componente ligado de maior
-   área, sem garantia sobre qual peça era escolhida.
-   *Decisão metodológica para esta fase*: ocultar manualmente as
-   peças não pretendidas no Isaac Sim e capturar uma peça de cada
-   vez. Foram acrescentados modos de seleção configuráveis
-   (`largest`, `closest_to_center`, `manual_index`) para tornar a
-   escolha determinística sem recorrer a classificação de forma.
+3. **Multiple pieces visible simultaneously**.
+   In initial captures, several pieces remained visible in the scene.
+   The *pipeline* selected the largest-area connected component,
+   without any guarantee about which piece was chosen.
+   *Methodological decision for this phase*: manually hide the
+   non-intended pieces in Isaac Sim and capture one piece at a time.
+   Configurable selection modes were added (`largest`,
+   `closest_to_center`, `manual_index`) to make the choice
+   deterministic without resorting to shape classification.
 
-4. **Compatibilidade do formato dos anotadores**.
-   Em diferentes versões do Replicator, `get_data()` pode retornar
-   diretamente um *ndarray* ou um dicionário com chave `"data"`.
-   Nas primeiras execuções obtiveram-se *crashes* do tipo
-   `TypeError` por aplicar fatiamento direto a um dicionário.
-   *Correção*: normalização defensiva — se o retorno for
-   dicionário, converter para *ndarray* via
-   `np.asarray(d["data"]).reshape(IMG_H, IMG_W, -1)` antes de
-   usar; impressão única do tipo e *shape* para diagnóstico.
+4. **Annotator format compatibility**.
+   In different Replicator versions, `get_data()` may return either
+   directly an *ndarray* or a dictionary with key `"data"`. In the
+   first executions, `TypeError` *crashes* were obtained from
+   applying direct slicing to a dictionary.
+   *Correction*: defensive normalization — if the return is a
+   dictionary, convert to *ndarray* via
+   `np.asarray(d["data"]).reshape(IMG_H, IMG_W, -1)` before use;
+   single print of the type and *shape* for diagnosis.
 
-5. **Saídas espúrias após falha**.
-   Numa versão intermédia, o bloco `finally` produzia *placeholders*
-   com matrizes de zeros para evitar erros de escrita. Isto deixava
-   ficheiros com aspeto de captura válida quando, na realidade, a
-   captura tinha falhado.
-   *Correção*: remoção de *placeholders*; passou a gravar-se apenas
-   os artefactos efetivamente produzidos pela execução atual; o
-   `piece_metadata.json` é sempre escrito, com `success=False` e
-   mensagem de erro quando aplicável; ficheiros de execuções
-   anteriores são removidos no início para não poderem ser
-   confundidos com o resultado atual.
+5. **Spurious outputs after failure**.
+   In an intermediate version, the `finally` block produced
+   *placeholders* with zero matrices to avoid write errors. This left
+   files with the appearance of a valid capture when, in reality, the
+   capture had failed.
+   *Correction*: removal of *placeholders*; only artifacts
+   effectively produced by the current execution are written; the
+   `piece_metadata.json` is always written, with `success=False` and
+   error message when applicable; files from previous executions are
+   removed at the beginning so that they cannot be confused with the
+   current result.
 
-6. **Amplitude Z nula em peças prismáticas**.
-   As peças `rectangle` e `circle` apresentaram amplitude Z
-   exatamente igual a zero. Verificou-se ser uma propriedade
-   conjunta da geometria observada (face superior estritamente
-   plana) e da quantização de `float32` do anotador de
-   profundidade, e não um defeito do *pipeline*. A amplitude Z é
-   informação útil mas, nesta fase, não é estritamente necessária
-   para a baseline geométrica baseada em pegada.
+6. **Null Z span on prismatic pieces**.
+   The `rectangle` and `circle` pieces showed Z span exactly equal
+   to zero. It was found to be a joint property of the observed
+   geometry (strictly planar upper face) and the `float32`
+   quantization of the depth annotator, and not a defect of the
+   *pipeline*. The Z span is useful information but, at this phase,
+   is not strictly necessary for the footprint-based geometric
+   baseline.
 
-7. **Verificação de escala real**.
-   Nas primeiras execuções, a função de intrínsecos da câmara era
-   alimentada com a altura nominal da câmara em vez da
-   profundidade efetiva da superfície. Isto introduzia um erro
-   sistemático de escala em XY proporcional à diferença entre as
-   duas profundidades.
-   *Correção*: passou a usar-se a profundidade da superfície
-   estimada (`surface_z`) para calcular metros-por-pixel,
-   garantindo coerência métrica entre a *pixel grid* e o mundo.
+7. **Real-scale verification**.
+   In the first executions, the camera intrinsics function was fed
+   with the nominal camera height instead of the effective surface
+   depth. This introduced a systematic XY scale error proportional
+   to the difference between the two depths.
+   *Correction*: the estimated surface depth (`surface_z`) is now
+   used to compute metres-per-pixel, ensuring metric coherence
+   between the *pixel grid* and the world.
 
 ---
 
-## 14. Limitações da abordagem atual
+## 14. Limitations of the current approach
 
-1. **Vista única e topo plano dominante**: a partir de uma só
-   captura *top-down*, peças prismáticas com face superior plana
-   produzem nuvens de pontos com pouca ou nenhuma variação em Z.
-   A representação resultante codifica essencialmente a pegada e a
-   altura, mas não a forma lateral da peça.
+1. **Single view and dominant planar top**: from a single *top-down*
+   capture, prismatic pieces with planar upper face produce point
+   clouds with little or no variation in Z. The resulting
+   representation essentially encodes the footprint and the height,
+   but not the lateral shape of the piece.
 
-2. **Seleção restrita a um componente**: o pipeline assume uma
-   peça visível por captura. Se múltiplas peças estiverem visíveis,
-   é selecionado apenas um componente segundo o critério
-   configurado, sem qualquer raciocínio sobre identidade da peça.
+2. **Selection restricted to one component**: the pipeline assumes
+   one piece visible per capture. If multiple pieces are visible,
+   only one component is selected according to the configured
+   criterion, without any reasoning about piece identity.
 
-3. **Sensibilidade aos limiares**: a estimação da superfície e a
-   segmentação dependem de constantes que devem ser sintonizadas
-   para a cena (`SURFACE_DEPTH_MIN/MAX`, `SURFACE_TOLERANCE`,
-   `CC_MIN_AREA_PX`, `CC_MAX_AREA_PX`).
+3. **Sensitivity to thresholds**: surface estimation and segmentation
+   depend on constants that must be tuned to the scene
+   (`SURFACE_DEPTH_MIN/MAX`, `SURFACE_TOLERANCE`, `CC_MIN_AREA_PX`,
+   `CC_MAX_AREA_PX`).
 
-4. **Dependência da pose da câmara**: assume-se câmara
-   aproximadamente vertical sobre a superfície. Desvios
-   significativos invalidam a interpretação `world_z = surface_z -
-   depth` como altura sobre a mesa.
+4. **Dependence on camera pose**: an approximately vertical camera
+   over the surface is assumed. Significant deviations invalidate
+   the interpretation `world_z = surface_z - depth` as height above
+   the table.
 
-5. **Intrínsecos hardcoded**: a focal e a abertura estão como
-   constantes no *script*; têm de coincidir com os atributos do
-   *prim* da câmara em USD. Discrepâncias produzem erro
-   sistemático de escala em XY.
+5. **Hardcoded intrinsics**: the focal length and aperture are
+   constants in the *script*; they must coincide with the attributes
+   of the camera *prim* in USD. Discrepancies produce a systematic
+   XY scale error.
 
-6. **Cobertura geométrica parcial**: faces laterais e inferiores da
-   peça não são observáveis. A nuvem de pontos é, na prática, uma
-   *2.5D heightmap* da face superior visível.
-
----
-
-## 15. Relevância para o objetivo da tese
-
-O objetivo central da tese é a aprendizagem de relações
-perceção-ação baseadas em geometria, com o caso de estudo da
-inserção de peças em cavidades. A perceção determinística aqui
-descrita é o degrau inicial: fornece os representantes geométricos
-das peças que serão posteriormente confrontados com cavidades para
-inferir compatibilidade, rotação de inserção e pose aproximada.
-
-Posicionamento desta fase no plano global:
-
-- **Não substitui** a abordagem aprendida pretendida — fornece-lhe
-  os artefactos de entrada e estabelece a baseline geométrica de
-  referência.
-- **Não classifica** formas. A saída do *pipeline* não é uma
-  etiqueta como "este é um quadrado", mas uma representação
-  geométrica reutilizável (máscara, pegada, nuvem de pontos,
-  metadados).
-- **Preserva escala real**, condição necessária para qualquer
-  raciocínio posterior sobre inserção, em que o tamanho absoluto da
-  peça e da cavidade é informação carregada de significado.
-- **A representação por pegada 2D é adequada para a baseline
-  geométrica determinística** de correspondência peça-cavidade,
-  por exemplo via IoU ou distância de Chamfer sob rotações
-  candidatas.
-
-Para representações 3D mais ricas — necessárias caso se pretenda
-modelar a peça por todas as faces — está prevista uma extensão
-futura com captura *multi-view*, fora do âmbito desta fase.
+6. **Partial geometric coverage**: lateral and bottom faces of the
+   piece are not observable. The point cloud is, in practice, a
+   *2.5D heightmap* of the visible upper face.
 
 ---
 
-## 16. Figuras a incluir mais tarde em LaTeX
+## 15. Relevance for the thesis objective
 
-| Identificador | Caminho atual | Legenda sugerida |
+The central objective of the thesis is the learning of
+perception-action relations based on geometry, with the case study of
+piece insertion into cavities. The deterministic perception described
+here is the initial step: it provides the geometric representatives
+of the pieces that will subsequently be confronted with cavities to
+infer compatibility, insertion rotation and approximate pose.
+
+Positioning of this phase in the global plan:
+
+- **Does not replace** the intended learned approach — it provides
+  the input artifacts and establishes the geometric reference
+  baseline.
+- **Does not classify** shapes. The *pipeline* output is not a
+  label such as "this is a square", but a reusable geometric
+  representation (mask, footprint, point cloud, metadata).
+- **Preserves real-world scale**, a necessary condition for any
+  subsequent reasoning about insertion, in which the absolute size
+  of the piece and the cavity is meaningful information.
+- **The 2D footprint representation is adequate for the
+  deterministic geometric baseline** of piece-cavity matching, for
+  example via IoU or Chamfer distance under candidate rotations.
+
+For richer 3D representations — necessary if one wishes to model the
+piece across all faces — a future extension with *multi-view* capture
+is foreseen, outside the scope of this phase.
+
+---
+
+## 16. Figures to include later in LaTeX
+
+| Identifier | Current path | Suggested caption |
 |---|---|---|
-| `fig:rgb` | `data/pieces_detected/<peça>/rgb.png` | Imagem RGB capturada pela câmara virtual. |
-| `fig:depth_vis` | `data/pieces_detected/<peça>/depth_vis.png` | Visualização colorida da imagem de profundidade. |
-| `fig:raw_mask` | `data/pieces_detected/<peça>/raw_piece_mask.png` | Máscara binária resultante do limiar sobre a profundidade. |
-| `fig:piece_debug` | `data/pieces_detected/<peça>/piece_debug.png` | Sobreposição da máscara selecionada, caixa envolvente e centróide. |
-| `fig:footprint` | `data/pieces_detected/<peça>/piece_footprint.png` | Pegada 2D *top-down* da peça. |
-| `fig:footprints_grid` | `data/pieces_detected/footprints_grid.png` | Grelha das pegadas das quatro peças capturadas. |
+| `fig:rgb` | `data/pieces_detected/<piece>/rgb.png` | RGB image captured by the virtual camera. |
+| `fig:depth_vis` | `data/pieces_detected/<piece>/depth_vis.png` | Coloured visualization of the depth image. |
+| `fig:raw_mask` | `data/pieces_detected/<piece>/raw_piece_mask.png` | Binary mask resulting from the threshold over depth. |
+| `fig:piece_debug` | `data/pieces_detected/<piece>/piece_debug.png` | Overlay of the selected mask, bounding box and centroid. |
+| `fig:footprint` | `data/pieces_detected/<piece>/piece_footprint.png` | 2D *top-down* footprint of the piece. |
+| `fig:footprints_grid` | `data/pieces_detected/footprints_grid.png` | Grid of the footprints of the four captured pieces. |
 
-Sugere-se uma figura composta de quatro painéis (RGB, profundidade,
-máscara *debug* e *footprint*) por peça representativa, mais a
-grelha resumo das quatro pegadas. As métricas da Tabela 12.1 e
-12.2 podem entrar como tabelas.
+A composite figure of four panels (RGB, depth, *debug* mask and
+*footprint*) per representative piece is suggested, plus the summary
+grid of the four footprints. The metrics of Tables 12.1 and 12.2 may
+enter as tables.
 
 ---
 
-## 17. Dimensões CAD nominais das peças
+## 17. Nominal CAD dimensions of the pieces
 
-Esta secção regista as dimensões CAD finais do conjunto
-experimental utilizado a partir desta versão. Os valores são
-canónicos e estão também armazenados em
-`data/expected_cad_dimensions.json`, ficheiro que serve de
-referência única para auditoria de escala. **Estes valores são
-para validação/relato apenas — não são consumidos pelo algoritmo
-de matching.**
+This section records the final CAD dimensions of the experimental
+set used from this version onwards. The values are canonical and are
+also stored in `data/expected_cad_dimensions.json`, a file that
+serves as the single reference for scale auditing. **These values
+are for validation/reporting only — they are not consumed by the
+matching algorithm.**
 
-Conjunto principal (após substituição da estrela por triângulo,
-ver doc 03 — secção 11):
+Main set (after replacement of the star by triangle, see doc 03 —
+section 11):
 
-| Peça        | XY nominal (mm)            | Altura/extrusão (mm) |
-|-------------|----------------------------|----------------------|
-| quadrado    | 50 × 50                    | 105                  |
-| retângulo   | 50 × 75                    | 105                  |
-| triângulo   | base 50, altura geom. 50   | 105                  |
-| círculo     | diâmetro 50                | 105                  |
+| Piece       | Nominal XY (mm)            | Height/extrusion (mm) |
+|-------------|----------------------------|-----------------------|
+| square      | 50 × 50                    | 105                   |
+| rectangle   | 50 × 75                    | 105                   |
+| triangle    | base 50, geom. height 50   | 105                   |
+| circle      | diameter 50                | 105                   |
 
-A dimensão de extrusão (105 mm) das peças não é usada pela
-Baseline 1, que é puramente baseada em pegada XY (ver
-doc 03 — secção 12). É registada aqui porque será necessária
-para fases futuras de perceção 3D, *multi-view* e execução de
-inserção robotizada (em particular: 105 mm de peça vs. 75 mm
-de profundidade de cavidade implica protrusão de 30 mm acima do
-topo do tabuleiro).
+The piece extrusion dimension (105 mm) is not used by Baseline 1,
+which is purely based on the XY footprint (see doc 03 — section 12).
+It is recorded here because it will be necessary for future phases
+of 3D perception, *multi-view* and execution of robotic insertion
+(in particular: 105 mm of piece vs. 75 mm of cavity depth implies a
+protrusion of 30 mm above the top of the board).
 
-A estrela permanece como caso de *stress* concava reservado para
-futuro trabalho, registada em
-`data/expected_cad_dimensions.json` em
+The star remains as a concave *stress* case reserved for future
+work, recorded in `data/expected_cad_dimensions.json` under
 `optional_stress_test_shapes`.
 
 ---
 
-## 18. Atualização — estado atual da *pipeline* de captura
+## 18. Update — current state of the capture *pipeline*
 
-Esta secção substitui, para fins de leitura do estado **atual**, as
-secções 4–14 acima (que permanecem como registo histórico do
-desenvolvimento). Documenta a *pipeline* tal como existe após o
-conjunto de alterações descritas na secção 13 mais as alterações
-adicionais introduzidas posteriormente para resolver problemas de
-controlo de câmara, estimação de superfície e projeção métrica.
+This section replaces, for the purpose of reading the **current**
+state, sections 4–14 above (which remain as a historical record of
+the development). It documents the *pipeline* as it exists after the
+set of changes described in section 13 plus the additional changes
+introduced subsequently to solve problems of camera control, surface
+estimation and metric projection.
 
-### 18.1 Conjunto de formas final
+### 18.1 Final shape set
 
-O conjunto principal de peças usado a partir desta versão é:
+The main set of pieces used from this version onwards is:
 
 - `rectangle`
 - `square`
 - `circle`
-- `triangle` (substitui a `star`)
+- `triangle` (replaces the `star`)
 
-A `star` foi removida do conjunto principal por ser excessivamente
-sensível a segmentação e a escala absoluta, conforme documentado
-no doc 03 — secção 11. Permanece registada em
-`data/expected_cad_dimensions.json`, em
-`optional_stress_test_shapes`, como caso de *stress* concava
-reservado para trabalho futuro.
+The `star` was removed from the main set for being excessively
+sensitive to segmentation and to absolute scale, as documented in
+doc 03 — section 11. It remains recorded in
+`data/expected_cad_dimensions.json`, under
+`optional_stress_test_shapes`, as a concave *stress* case reserved
+for future work.
 
-### 18.2 Dimensões CAD finais (recapituladas)
+### 18.2 Final CAD dimensions (recap)
 
-| Peça        | XY nominal (mm)            | Extrusão (mm) |
-|-------------|----------------------------|---------------|
-| rectangle   | 75 × 50                    | 105           |
-| square      | 50 × 50                    | 105           |
-| circle      | diâmetro 50                | 105           |
-| triangle    | base 50, alt. geom. 50     | 105           |
+| Piece       | Nominal XY (mm)            | Extrusion (mm) |
+|-------------|----------------------------|----------------|
+| rectangle   | 75 × 50                    | 105            |
+| square      | 50 × 50                    | 105            |
+| circle      | diameter 50                | 105            |
+| triangle    | base 50, geom. height 50   | 105            |
 
-Para o tabuleiro e cavidades, ver doc 02 — secção 18; para
-folga nominal (1 mm total, 0,5 mm por lado), ver
+For the board and cavities, see doc 02 — section 18; for nominal
+clearance (1 mm total, 0.5 mm per side), see
 `data/expected_cad_dimensions.json`.
 
-### 18.3 Controlo da câmara via *stage*
+### 18.3 Camera control via the *stage*
 
-`scripts/capture_piece_detection.py` adopta agora a mesma
-convenção de `scripts/capture_cavity_detection.py`:
+`scripts/capture_piece_detection.py` now adopts the same convention
+as `scripts/capture_cavity_detection.py`:
 
-- `SET_CAMERA_POSE = False` por omissão. O *script* **não** move
-  a câmara: usa a pose autorizada no *stage* USD, que o
-  utilizador posiciona manualmente no Isaac Sim.
-- A pose mundial efetiva da câmara é lida via
-  `get_camera_world_pose()`, impressa no início da execução, e
-  registada em `piece_metadata.json` em `camera_pose` com
+- `SET_CAMERA_POSE = False` by default. The *script* **does not**
+  move the camera: it uses the authoritative pose in the USD
+  *stage*, which the user positions manually in Isaac Sim.
+- The effective world pose of the camera is read via
+  `get_camera_world_pose()`, printed at the start of the execution,
+  and recorded in `piece_metadata.json` under `camera_pose` with
   `source = "stage"`.
-- Se `SET_CAMERA_POSE = True`, as constantes `CAM_X/Y/Z` e
-  `CAM_ROT_Z_DEG` são aplicadas via `setup_camera()` e
-  `source = "config_override"`. Esta via é mantida apenas para
-  reprodução determinística de capturas anteriores.
+- If `SET_CAMERA_POSE = True`, the constants `CAM_X/Y/Z` and
+  `CAM_ROT_Z_DEG` are applied via `setup_camera()` and
+  `source = "config_override"`. This path is kept only for
+  deterministic reproduction of previous captures.
 
-A pose efetiva é depois passada como `cam_xy` para a função de
-*back-projection*, garantindo que as coordenadas mundiais XY
-correspondem à pose realmente em vigor (e não a constantes de
-configuração que poderiam não coincidir com o *stage*).
+The effective pose is then passed as `cam_xy` to the
+*back-projection* function, ensuring that the world XY coordinates
+correspond to the pose actually in force (and not to configuration
+constants that might not coincide with the *stage*).
 
-### 18.4 Estimativa automática da superfície de suporte por camadas de profundidade
+### 18.4 Automatic estimation of the support surface by depth layers
 
-A estimativa por modo dominante de profundidade falhou em
-cenários com vários planos no campo de visão (por exemplo,
-peça + tabuleiro local + uma segunda mesa/parede ao fundo). A
-solução adoptada é a estimação por **camadas de profundidade**:
+Estimation by dominant depth mode failed in scenarios with several
+planes in the field of view (for example, piece + local board + a
+second table/wall in the background). The adopted solution is
+estimation by **depth layers**:
 
-1. Restrição da análise a uma **ROI** centrada no campo de
-   captura da peça (`PIECE_ROI_ENABLED = True`,
+1. Restriction of the analysis to a **ROI** centred on the piece
+   capture field (`PIECE_ROI_ENABLED = True`,
    `PIECE_ROI_MODE = "center_fraction"`,
    `PIECE_ROI_FRACTION = 0.60`).
-2. Recolha dos *pixels* de profundidade válidos (positivos,
-   finitos) dentro dessa ROI.
-3. Cálculo de **limites adaptativos** a partir da própria
-   distribuição (`AUTO_SURFACE_DEPTH_BOUNDS = True`):
-   `lower = p01 − margem`, `upper = p99 + margem` com
-   `SURFACE_DEPTH_MARGIN_M = 0,005` m. As constantes estáticas
-   `SURFACE_DEPTH_MIN/MAX` deixam de funcionar como filtro
-   rígido neste modo (mantêm-se em uso apenas no modo legado
-   `dominant_depth`).
-4. Construção de histograma com *bin* de 1 mm
+2. Collection of valid depth *pixels* (positive, finite) within that
+   ROI.
+3. Computation of **adaptive bounds** from the distribution itself
+   (`AUTO_SURFACE_DEPTH_BOUNDS = True`):
+   `lower = p01 − margin`, `upper = p99 + margin` with
+   `SURFACE_DEPTH_MARGIN_M = 0.005` m. The static constants
+   `SURFACE_DEPTH_MIN/MAX` no longer act as a hard filter in this
+   mode (they remain in use only in the legacy `dominant_depth`
+   mode).
+4. Construction of a histogram with 1 mm *bin*
    (`SURFACE_HIST_BIN_M`).
-5. Extracção de máximos locais e fusão de picos próximos
-   (`SURFACE_PEAK_MERGE_DISTANCE_M = 0,004` m).
-6. Ordenação dos picos do mais próximo ao mais distante.
-7. Selecção do pico de suporte:
-   - picos próximos pequenos (fração ≤
-     `PIECE_MAX_PEAK_FRACTION = 0,08`) são saltados como
-     prováveis "topo da peça";
-   - é aceite o primeiro pico com fração ≥
-     `SUPPORT_MIN_PEAK_FRACTION = 0,10`;
-   - se nenhum pico atinge esse limiar, recorre-se ao pico de
-     maior fração e isto é registado em
+5. Extraction of local maxima and merging of nearby peaks
+   (`SURFACE_PEAK_MERGE_DISTANCE_M = 0.004` m).
+6. Ordering of the peaks from the closest to the farthest.
+7. Selection of the support peak:
+   - small near peaks (fraction ≤
+     `PIECE_MAX_PEAK_FRACTION = 0.08`) are skipped as probable
+     "piece top";
+   - the first peak with fraction ≥
+     `SUPPORT_MIN_PEAK_FRACTION = 0.10` is accepted;
+   - if no peak reaches that threshold, the peak with the largest
+     fraction is used as fallback and this is recorded in
      `selected_support_reason`.
-8. Salvaguarda: se a máscara crua resultante cobrir mais de 50 %
-   da ROI segmentada, é tentada uma **reseleção** com o pico
-   imediatamente mais próximo — registada em
-   `selected_support_reason` como `"... | RESELECTED (initial
+8. Safeguard: if the resulting raw mask covers more than 50 % of
+   the segmentation ROI, a **reselection** is attempted with the
+   immediately closer peak — recorded in
+   `selected_support_reason` as `"... | RESELECTED (initial
    mask >50% of ROI)"`.
 
-Diagnósticos disponíveis na consola e em metadados:
+Diagnostics available in the console and in metadata:
 
-- listagem completa dos picos detectados (profundidade, contagem,
-  fracção);
-- pico seleccionado, identificado por `rank` e `reason`;
-- aviso explícito `[WARNING] selected support appears to be the
-  farthest layer ...` quando o pico escolhido é o último (sinal
-  típico de fundo a ganhar);
-- aviso `[WARNING] raw piece mask covers too much of ROI ...`;
-- aviso específico para a configuração actual (`> 0,68 m`)
-  indicando proximidade ao pano de fundo;
-- imagem `depth_layers_debug.png` com a ROI de superfície
-  (ciano), ROI de segmentação expandida (amarela) e painel de
-  texto com a lista de picos, com o pico seleccionado destacado
-  a verde.
+- complete listing of the detected peaks (depth, count, fraction);
+- selected peak, identified by `rank` and `reason`;
+- explicit warning `[WARNING] selected support appears to be the
+  farthest layer ...` when the chosen peak is the last one (a
+  typical sign of background winning);
+- warning `[WARNING] raw piece mask covers too much of ROI ...`;
+- specific warning for the current configuration (`> 0.68 m`)
+  indicating proximity to the background plane;
+- image `depth_layers_debug.png` with the surface ROI (cyan),
+  expanded segmentation ROI (yellow) and a text panel with the
+  list of peaks, with the selected peak highlighted in green.
 
-### 18.5 Segmentação da peça
+### 18.5 Piece segmentation
 
-A regra mantém-se geometricamente correcta:
+The rule remains geometrically correct:
 
 ```
 piece_mask = (depth > DEPTH_MIN_VALID) AND (depth < surface_z − SURFACE_TOLERANCE)
 ```
 
-com `SURFACE_TOLERANCE = 0,004` m. Pixels mais próximos da
-câmara do que a superfície (numa observação *top-down*) são
-classificados como "acima do suporte".
+with `SURFACE_TOLERANCE = 0.004` m. Pixels closer to the camera than
+the surface (in a *top-down* observation) are classified as "above
+the support".
 
-Se `RESTRICT_PIECE_MASK_TO_ROI = True`, a máscara crua é também
-restringida à ROI **expandida** por `PIECE_MASK_ROI_EXPAND_PX =
-20` *pixels*, garantindo que objectos fora do campo de captura
-nunca podem entrar na análise de componentes ligados.
+If `RESTRICT_PIECE_MASK_TO_ROI = True`, the raw mask is also
+restricted to the ROI **expanded** by `PIECE_MASK_ROI_EXPAND_PX =
+20` *pixels*, ensuring that objects outside the capture field can
+never enter the connected-components analysis.
 
-### 18.6 Geração de *point cloud* e *footprint* — projecção por *pixel*
+### 18.6 *Point cloud* and *footprint* generation — per-pixel projection
 
-O cálculo de coordenadas mundiais XY foi alterado para
-**projecção dependente da profundidade por *pixel***. A
-versão anterior usava `mpp` calculado em `surface_z` para todos
-os *pixels*, o que era aceitável para peças finas mas inflacionou
-sistematicamente as dimensões para peças altas (105 mm).
+The computation of world XY coordinates was changed to
+**depth-dependent per-pixel projection**. The previous version used
+`mpp` computed at `surface_z` for all *pixels*, which was acceptable
+for thin pieces but systematically inflated the dimensions for tall
+pieces (105 mm).
 
-Convenção actual (canónica para o modelo *pinhole*):
+Current convention (canonical for the *pinhole* model):
 
 ```
 world_x = cam_x + (u − cx_px) / fx_px × depth_px
 world_y = cam_y − (v − cy_px) / fy_px × depth_px
-world_z = surface_z − depth_px            (altura acima do suporte)
+world_z = surface_z − depth_px            (height above support)
 ```
 
-onde `fx_px` e `fy_px` são distâncias focais expressas em
-*pixels* (independentes da profundidade), `cam_x`/`cam_y` são as
-coordenadas mundiais reais da câmara obtidas do *stage*, e
-`depth_px` é a profundidade observada de cada *pixel* (distância
-ao plano de imagem). XY é depois centrado no centróide da peça;
-Z é mantido em valores absolutos (altura sobre o suporte).
+where `fx_px` and `fy_px` are focal lengths expressed in *pixels*
+(independent of depth), `cam_x`/`cam_y` are the actual world
+coordinates of the camera obtained from the *stage*, and `depth_px`
+is the observed depth of each *pixel* (distance to the image plane).
+XY is then centred on the centroid of the piece; Z is kept in
+absolute values (height above the support).
 
-A escala real é preservada. Z = 0 é tipicamente reportado para
-faces superiores planas, devido à quantização em `float32` do
-anotador — não constitui defeito do *pipeline*.
+Real-world scale is preserved. Z = 0 is typically reported for
+planar upper faces, due to the `float32` quantization of the
+annotator — it does not constitute a *pipeline* defect.
 
-Diagnósticos novos por captura:
+New per-capture diagnostics:
 
 - `projection_depth_mode = "per_pixel_depth"`
 - `support_surface_depth_m`
@@ -652,104 +643,102 @@ Diagnósticos novos por captura:
 - `piece_height_median_m`
 - `piece_height_min_m`
 - `piece_height_max_m`
-- `xy_projection_note` (fórmula literal, para citação no
-  relatório).
+- `xy_projection_note` (literal formula, for citation in the
+  report).
 
-A pegada 2D continua a ser construída pela projecção *top-down*
-da nuvem de pontos numa tela de 256 × 256 *pixels* a 0,5 mm/px.
+The 2D footprint continues to be constructed by the *top-down*
+projection of the point cloud onto a 256 × 256 *pixel* canvas at
+0.5 mm/px.
 
-### 18.7 Problemas encontrados nesta iteração
+### 18.7 Problems encountered in this iteration
 
-Resumo dos problemas observados e resolvidos durante esta
-iteração da *pipeline*. Mais detalhe operacional na secção 13.
+Summary of the problems observed and resolved during this iteration
+of the *pipeline*. More operational detail in section 13.
 
-1. **Câmara movida pelo *script* sem necessidade.** Decisão:
-   `SET_CAMERA_POSE = False` por omissão; usar a pose do *stage*.
-2. **Estimador dominante a "agarrar" o fundo.** A profundidade
-   dominante numa cena com várias mesas/paredes podia ser o
-   plano mais distante. Decisão: estimador por camadas
-   (`auto_depth_layers`) que prefere o pico grande mais próximo
-   sem ser o topo da peça.
-3. **Janela `SURFACE_DEPTH_MIN/MAX` demasiado estreita.** Os
-   limites estáticos excluíam camadas úteis (peça, suporte
-   local) e deixavam apenas o fundo no histograma. Decisão:
-   limites adaptativos por p01/p99 da distribuição da própria
-   ROI quando em modo `auto_depth_layers`.
-4. **Inflação sistemática de XY (~1,5×) para peças de 105 mm de
-   altura.** Causada pela utilização de `mpp(surface_z)` na
-   *back-projection* uniforme. Decisão: projecção por *pixel*
-   com `fx_px`/`fy_px` independentes da profundidade.
+1. **Camera moved by the *script* without need.** Decision:
+   `SET_CAMERA_POSE = False` by default; use the *stage* pose.
+2. **Dominant-mode estimator "grabbing" the background.** The
+   dominant depth in a scene with several tables/walls could be the
+   farthest plane. Decision: layered estimator
+   (`auto_depth_layers`) which prefers the large near peak that is
+   not the top of the piece.
+3. **`SURFACE_DEPTH_MIN/MAX` window too narrow.** The static
+   bounds excluded useful layers (piece, local support) and left
+   only the background in the histogram. Decision: adaptive bounds
+   by p01/p99 of the distribution of the ROI itself when in
+   `auto_depth_layers` mode.
+4. **Systematic XY inflation (~1.5×) for 105 mm tall pieces.**
+   Caused by the use of `mpp(surface_z)` in uniform
+   *back-projection*. Decision: per-pixel projection with
+   `fx_px`/`fy_px` independent of depth.
 
-Histórico anterior (Fase 1 inicial) está registado na secção 13.
+The previous history (initial Phase 1) is recorded in section 13.
 
-### 18.8 Validação atual (após correcções)
+### 18.8 Current validation (after corrections)
 
-Resultado de
-`scripts/validate_piece_captures.py` sobre as quatro pastas
+Result of `scripts/validate_piece_captures.py` over the four folders
 `data/pieces_detected/{rectangle, square, circle, triangle}/`:
 
-- 4/4 peças passam todos os critérios estruturais;
-- todos os ficheiros obrigatórios presentes;
-- nuvens de pontos com forma `(2048, 3)`, sem NaN nem infinitos;
-- *footprints* legíveis e não vazios;
-- exactamente um componente válido por captura
+- 4/4 pieces pass all structural criteria;
+- all required files present;
+- point clouds with shape `(2048, 3)`, without NaN or infinities;
+- *footprints* readable and non-empty;
+- exactly one valid component per capture
   (`n_valid_components = 1`).
 
-Métricas geométricas medidas (extraídas de
-`data/pieces_detected/validation_summary.csv` e dos metadados
-individuais):
+Geometric metrics measured (extracted from
+`data/pieces_detected/validation_summary.csv` and from the
+individual metadata):
 
-| Peça        | X medido (mm) | Y medido (mm) | Z span (mm) | `piece_height_median` (mm) |
-|-------------|---------------|---------------|-------------|----------------------------|
-| rectangle   | 49,8          | 69,4          | 0           | 104,5                      |
-| square      | 49,8          | 46,4          | 0           | 104,5                      |
-| circle      | 49,4          | 46,0          | 0           | 104,5                      |
-| triangle    | 49,4          | 46,0          | 0           | 104,5                      |
+| Piece     | X measured (mm) | Y measured (mm) | Z span (mm) | `piece_height_median` (mm) |
+|-----------|-----------------|-----------------|-------------|----------------------------|
+| rectangle | 49.8            | 69.4            | 0           | 104.5                      |
+| square    | 49.8            | 46.4            | 0           | 104.5                      |
+| circle    | 49.4            | 46.0            | 0           | 104.5                      |
+| triangle  | 49.4            | 46.0            | 0           | 104.5                      |
 
-Comparação com o CAD:
+Comparison with the CAD:
 
-- **Altura da peça**: medida 104,5 mm vs CAD 105 mm ⇒ ≈ 0,5 % de
-  desvio. Confirma que a estimativa de superfície (≈ 0,2995 m)
-  e a projecção por *pixel* estão alinhadas.
-- **Dimensão X**: erro ≤ ≈ 1,2 % em todos os casos (50 mm ⇒
-  49,4–49,8 mm; 75 mm ⇒ não aplicável a X aqui pois a peça
-  longa está orientada com 75 mm em Y).
-- **Dimensão Y**: erro sistemático de aproximadamente
-  −7 a −8 % (50 mm ⇒ 46,0–46,4 mm; 75 mm ⇒ 69,4 mm). Ver
-  secção 18.10 abaixo.
-- Z `span` = 0 mantém-se. Aceitável para correspondência por
-  pegada na Baseline 1.
+- **Piece height**: measured 104.5 mm vs CAD 105 mm ⇒ ≈ 0.5 %
+  deviation. Confirms that the surface estimation (≈ 0.2995 m) and
+  the per-pixel projection are aligned.
+- **X dimension**: error ≤ ≈ 1.2 % in all cases (50 mm ⇒
+  49.4–49.8 mm; 75 mm ⇒ not applicable to X here because the long
+  piece is oriented with 75 mm in Y).
+- **Y dimension**: systematic error of approximately −7 to −8 %
+  (50 mm ⇒ 46.0–46.4 mm; 75 mm ⇒ 69.4 mm). See section 18.10
+  below.
+- Z `span` = 0 is maintained. Acceptable for footprint matching in
+  Baseline 1.
 
-### 18.9 Limitações actuais
+### 18.9 Current limitations
 
-1. **Z span = 0 nas faces superiores planas** — propriedade
-   conjunta da geometria observada e da quantização *float32*
-   do anotador. Sem consequência para a Baseline 1 (correspondência
-   por pegada 2D); requer abordagem complementar (multi-view ou
-   depth com sub-pixel) para verificação vertical de inserção.
-2. **Viés sistemático de Y (~7–8 %)** — descrito em detalhe na
-   secção 18.10.
-3. **Restricção a uma peça visível por captura** — premissa
-   experimental; o *script* deteta múltiplos componentes mas
-   selecciona um, controlado por
-   `PIECE_SELECTION_MODE`.
-4. **Sensibilidade aos parâmetros do estimador por camadas**
+1. **Z span = 0 on planar upper faces** — joint property of the
+   observed geometry and of the `float32` quantization of the
+   annotator. Without consequence for Baseline 1 (matching by 2D
+   footprint); requires a complementary approach (multi-view or
+   sub-pixel depth) for vertical insertion verification.
+2. **Systematic Y bias (~7–8 %)** — described in detail in
+   section 18.10.
+3. **Restriction to one piece visible per capture** —
+   experimental premise; the *script* detects multiple components
+   but selects one, controlled by `PIECE_SELECTION_MODE`.
+4. **Sensitivity to the parameters of the layered estimator**
    (`SUPPORT_MIN_PEAK_FRACTION`, `PIECE_MAX_PEAK_FRACTION`,
-   `SURFACE_PEAK_MERGE_DISTANCE_M`). Os valores actuais
-   funcionam para a cena validada; cenas novas podem exigir
-   reajuste.
-5. **Cobertura geométrica parcial** — observação *top-down*
-   única; faces laterais e inferiores não são observáveis.
+   `SURFACE_PEAK_MERGE_DISTANCE_M`). The current values work for
+   the validated scene; new scenes may require readjustment.
+5. **Partial geometric coverage** — single *top-down* observation;
+   lateral and bottom faces are not observable.
 
-### 18.10 Viés residual de Y (intrínsecos verticais) — *RESOLVIDO*
+### 18.10 Residual Y bias (vertical intrinsics) — *RESOLVED*
 
-> **Nota:** esta secção descreve o problema tal como foi
-> observado e diagnosticado **antes** da correcção. Para o
-> registo da correcção aplicada e dos novos resultados
-> validados, ver secção **18.12** abaixo.
+> **Note:** this section describes the problem as it was observed
+> and diagnosed **before** the correction. For the record of the
+> applied correction and of the new validated results, see section
+> **18.12** below.
 
-A função `compute_intrinsics()` calcula a *focal* vertical em
-*pixels* através de:
+The function `compute_intrinsics()` computes the vertical *focal*
+in *pixels* through:
 
 ```
 fov_v          = fov_h × (IMG_H / IMG_W)
@@ -757,218 +746,212 @@ tan_half_fov_y = tan(fov_v / 2)
 fy_px          = (IMG_H / 2) / tan_half_fov_y
 ```
 
-Esta escala **linear em graus/radianos** entre `fov_h` e `fov_v`
-só é geometricamente exacta para FOVs muito pequenos. Para o
-sensor actual (FOCAL = 24 mm, APERTURE = 36 mm, FOV horizontal
-≈ 73,7°), o erro acumulado é não-desprezável: produz
-`fy_px ≈ 459` em vez do valor correcto para *pixels* quadrados,
-`fy_px = fx_px ≈ 426,7`. O rácio 459/426,7 ≈ 1,077 explica
-exactamente a redução de ≈ 7,7 % observada nas dimensões
-medidas em Y.
+This **linear scaling in degrees/radians** between `fov_h` and
+`fov_v` is only geometrically exact for very small FOVs. For the
+current sensor (FOCAL = 24 mm, APERTURE = 36 mm, horizontal FOV
+≈ 73.7°), the accumulated error is non-negligible: it produces
+`fy_px ≈ 459` instead of the correct value for square *pixels*,
+`fy_px = fx_px ≈ 426.7`. The ratio 459/426.7 ≈ 1.077 explains
+exactly the reduction of ≈ 7.7 % observed in the dimensions
+measured in Y.
 
-Correcção apropriada (em conformidade com *pixels* quadrados):
+Appropriate correction (consistent with square *pixels*):
 
 ```
 tan_half_fov_y = tan_half_fov_x × (IMG_H / IMG_W)
 fy_px          = (IMG_H / 2) / tan_half_fov_y
-                  → algebricamente igual a fx_px
+                  → algebraically equal to fx_px
 ```
 
-Esta correcção **não** está aplicada no código no momento desta
-nota, por instrução explícita de não modificar o *script*
-enquanto a validação estrutural passar. Deve ser aplicada antes
-de qualquer afirmação de escala absoluta no relatório final.
-Para a Baseline 1 (correspondência relativa peça-cavidade), o
-viés cancela parcialmente caso o *script* das cavidades use a
-mesma fórmula — ver doc 02 — secção 18.
+This correction is **not** applied in the code at the time of this
+note, by explicit instruction not to modify the *script* while the
+structural validation passes. It must be applied before any
+absolute-scale assertion in the final report. For Baseline 1
+(relative piece-cavity matching), the bias partially cancels if the
+cavity *script* uses the same formula — see doc 02 — section 18.
 
-### 18.11 Próximas acções
+### 18.11 Next actions
 
-Estado actualizado da sequência originalmente recomendada:
+Updated state of the originally recommended sequence:
 
-1. ~~Inspeccionar visualmente
-   `data/pieces_detected/footprints_grid.png`.~~ — **feito**.
-2. ~~Corrigir o cálculo de `fy_px` em
-   `compute_intrinsics()`.~~ — **feito** (ver 18.12).
-3. ~~Recapturar as quatro peças e re-validar com
-   `scripts/validate_piece_captures.py`.~~ — **feito** (ver 18.12).
-4. ~~Verificar se `scripts/capture_cavity_detection.py` partilha
-   a mesma fórmula incorrecta.~~ — **feito**: partilhava; já
-   foi corrigida pela mesma alteração (ver doc 02 — secção 19).
-   **Pendente**: recapturar as cavidades com a fórmula corrigida
-   e re-validar.
-5. **Auditoria de escala** das amplitudes XY e altura medidas
-   das cavidades contra `data/expected_cad_dimensions.json`
-   (depois da recaptura).
-6. **Re-executar Baseline 1** com o conjunto `triangle`
-   (rectangle, square, circle, triangle), após o ponto 5.
-7. **Documentar** os resultados actualizados no doc 03.
+1. ~~Visually inspect
+   `data/pieces_detected/footprints_grid.png`.~~ — **done**.
+2. ~~Correct the computation of `fy_px` in
+   `compute_intrinsics()`.~~ — **done** (see 18.12).
+3. ~~Recapture the four pieces and re-validate with
+   `scripts/validate_piece_captures.py`.~~ — **done** (see 18.12).
+4. ~~Verify whether `scripts/capture_cavity_detection.py` shares
+   the same incorrect formula.~~ — **done**: it did; it has
+   already been corrected by the same change (see doc 02 —
+   section 19). **Pending**: recapture the cavities with the
+   corrected formula and re-validate.
+5. **Scale audit** of the XY spans and measured height of the
+   cavities against `data/expected_cad_dimensions.json` (after
+   the recapture).
+6. **Re-execute Baseline 1** with the `triangle` set
+   (rectangle, square, circle, triangle), after item 5.
+7. **Document** the updated results in doc 03.
 
-Esta sequência é tratada como pré-condição. Os resultados
-actuais da Baseline 1 (com o conjunto que incluía a `star`)
-permanecem registados como diagnóstico intermédio mas **não
-constituem o resultado final**.
+This sequence is treated as a precondition. The current Baseline 1
+results (with the set that included the `star`) remain recorded as
+intermediate diagnostic but **do not constitute the final result**.
 
-### 18.12 Correção dos intrínsecos e validação de escala
+### 18.12 Intrinsics correction and scale validation
 
-**Problema encontrado.** Após substituir a `star` por
-`triangle`, recalibrar as dimensões CAD e revalidar
-estruturalmente as quatro peças, observou-se que as nuvens de
-pontos eram dimensionalmente inconsistentes com o CAD. As
-dimensões em X aproximavam-se do esperado, mas as dimensões em
-Y estavam **sistematicamente subestimadas em 7–8 %**.
+**Problem encountered.** After replacing the `star` with
+`triangle`, recalibrating the CAD dimensions and structurally
+revalidating the four pieces, it was observed that the point clouds
+were dimensionally inconsistent with the CAD. The X dimensions
+approached the expected value, but the Y dimensions were
+**systematically underestimated by 7–8 %**.
 
-**Evidência.** Medições efectuadas em
-`data/pieces_detected/validation_summary.csv` antes da
-correcção:
+**Evidence.** Measurements made on
+`data/pieces_detected/validation_summary.csv` before the correction:
 
-| Peça        | Y medido (mm) | Y CAD (mm) | erro    |
-|-------------|---------------|------------|---------|
-| square      | 46,4          | 50         | −7,2 %  |
-| circle      | 46,0          | 50         | −8,0 %  |
-| triangle    | 46,0          | 50         | −8,0 %  |
-| rectangle   | 69,4          | 75         | −7,5 %  |
+| Piece     | Y measured (mm) | Y CAD (mm) | error    |
+|-----------|-----------------|------------|----------|
+| square    | 46.4            | 50         | −7.2 %   |
+| circle    | 46.0            | 50         | −8.0 %   |
+| triangle  | 46.0            | 50         | −8.0 %   |
+| rectangle | 69.4            | 75         | −7.5 %   |
 
-Em paralelo:
-- a altura mediana (`piece_height_median`) estava correcta
-  (104,5 mm vs CAD 105 mm), o que descartava erro na escala
-  global de profundidade ou na estimativa do plano de suporte;
-- a dimensão X estava correcta (≤ 1,2 % de erro), o que
-  localizava o problema **exclusivamente na direcção vertical
-  da imagem**.
+In parallel:
+- the median height (`piece_height_median`) was correct
+  (104.5 mm vs CAD 105 mm), which ruled out an error in the global
+  depth scale or in the support-plane estimation;
+- the X dimension was correct (≤ 1.2 % error), which localised
+  the problem **exclusively to the vertical direction of the
+  image**.
 
-**Causa.** A função `compute_intrinsics()` em
-`scripts/capture_piece_detection.py` (e a função homónima em
-`scripts/capture_cavity_detection.py`) calculava o FOV vertical
-através de uma escala linear em radianos:
+**Cause.** The function `compute_intrinsics()` in
+`scripts/capture_piece_detection.py` (and the homonymous function
+in `scripts/capture_cavity_detection.py`) computed the vertical FOV
+through a linear scaling in radians:
 
 ```
 fov_v = fov_h × (IMG_H / IMG_W)
 ```
 
-Esta aproximação é apenas válida para FOVs muito pequenos. Para
-o sensor utilizado (FOCAL = 24 mm, APERTURE = 36 mm,
-FOV horizontal ≈ 73,7°), produzia `fy_px ≈ 459` em vez do valor
-geometricamente correcto para *pixels* quadrados,
-`fy_px = fx_px ≈ 426,67`. O rácio 459 / 426,67 ≈ 1,0736
-corresponde exactamente à redução de ≈ 7,4 % observada nas
-medidas em Y.
+This approximation is only valid for very small FOVs. For the
+sensor used (FOCAL = 24 mm, APERTURE = 36 mm, horizontal FOV
+≈ 73.7°), it produced `fy_px ≈ 459` instead of the geometrically
+correct value for square *pixels*, `fy_px = fx_px ≈ 426.67`. The
+ratio 459 / 426.67 ≈ 1.0736 corresponds exactly to the reduction
+of ≈ 7.4 % observed in the Y measurements.
 
-**Correcção aplicada.** A escala linear foi substituída por
-uma relação tangente-aspecto:
+**Applied correction.** The linear scaling was replaced by a
+tangent-aspect relation:
 
 ```
 tan_half_fov_y = tan_half_fov_x × (IMG_H / IMG_W)
 fy_px          = (IMG_H / 2) / tan_half_fov_y
-                  → algebricamente igual a fx_px
+                  → algebraically equal to fx_px
 ```
 
-Esta é a fórmula consistente com *pixels* quadrados, em que a
-abertura vertical efectiva é `aperture_horizontal × (H/W)` e
-a *focal* vertical em *pixels* iguala a horizontal. A mesma
-correcção foi aplicada em ambos os *scripts* de captura. A
-projecção XY da nuvem de pontos continua a ser por *pixel*
-(secção 18.6); só os intrínsecos foram corrigidos.
+This is the formula consistent with square *pixels*, in which the
+effective vertical aperture is `aperture_horizontal × (H/W)` and
+the vertical *focal* in *pixels* equals the horizontal one. The
+same correction was applied to both capture *scripts*. The XY
+projection of the point cloud continues to be per-pixel
+(section 18.6); only the intrinsics were corrected.
 
-A *pipeline* passou a expor:
-- `intrinsics_model = "pinhole_tangent_aspect_corrected"` em
-  `piece_metadata.json` e em `cavities_summary.json`;
-- `fx_px` e `fy_px` em ambos os ficheiros de metadados;
-- linha de consola por captura:
+The *pipeline* now exposes:
+- `intrinsics_model = "pinhole_tangent_aspect_corrected"` in
+  `piece_metadata.json` and in `cavities_summary.json`;
+- `fx_px` and `fy_px` in both metadata files;
+- console line per capture:
   `[intrinsics] fx_px=..., fy_px=..., mpp_x=..., mpp_y=...`.
 
-**Comparação antes/depois.**
+**Before/after comparison.**
 
-| Peça | Y antes (mm) | Y depois (mm) | Y CAD (mm) | erro depois |
-|------|--------------|---------------|------------|-------------|
-| square    | 46,4 | **49,8** | 50 | −0,4 %  |
-| circle    | 46,0 | **49,4** | 50 | −1,2 %  |
-| triangle  | 46,0 | **49,4** | 50 | −1,2 %  |
-| rectangle | 69,4 | **74,5** | 75 | −0,7 %  |
+| Piece | Y before (mm) | Y after (mm) | Y CAD (mm) | error after |
+|-------|---------------|--------------|------------|-------------|
+| square    | 46.4 | **49.8** | 50 | −0.4 %  |
+| circle    | 46.0 | **49.4** | 50 | −1.2 %  |
+| triangle  | 46.0 | **49.4** | 50 | −1.2 %  |
+| rectangle | 69.4 | **74.5** | 75 | −0.7 %  |
 
-`fx_px = fy_px = 426,6667` confirmado nos quatro
-`piece_metadata.json`; simetria X/Y restaurada (square e circle
-medem agora `49,8 × 49,8` mm e `49,4 × 49,4` mm
-respectivamente).
+`fx_px = fy_px = 426.6667` confirmed in the four
+`piece_metadata.json` files; X/Y symmetry restored (square and
+circle now measure `49.8 × 49.8` mm and `49.4 × 49.4` mm
+respectively).
 
-**Resultado da validação após a correcção.**
+**Validation result after the correction.**
 
-`scripts/validate_piece_captures.py`: 4/4 peças passam todos os
-critérios estruturais. Métricas-chave:
+`scripts/validate_piece_captures.py`: 4/4 pieces pass all
+structural criteria. Key metrics:
 
-| Peça      | X (mm) | Y (mm) | Z span (mm) | `piece_height_median` (mm) |
+| Piece     | X (mm) | Y (mm) | Z span (mm) | `piece_height_median` (mm) |
 |-----------|--------|--------|-------------|----------------------------|
-| rectangle | 49,8   | 74,5   | 0           | 104,5                      |
-| square    | 49,8   | 49,8   | 0           | 104,5                      |
-| circle    | 49,4   | 49,4   | 0           | 104,5                      |
-| triangle  | 49,4   | 49,4   | 0           | 104,5                      |
+| rectangle | 49.8   | 74.5   | 0           | 104.5                      |
+| square    | 49.8   | 49.8   | 0           | 104.5                      |
+| circle    | 49.4   | 49.4   | 0           | 104.5                      |
+| triangle  | 49.4   | 49.4   | 0           | 104.5                      |
 
-Todas as dimensões dentro de ≈ 1,2 % do CAD; altura mediana a
-104,5 mm vs 105 mm (≈ 0,5 %).
+All dimensions within ≈ 1.2 % of the CAD; median height at
+104.5 mm vs 105 mm (≈ 0.5 %).
 
-**Interpretação.**
+**Interpretation.**
 
-- A correcção fechou o viés sistemático de Y. As peças `square`
-  e `circle` recuperaram simetria X/Y exacta no plano da
-  pegada, e a `rectangle` apresenta agora a razão de aspecto
-  esperada (74,5 / 49,8 ≈ 1,50, vs CAD 75 / 50 = 1,50).
-- O problema **não** era exclusivamente de segmentação. A
-  segmentação por camadas de profundidade estava correcta; o
-  defeito era estritamente na geometria projectiva. Esta
-  distinção é importante para o relatório, porque mostra que
-  os dois subsistemas (segmentação e projecção) podem falhar
-  independentemente e exigem auditorias separadas.
-- O `piece_height_median = 104,5 mm` continuar correcto antes e
-  depois do *fix* confirma também que a estimativa de superfície
-  por `auto_depth_layers` já estava correcta — o viés de Y não
-  afectava Z porque Z é calculado por subtracção directa de
-  profundidade e não passa pela escala em *pixels*.
+- The correction closed the systematic Y bias. The `square` and
+  `circle` pieces recovered exact X/Y symmetry on the footprint
+  plane, and the `rectangle` now exhibits the expected aspect
+  ratio (74.5 / 49.8 ≈ 1.50, vs CAD 75 / 50 = 1.50).
+- The problem was **not** exclusively one of segmentation. The
+  segmentation by depth layers was correct; the defect was
+  strictly in the projective geometry. This distinction is
+  important for the report, because it shows that the two
+  subsystems (segmentation and projection) can fail independently
+  and require separate audits.
+- The `piece_height_median = 104.5 mm` remaining correct before
+  and after the *fix* also confirms that the surface estimation
+  by `auto_depth_layers` was already correct — the Y bias did
+  not affect Z because Z is computed by direct subtraction of
+  depth and does not pass through the *pixel*-scale.
 
-**Limitação remanescente.**
+**Remaining limitation.**
 
-- Erro residual de até ≈ 1,2 % em XY, atribuível a quantização
-  *pixel-a-pixel* nos limites da máscara e a anti-*aliasing* no
-  rasterizador de profundidade do Replicator. Este erro é
-  simétrico em X e Y, situado dentro da tolerância de
-  engenharia, e sem correlação com forma da peça. Nenhuma
-  acção adicional é proposta para esta limitação no âmbito da
+- Residual error of up to ≈ 1.2 % in XY, attributable to
+  *pixel-by-pixel* quantization at the mask boundaries and to
+  anti-*aliasing* in the Replicator depth rasterizer. This error
+  is symmetric in X and Y, situated within the engineering
+  tolerance, and uncorrelated with piece shape. No additional
+  action is proposed for this limitation within the scope of
   Baseline 1.
-- O Z `span` permanece igual a zero por captura; é uma
-  propriedade conjunta da geometria observada (face superior
-  estritamente plana) e da quantização *float32* do anotador.
-  Aceitável para a Baseline 1 (correspondência por pegada);
-  requer abordagem complementar para verificação vertical de
-  inserção.
-- A correcção foi aplicada também a
-  `scripts/capture_cavity_detection.py` mas as cavidades ainda
-  precisam de ser **recapturadas** para que as nuvens de pontos
-  guardadas reflictam a nova fórmula (os ficheiros `.npy`
-  existentes continuam baseados nos intrínsecos antigos). Ver
-  doc 03 — secção 16 para o protocolo de re-execução.
+- The Z `span` remains equal to zero per capture; it is a joint
+  property of the observed geometry (strictly planar upper face)
+  and of the `float32` quantization of the annotator. Acceptable
+  for Baseline 1 (footprint matching); requires a complementary
+  approach for vertical insertion verification.
+- The correction was also applied to
+  `scripts/capture_cavity_detection.py` but the cavities still
+  need to be **recaptured** so that the saved point clouds reflect
+  the new formula (the existing `.npy` files remain based on the
+  old intrinsics). See doc 03 — section 16 for the re-execution
+  protocol.
 
 ---
 
-## Notas para o autor
+## Notes for the author
 
-Itens que devem ser registados manualmente, fora deste documento, e
-que não estão capturados nos ficheiros de validação:
+Items that should be recorded manually, outside this document, and
+that are not captured in the validation files:
 
-- **Verificação independente de uma peça**: medir fisicamente
-  uma peça (preferencialmente o retângulo) e confirmar que as
-  dimensões CAD da secção 17 estão corretas — esta verificação
-  ancora a auditoria de escala que confronta as dimensões CAD
-  com as amplitudes medidas em
+- **Independent verification of one piece**: physically measure one
+  piece (preferably the rectangle) and confirm that the CAD
+  dimensions in section 17 are correct — this verification anchors
+  the scale audit that confronts the CAD dimensions with the
+  spans measured in
   `data/pieces_detected/validation_summary.csv`.
-- **Confirmação visual de `footprints_grid.png`** após a
-  correcção de `fy_px` (ver 18.10–18.11).
-- **Pose USD da câmara no momento da captura validada** (lida do
-  campo `camera_pose` em `piece_metadata.json`, mas convém
-  guardar uma captura de ecrã do inspector do *stage* para o
-  relatório).
-- **Pose física da câmara virtual no USD** (translação e
-  orientação) no momento da captura validada.
-- **Versão exata do Isaac Sim** e do contentor usado.
-- **Eventuais alterações da iluminação** entre capturas, se
-  relevantes.
-- **Justificação do conjunto inicial de peças** (rectângulo,
-  quadrado, círculo, estrela) — porquê estas e não outras.
+- **Visual confirmation of `footprints_grid.png`** after the
+  `fy_px` correction (see 18.10–18.11).
+- **USD camera pose at the moment of the validated capture** (read
+  from the `camera_pose` field in `piece_metadata.json`, but it is
+  advisable to keep a screenshot of the *stage* inspector for the
+  report).
+- **Physical pose of the virtual camera in USD** (translation and
+  orientation) at the moment of the validated capture.
+- **Exact version of Isaac Sim** and of the container used.
+- **Possible lighting changes** between captures, if relevant.
+- **Justification of the initial set of pieces** (rectangle,
+  square, circle, star) — why these and not others.

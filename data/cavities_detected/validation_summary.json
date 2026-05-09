@@ -26,22 +26,22 @@
       "metadata_ok": true,
       "overall_pass": true,
       "pc_bounds": {
-        "x_min": -0.02509804628789425,
-        "x_max": 0.02509804628789425,
-        "y_min": -0.0376470685005188,
-        "y_max": 0.0376470685005188,
+        "x_min": -0.025248631834983826,
+        "x_max": 0.025248631834983826,
+        "y_min": -0.036949217319488525,
+        "y_max": 0.036949217319488525,
         "z_min": 0.0,
         "z_max": 0.0,
-        "x_span": 0.0501960925757885,
-        "y_span": 0.0752941370010376,
+        "x_span": 0.05049726366996765,
+        "y_span": 0.07389843463897705,
         "z_span": 0.0
       },
       "metadata_excerpt": {
         "cavity_id": 0,
-        "area_px": 6700,
+        "area_px": 2562,
         "centroid_world_m": {
-          "x": 0.262733203125,
-          "y": 0.038407617187500014
+          "x": 0.21243496264182032,
+          "y": 0.08867812097668645
         },
         "xy_span_m": null,
         "z_depth_range_m": null,
@@ -67,22 +67,22 @@
       "metadata_ok": true,
       "overall_pass": true,
       "pc_bounds": {
-        "x_min": -0.024405095726251602,
-        "x_max": 0.025030450895428658,
-        "y_min": -0.016588006168603897,
-        "y_max": 0.03284754231572151,
+        "x_min": -0.023539327085018158,
+        "x_max": 0.024494655430316925,
+        "y_min": -0.01626853086054325,
+        "y_max": 0.03299709036946297,
         "z_min": 0.0,
         "z_max": 0.0,
-        "x_span": 0.04943554848432541,
-        "y_span": 0.04943554848432541,
+        "x_span": 0.04803398251533508,
+        "y_span": 0.04926562309265137,
         "z_span": 0.0
       },
       "metadata_excerpt": {
         "cavity_id": 1,
-        "area_px": 2239,
+        "area_px": 838,
         "centroid_world_m": {
-          "x": 0.33733439349318894,
-          "y": 0.02723566254466281
+          "x": 0.2870873724596544,
+          "y": 0.07785056003072968
         },
         "xy_span_m": null,
         "z_depth_range_m": null,
@@ -108,22 +108,22 @@
       "metadata_ok": true,
       "overall_pass": true,
       "pc_bounds": {
-        "x_min": -0.02509804628789425,
-        "x_max": 0.02509804628789425,
-        "y_min": -0.024717774242162704,
-        "y_max": 0.024717774242162704,
+        "x_min": -0.025248631834983826,
+        "x_max": 0.025248631834983826,
+        "y_min": -0.024632811546325684,
+        "y_max": 0.024632811546325684,
         "z_min": 0.0,
         "z_max": 0.0,
-        "x_span": 0.0501960925757885,
-        "y_span": 0.04943554848432541,
+        "x_span": 0.05049726366996765,
+        "y_span": 0.04926562309265137,
         "z_span": 0.0
       },
       "metadata_excerpt": {
         "cavity_id": 2,
-        "area_px": 4422,
+        "area_px": 1722,
         "centroid_world_m": {
-          "x": 0.2627332031249999,
-          "y": -0.049055273437500026
+          "x": 0.21243496264182032,
+          "y": 0.0012316405691206462
         },
         "xy_span_m": null,
         "z_depth_range_m": null,
@@ -135,7 +135,9 @@
         "xy_span_m": "absent",
         "z_depth_range_m": "absent"
       },
-      "failure_reasons": []
+      "failure_reasons": [
+        "NOTE: depth representation unavailable or degenerate; opening representation still valid for Baseline 1. (depth pointcloud is degenerate (\u22641 unique point, Z\u22480) \u2014 camera sees no pixels deeper than the board top + tolerance)"
+      ]
     },
     {
       "cavity": "cavity_03",
@@ -149,22 +151,22 @@
       "metadata_ok": true,
       "overall_pass": true,
       "pc_bounds": {
-        "x_min": -0.030158767476677895,
-        "x_max": 0.030684981495141983,
-        "y_min": -0.03038262203335762,
-        "y_max": 0.030461126938462257,
+        "x_min": -0.024544045329093933,
+        "x_max": 0.024721577763557434,
+        "y_min": -0.025248631834983826,
+        "y_max": 0.025248631834983826,
         "z_min": 0.0,
         "z_max": 0.0,
-        "x_span": 0.06084375083446503,
-        "y_span": 0.06084375083446503,
+        "x_span": 0.04926562309265137,
+        "y_span": 0.05049726366996765,
         "z_span": 0.0
       },
       "metadata_excerpt": {
         "cavity_id": 3,
-        "area_px": 5154,
+        "area_px": 1332,
         "centroid_world_m": {
-          "x": 0.33700368956453725,
-          "y": -0.04947479900320142
+          "x": 0.2868604501857548,
+          "y": 0.0006158202845603229
         },
         "xy_span_m": null,
         "z_depth_range_m": null,
@@ -176,9 +178,7 @@
         "xy_span_m": "absent",
         "z_depth_range_m": "absent"
       },
-      "failure_reasons": [
-        "WARNING: measured opening (60.84\u00d760.84 mm) is 19.3% away from nearest CAD cavity 'square' (>10% tolerance)"
-      ]
+      "failure_reasons": []
     }
   ]
 }

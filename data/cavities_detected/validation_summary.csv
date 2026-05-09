@@ -1,5 +1,5 @@
 cavity,files_ok,pc_shape_ok,pc_no_nan,pc_no_inf,pc_n_points,pc_x_span_m,pc_y_span_m,pc_z_min_m,pc_z_max_m,pc_z_span_m,footprint_ok,metadata_ok,overall
-cavity_00,True,True,True,True,2048,0.050196,0.075294,0.0,0.0,0.0,True,True,True
-cavity_01,True,True,True,True,2048,0.049436,0.049436,0.0,0.0,0.0,True,True,True
-cavity_02,True,True,True,True,2048,0.050196,0.049436,0.0,0.0,0.0,True,True,True
-cavity_03,True,True,True,True,2048,0.060844,0.060844,0.0,0.0,0.0,True,True,True
+cavity_00,True,True,True,True,2048,0.050497,0.073898,0.0,0.0,0.0,True,True,True
+cavity_01,True,True,True,True,2048,0.048034,0.049266,0.0,0.0,0.0,True,True,True
+cavity_02,True,True,True,True,2048,0.050497,0.049266,0.0,0.0,0.0,True,True,True
+cavity_03,True,True,True,True,2048,0.049266,0.050497,0.0,0.0,0.0,True,True,True
