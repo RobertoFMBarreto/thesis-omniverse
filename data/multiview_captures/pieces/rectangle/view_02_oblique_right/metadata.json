@@ -1,0 +1,49 @@
+{
+  "view_name": "oblique_right",
+  "camera_prim_path": "/World/Camera",
+  "requested_pose": {
+    "position_m": [
+      -0.5,
+      0.0,
+      0.7
+    ],
+    "look_at_m": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "up_axis": [
+      0,
+      0,
+      1
+    ]
+  },
+  "measured_pose_read_back_from_stage": {
+    "position": [
+      -0.5,
+      0.0,
+      0.7
+    ],
+    "quaternion": [
+      -0.673375,
+      -0.215793,
+      0.215793,
+      0.673375
+    ]
+  },
+  "image_width": 640,
+  "image_height": 480,
+  "focal_mm": 24.0,
+  "aperture_mm": 36.0,
+  "fx_px": 426.6667,
+  "fy_px": 426.6667,
+  "cx_px": 320.0,
+  "cy_px": 240.0,
+  "intrinsics_model": "pinhole_square_pixels",
+  "depth_valid_min_m": 0.4674,
+  "depth_valid_max_m": 1.436,
+  "n_valid_depth_pixels": 307200,
+  "timestamp_utc": "2026-05-09T12:22:40.841008+00:00",
+  "run_id": "f005c96b",
+  "phase_note": "sequential-camera proof-of-life; not final static multi-camera architecture"
+}

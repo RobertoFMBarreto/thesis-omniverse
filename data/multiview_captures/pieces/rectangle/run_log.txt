@@ -1,0 +1,74 @@
+# capture_multiview_piece.py — run log
+# timestamp_utc: 2026-05-09T12:22:40Z
+# output_dir:    /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle
+# phase_note:    sequential-camera proof-of-life; not final static multi-camera architecture
+# This file is OVERWRITTEN at the beginning of every run.
+============================================================
+============================================================
+capture_multiview_piece.py — Phase A: Multi-view Proof-of-Life
+============================================================
+[multiview] phase_note     = sequential-camera proof-of-life; not final static multi-camera architecture
+[multiview] camera_prim    = /World/Camera
+[multiview] output_dir     = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle
+[multiview] n_views        = 3
+[multiview] run_id         = f005c96b
+[multiview] timestamp_utc  = 2026-05-09T12:22:40.841008+00:00
+[multiview] run_log        = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/run_log.txt
+[multiview] intrinsics: fx=426.67  fy=426.67  cx=320.00  cy=240.00  model=pinhole_square_pixels
+[multiview] creating render product 640x480 on /World/Camera
+[multiview] annotators attached: rgb, distance_to_image_plane
+
+[view_top_down] --- starting capture ---
+[view_top_down] requested pos=(0.0, 0.0, 0.7)  look_at=(0.0, 0.0, 0.0)  up=(0, 1, 0)
+[view_top_down] stepping renderer (8 rt_subframes) ...
+[view_top_down] measured pos=[0.0, 0.0, 0.7]  quat=[1.0, 0.0, 0.0, 0.0]
+[view_top_down] rgb type=<class 'numpy.ndarray'>
+[view_top_down] rgb shape=(480, 640, 3)
+[view_top_down] depth type=<class 'numpy.ndarray'>
+[view_top_down] depth shape=(480, 640)
+[view_top_down] depth valid range [0.2671, 0.7000] m  (307200 px)
+[view_top_down] saved rgb.png  (640x480)
+[view_top_down] saved depth.npy  (float32, metres)
+[view_top_down] saved depth_vis.png
+[view_top_down] saved metadata.json
+[view_top_down] ok=True  req_pos=(0.0000,0.0000,0.7000)  meas_pos=[0.0, 0.0, 0.7]  depth=[0.2671, 0.7000] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/view_00_top_down
+
+[view_oblique_left] --- starting capture ---
+[view_oblique_left] requested pos=(0.5, 0.0, 0.7)  look_at=(0.0, 0.0, 0.0)  up=(0, 0, 1)
+[view_oblique_left] stepping renderer (8 rt_subframes) ...
+[view_oblique_left] measured pos=[0.5, 0.0, 0.7]  quat=[0.673375, 0.215793, 0.215793, 0.673375]
+[view_oblique_left] rgb type=<class 'numpy.ndarray'>
+[view_oblique_left] rgb shape=(480, 640, 3)
+[view_oblique_left] depth type=<class 'numpy.ndarray'>
+[view_oblique_left] depth shape=(480, 640)
+[view_oblique_left] depth valid range [0.2413, 1.4360] m  (307200 px)
+[view_oblique_left] saved rgb.png  (640x480)
+[view_oblique_left] saved depth.npy  (float32, metres)
+[view_oblique_left] saved depth_vis.png
+[view_oblique_left] saved metadata.json
+[view_oblique_left] ok=True  req_pos=(0.5000,0.0000,0.7000)  meas_pos=[0.5, 0.0, 0.7]  depth=[0.2413, 1.4360] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/view_01_oblique_left
+
+[view_oblique_right] --- starting capture ---
+[view_oblique_right] requested pos=(-0.5, 0.0, 0.7)  look_at=(0.0, 0.0, 0.0)  up=(0, 0, 1)
+[view_oblique_right] stepping renderer (8 rt_subframes) ...
+[view_oblique_right] measured pos=[-0.5, 0.0, 0.7]  quat=[-0.673375, -0.215793, 0.215793, 0.673375]
+[view_oblique_right] rgb type=<class 'numpy.ndarray'>
+[view_oblique_right] rgb shape=(480, 640, 3)
+[view_oblique_right] depth type=<class 'numpy.ndarray'>
+[view_oblique_right] depth shape=(480, 640)
+[view_oblique_right] depth valid range [0.4674, 1.4360] m  (307200 px)
+[view_oblique_right] saved rgb.png  (640x480)
+[view_oblique_right] saved depth.npy  (float32, metres)
+[view_oblique_right] saved depth_vis.png
+[view_oblique_right] saved metadata.json
+[view_oblique_right] ok=True  req_pos=(-0.5000,0.0000,0.7000)  meas_pos=[-0.5, 0.0, 0.7]  depth=[0.4674, 1.4360] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/view_02_oblique_right
+
+[contact_sheet] building contact sheet ...
+[contact_sheet] saved /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/views_contact_sheet.png
+
+[summary] writing global summary ...
+[summary] saved /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/multiview_capture_summary.json
+
+============================================================
+  success=True  views_succeeded=3/3
+============================================================
