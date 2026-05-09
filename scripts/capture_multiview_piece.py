@@ -102,20 +102,31 @@ MANUAL_TARGET_LOOK_AT = (0.0, 0.0, 0.0)
 # ── CAMERA PLACEMENT (relative to resolved target centre) ─────────────────────
 #
 # Geometry rationale:
-#   top-down:  camera directly above the target centre.
+#   top_down:      camera directly above the target centre.
 #     elevation from vertical = 0°.
 #
-#   oblique views: camera shifted ±OBLIQUE_OFFSET_X = 0.30 m and raised
+#   front_oblique: camera shifted −OBLIQUE_OFFSET = 0.30 m along Y and raised
 #     OBLIQUE_HEIGHT = 0.40 m above the target centre.
-#     angle from vertical = atan(0.30 / 0.40) ≈ 36.9°  (~37° oblique).
-#     This sits comfortably in the 35–45° target range stated in the spec.
+#     Provides a Y-axis view of the piece.
+#
+#   side_oblique:  camera shifted +OBLIQUE_OFFSET = 0.30 m along X and raised
+#     OBLIQUE_HEIGHT = 0.40 m above the target centre.
+#     Provides an X-axis view of the piece.
+#
+#   Together the three views give one Z-axis (top), one Y-axis (front), and
+#   one X-axis (side) viewpoint — better 3D coverage than two opposing
+#   X-axis obliques (oblique_left / oblique_right).
+#
+#   Oblique angle from vertical: atan(OBLIQUE_OFFSET / OBLIQUE_HEIGHT)
+#     = atan(0.30 / 0.40) ≈ 36.9°  (~37°) — within the 35–45° target range.
 #
 #   Top-down uses a larger height (0.50 m) so the full rectangle footprint
 #   is captured within the 640×480 FOV.
 
-TOP_DOWN_HEIGHT  = 0.50   # m above target centre (z+)
-OBLIQUE_HEIGHT   = 0.40   # m above target centre (z+); gives ~37° from vertical
-OBLIQUE_OFFSET_X = 0.30   # m lateral offset (±x) for oblique views
+TOP_DOWN_HEIGHT = 0.50   # m above target centre (z+)
+OBLIQUE_HEIGHT  = 0.40   # m above target centre (z+); gives ~37° from vertical
+OBLIQUE_OFFSET  = 0.30   # m lateral offset for oblique views (front: −Y, side: +X)
+                          # atan(0.30/0.40) ≈ 36.9° from vertical — within 35–45° spec
 
 # ── VIEW CONFIGS ──────────────────────────────────────────────────────────────
 #
@@ -124,26 +135,27 @@ OBLIQUE_OFFSET_X = 0.30   # m lateral offset (±x) for oblique views
 # The static fields (name, up_axis) remain as authored.
 #
 # up_axis choice:
-#   top_down    → (0, 1, 0)  — Y-up keeps the image right-way-up.
-#   oblique_*   → (0, 1, 0)  — consistent Y-up for both obliques.
+#   top_down       → (0, 1, 0)  — Y-up keeps the image right-way-up.
+#   front_oblique  → (0, 1, 0)  — consistent Y-up.
+#   side_oblique   → (0, 1, 0)  — consistent Y-up.
 
 VIEWS = [
     {
         "name":         "top_down",
-        "position_m":   (0.0, 0.0, 0.50),   # placeholder; recomputed in main()
-        "look_at_m":    (0.0, 0.0, 0.0),     # placeholder; recomputed in main()
+        "position_m":   (0.0, 0.0, 0.50),    # placeholder; recomputed in main()
+        "look_at_m":    (0.0, 0.0, 0.0),      # placeholder; recomputed in main()
         "up_axis":      (0, 1, 0),
     },
     {
-        "name":         "oblique_left",
-        "position_m":   (-0.30, 0.0, 0.40),  # placeholder; recomputed in main()
-        "look_at_m":    (0.0, 0.0, 0.0),     # placeholder; recomputed in main()
+        "name":         "front_oblique",
+        "position_m":   (0.0, -0.30, 0.40),   # placeholder; recomputed in main()
+        "look_at_m":    (0.0, 0.0, 0.0),       # placeholder; recomputed in main()
         "up_axis":      (0, 1, 0),
     },
     {
-        "name":         "oblique_right",
-        "position_m":   (0.30, 0.0, 0.40),   # placeholder; recomputed in main()
-        "look_at_m":    (0.0, 0.0, 0.0),     # placeholder; recomputed in main()
+        "name":         "side_oblique",
+        "position_m":   (0.30, 0.0, 0.40),    # placeholder; recomputed in main()
+        "look_at_m":    (0.0, 0.0, 0.0),       # placeholder; recomputed in main()
         "up_axis":      (0, 1, 0),
     },
 ]
@@ -1185,16 +1197,16 @@ async def main():
     # ── Compute per-view positions from resolved target centre ─────────────────
     cx, cy, cz = target_info["bbox_center_m"]
 
-    # top_down: straight above the target.
-    # oblique_left:  −X offset from target at oblique height.
-    # oblique_right: +X offset from target at oblique height.
+    # top_down:      straight above the target (Z-axis view).
+    # front_oblique: −Y offset from target at oblique height (Y-axis view).
+    # side_oblique:  +X offset from target at oblique height (X-axis view).
     # Angle from vertical for oblique views:
-    #   atan(OBLIQUE_OFFSET_X / OBLIQUE_HEIGHT) = atan(0.30/0.40) ≈ 36.9°
+    #   atan(OBLIQUE_OFFSET / OBLIQUE_HEIGHT) = atan(0.30/0.40) ≈ 36.9°
 
     view_positions = {
-        "top_down":      (cx,                    cy, cz + TOP_DOWN_HEIGHT),
-        "oblique_left":  (cx - OBLIQUE_OFFSET_X, cy, cz + OBLIQUE_HEIGHT),
-        "oblique_right": (cx + OBLIQUE_OFFSET_X, cy, cz + OBLIQUE_HEIGHT),
+        "top_down":      (cx,                  cy - 0,              cz + TOP_DOWN_HEIGHT),
+        "front_oblique": (cx,                  cy - OBLIQUE_OFFSET, cz + OBLIQUE_HEIGHT),
+        "side_oblique":  (cx + OBLIQUE_OFFSET, cy,                  cz + OBLIQUE_HEIGHT),
     }
     look_at_point = (cx, cy, cz)
 
@@ -1213,6 +1225,17 @@ async def main():
                   f"position={view_positions[name]}  "
                   f"look_at={look_at_point}  "
                   f"offset_from_target={offset}")
+
+    # ── View-config summary log ───────────────────────────────────────────────
+    print("\n[view_config] layout (offsets are relative to target centre):")
+    print(f"[view_config] top_down       offset = "
+          f"( 0.00,  0.00, +{TOP_DOWN_HEIGHT:.2f}) m")
+    print(f"[view_config] front_oblique  offset = "
+          f"( 0.00, -{OBLIQUE_OFFSET:.2f}, +{OBLIQUE_HEIGHT:.2f}) m"
+          f"   (~37 deg from vertical)")
+    print(f"[view_config] side_oblique   offset = "
+          f"(+{OBLIQUE_OFFSET:.2f},  0.00, +{OBLIQUE_HEIGHT:.2f}) m"
+          f"   (~37 deg from vertical)")
 
     # ── Create render product and annotators ONCE ─────────────────────────────
     try:
