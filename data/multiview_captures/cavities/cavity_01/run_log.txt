@@ -1,0 +1,7 @@
+# capture_multiview_cavities.py — per-cavity log
+# cavity: cavity_01
+# run_id: dad4cddd
+# timestamp_utc: 2026-05-09T16:24:39.501654+00:00
+# target_centre_m: [0.2870873724596544, 0.07785056003072968, 0.47450002384185797]
+# See global run_log.txt in /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities
+============================================================

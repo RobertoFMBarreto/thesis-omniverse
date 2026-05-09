@@ -1,0 +1,76 @@
+{
+  "view_name": "top_down",
+  "camera_prim_path": "/World/Camera",
+  "requested_pose": {
+    "position_m": [
+      0.21243496264182032,
+      0.08867812097668645,
+      0.974500023841858
+    ],
+    "look_at_m": [
+      0.21243496264182032,
+      0.08867812097668645,
+      0.47450002384185797
+    ],
+    "up_axis": [
+      0,
+      1,
+      0
+    ]
+  },
+  "measured_pose_read_back_from_stage": {
+    "position": [
+      0.212435,
+      0.088678,
+      0.9745
+    ],
+    "quaternion": [
+      0.707107,
+      0.0,
+      0.0,
+      -0.707107
+    ]
+  },
+  "image_width": 640,
+  "image_height": 480,
+  "focal_mm": 24.0,
+  "aperture_mm": 36.0,
+  "fx_px": 426.6667,
+  "fy_px": 426.6667,
+  "cx_px": 320.0,
+  "cy_px": 240.0,
+  "intrinsics_model": "pinhole_square_pixels",
+  "depth_valid_min_m": 0.4995,
+  "depth_valid_max_m": 0.9745,
+  "n_valid_depth_pixels": 307200,
+  "timestamp_utc": "2026-05-09T16:24:39.501654+00:00",
+  "run_id": "dad4cddd",
+  "phase_note": "sequential-camera proof-of-life; not final static multi-camera architecture",
+  "target_cavity_name": "cavity_00",
+  "cavity_centroid_source": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_00/cavity_metadata.json",
+  "target_bbox_center_world_m": [
+    0.21243496264182032,
+    0.08867812097668645,
+    0.47450002384185797
+  ],
+  "requested_look_at": [
+    0.21243496264182032,
+    0.08867812097668645,
+    0.47450002384185797
+  ],
+  "camera_offset_from_target": [
+    0.0,
+    0.0,
+    0.5
+  ],
+  "visibility_control_enabled": true,
+  "hidden_piece_prim_paths": [
+    "/World/Rectangle",
+    "/World/Square",
+    "/World/Circle",
+    "/World/Triangle"
+  ],
+  "camera_z_rotation_correction_deg": -90.0,
+  "note": "Cavity identity used only for experimental scene setup, not for perception/matching.",
+  "phase_note_detail": "sequential-camera proof-of-life; not final static multi-camera architecture"
+}

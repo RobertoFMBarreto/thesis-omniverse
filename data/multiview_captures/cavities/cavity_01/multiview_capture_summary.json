@@ -1,0 +1,199 @@
+{
+  "script_name": "capture_multiview_cavities.py",
+  "phase": "A",
+  "phase_note": "sequential-camera proof-of-life; not final static multi-camera architecture",
+  "run_id": "dad4cddd",
+  "timestamp_utc": "2026-05-09T16:24:39.501654+00:00",
+  "cavity": "cavity_01",
+  "cavity_centroid_source": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_01/cavity_metadata.json",
+  "target_bbox_center_world_m": [
+    0.2870873724596544,
+    0.07785056003072968,
+    0.47450002384185797
+  ],
+  "n_views_requested": 3,
+  "n_views_succeeded": 3,
+  "success": true,
+  "views": [
+    {
+      "view_index": 0,
+      "name": "top_down",
+      "prim_path": "/World/Camera",
+      "requested_pose": {
+        "position_m": [
+          0.2870873724596544,
+          0.07785056003072968,
+          0.974500023841858
+        ],
+        "look_at_m": [
+          0.2870873724596544,
+          0.07785056003072968,
+          0.47450002384185797
+        ],
+        "up_axis": [
+          0,
+          1,
+          0
+        ]
+      },
+      "measured_pose": {
+        "position": [
+          0.287087,
+          0.077851,
+          0.9745
+        ],
+        "quaternion": [
+          0.707107,
+          0.0,
+          0.0,
+          -0.707107
+        ]
+      },
+      "image_size": [
+        640,
+        480
+      ],
+      "intrinsics_summary": {
+        "fx_px": 426.6667,
+        "fy_px": 426.6667,
+        "cx_px": 320.0,
+        "cy_px": 240.0,
+        "model": "pinhole_square_pixels"
+      },
+      "depth_valid_min_m": 0.4995,
+      "depth_valid_max_m": 0.9745,
+      "n_valid_depth_pixels": 307200,
+      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_01/view_00_top_down",
+      "ok": true,
+      "error_message": null,
+      "camera_offset_from_target": [
+        0.0,
+        0.0,
+        0.5
+      ]
+    },
+    {
+      "view_index": 1,
+      "name": "front_oblique",
+      "prim_path": "/World/Camera",
+      "requested_pose": {
+        "position_m": [
+          0.2870873724596544,
+          -0.2221494399692703,
+          0.874500023841858
+        ],
+        "look_at_m": [
+          0.2870873724596544,
+          0.07785056003072968,
+          0.47450002384185797
+        ],
+        "up_axis": [
+          0,
+          1,
+          0
+        ]
+      },
+      "measured_pose": {
+        "position": [
+          0.287087,
+          -0.222149,
+          0.8745
+        ],
+        "quaternion": [
+          -0.67082,
+          -0.223607,
+          -0.223607,
+          0.67082
+        ]
+      },
+      "image_size": [
+        640,
+        480
+      ],
+      "intrinsics_summary": {
+        "fx_px": 426.6667,
+        "fy_px": 426.6667,
+        "cx_px": 320.0,
+        "cy_px": 240.0,
+        "model": "pinhole_square_pixels"
+      },
+      "depth_valid_min_m": 0.3798,
+      "depth_valid_max_m": 2.4936,
+      "n_valid_depth_pixels": 307200,
+      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_01/view_01_front_oblique",
+      "ok": true,
+      "error_message": null,
+      "camera_offset_from_target": [
+        0.0,
+        -0.3,
+        0.4
+      ]
+    },
+    {
+      "view_index": 2,
+      "name": "side_oblique",
+      "prim_path": "/World/Camera",
+      "requested_pose": {
+        "position_m": [
+          0.5870873724596544,
+          0.07785056003072968,
+          0.874500023841858
+        ],
+        "look_at_m": [
+          0.2870873724596544,
+          0.07785056003072968,
+          0.47450002384185797
+        ],
+        "up_axis": [
+          0,
+          1,
+          0
+        ]
+      },
+      "measured_pose": {
+        "position": [
+          0.587087,
+          0.077851,
+          0.8745
+        ],
+        "quaternion": [
+          -0.67082,
+          0.223607,
+          -0.223607,
+          0.67082
+        ]
+      },
+      "image_size": [
+        640,
+        480
+      ],
+      "intrinsics_summary": {
+        "fx_px": 426.6667,
+        "fy_px": 426.6667,
+        "cx_px": 320.0,
+        "cy_px": 240.0,
+        "model": "pinhole_square_pixels"
+      },
+      "depth_valid_min_m": 0.4321,
+      "depth_valid_max_m": 1.8879,
+      "n_valid_depth_pixels": 307200,
+      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_01/view_02_side_oblique",
+      "ok": true,
+      "error_message": null,
+      "camera_offset_from_target": [
+        0.3,
+        0.0,
+        0.4
+      ]
+    }
+  ],
+  "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_01",
+  "visibility_control_enabled": true,
+  "hidden_piece_prim_paths": [
+    "/World/Rectangle",
+    "/World/Square",
+    "/World/Circle",
+    "/World/Triangle"
+  ],
+  "note": "Cavity identity used only for experimental scene setup, not for perception/matching."
+}

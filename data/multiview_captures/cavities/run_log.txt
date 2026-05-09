@@ -1,0 +1,304 @@
+# capture_multiview_cavities.py — run log
+# timestamp_utc: 2026-05-09T16:24:39Z
+# output_dir:    /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities
+# phase_note:    sequential-camera proof-of-life; not final static multi-camera architecture
+# This file is OVERWRITTEN at the beginning of every run.
+============================================================
+================================================================================
+capture_multiview_cavities.py — Phase A: Multi-view Cavity Capture
+================================================================================
+[multiview] phase_note          = sequential-camera proof-of-life; not final static multi-camera architecture
+[multiview] camera_prim         = /World/Camera
+[multiview] cavities_out_root   = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities
+[multiview] cavities_input_dir  = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected
+[multiview] cavity_order        = ['cavity_00', 'cavity_01', 'cavity_02', 'cavity_03']
+[multiview] n_views_per_cavity  = 3
+[multiview] run_id              = dad4cddd
+[multiview] timestamp_utc       = 2026-05-09T16:24:39.501654+00:00
+[multiview] run_log             = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/run_log.txt
+[multiview] intrinsics: fx=426.67  fy=426.67  cx=320.00  cy=240.00  model=pinhole_square_pixels
+[visibility] captured original visibility for 4 piece prims
+[multiview] creating render product 640x480 on /World/Camera
+[multiview] annotators attached: rgb, distance_to_image_plane
+[visibility] hidden prims = ['/World/Rectangle', '/World/Square', '/World/Circle', '/World/Triangle']
+
+######################################################################
+[cavity cavity_00] starting multi-view capture
+######################################################################
+[cavity cavity_00] target centre = (0.2124, 0.0887, 0.4745) m
+[cavity cavity_00] board_surface_depth_m = 0.5255 m
+[cavity cavity_00] metadata source = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_00/cavity_metadata.json
+[view_config] top_down: position=(0.21243496264182032, 0.08867812097668645, 0.974500023841858)  look_at=(0.21243496264182032, 0.08867812097668645, 0.47450002384185797)  offset_from_target=(0.0, 0.0, 0.5)
+[view_config] front_oblique: position=(0.21243496264182032, -0.21132187902331354, 0.874500023841858)  look_at=(0.21243496264182032, 0.08867812097668645, 0.47450002384185797)  offset_from_target=(0.0, -0.3, 0.4)
+[view_config] side_oblique: position=(0.5124349626418203, 0.08867812097668645, 0.874500023841858)  look_at=(0.21243496264182032, 0.08867812097668645, 0.47450002384185797)  offset_from_target=(0.3, 0.0, 0.4)
+[cavity cavity_00] output dir = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_00
+
+[view_top_down] --- starting capture ---
+[view_top_down] requested pos=(0.21243496264182032, 0.08867812097668645, 0.974500023841858)  look_at=(0.21243496264182032, 0.08867812097668645, 0.47450002384185797)  up=(0, 1, 0)
+[view_top_down] stepping renderer (8 rt_subframes) ...
+[view_top_down] measured pos=[0.212435, 0.088678, 0.9745]  quat=[0.707107, 0.0, 0.0, -0.707107]
+[view_top_down] rgb type=<class 'numpy.ndarray'>
+[view_top_down] rgb shape=(480, 640, 3)
+[view_top_down] depth type=<class 'numpy.ndarray'>
+[view_top_down] depth shape=(480, 640)
+[view_top_down] depth valid range [0.4995, 0.9745] m  (307200 px)
+[view_top_down] saved rgb.png  (640x480)
+[view_top_down] saved depth.npy  (float32, metres)
+[view_top_down] saved depth_vis.png
+[view_top_down] saved metadata.json
+[view_top_down] ok=True  req_pos=(0.2124,0.0887,0.9745)  meas_pos=[0.212435, 0.088678, 0.9745]  depth=[0.4995, 0.9745] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_00/view_00_top_down
+
+[view_front_oblique] --- starting capture ---
+[view_front_oblique] requested pos=(0.21243496264182032, -0.21132187902331354, 0.874500023841858)  look_at=(0.21243496264182032, 0.08867812097668645, 0.47450002384185797)  up=(0, 1, 0)
+[view_front_oblique] stepping renderer (8 rt_subframes) ...
+[view_front_oblique] measured pos=[0.212435, -0.211322, 0.8745]  quat=[-0.67082, -0.223607, -0.223607, 0.67082]
+[view_front_oblique] rgb type=<class 'numpy.ndarray'>
+[view_front_oblique] rgb shape=(480, 640, 3)
+[view_front_oblique] depth type=<class 'numpy.ndarray'>
+[view_front_oblique] depth shape=(480, 640)
+[view_front_oblique] depth valid range [0.3798, 2.4936] m  (307200 px)
+[view_front_oblique] saved rgb.png  (640x480)
+[view_front_oblique] saved depth.npy  (float32, metres)
+[view_front_oblique] saved depth_vis.png
+[view_front_oblique] saved metadata.json
+[view_front_oblique] ok=True  req_pos=(0.2124,-0.2113,0.8745)  meas_pos=[0.212435, -0.211322, 0.8745]  depth=[0.3798, 2.4936] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_00/view_01_front_oblique
+
+[view_side_oblique] --- starting capture ---
+[view_side_oblique] requested pos=(0.5124349626418203, 0.08867812097668645, 0.874500023841858)  look_at=(0.21243496264182032, 0.08867812097668645, 0.47450002384185797)  up=(0, 1, 0)
+[view_side_oblique] stepping renderer (8 rt_subframes) ...
+[view_side_oblique] measured pos=[0.512435, 0.088678, 0.8745]  quat=[-0.67082, 0.223607, -0.223607, 0.67082]
+[view_side_oblique] rgb type=<class 'numpy.ndarray'>
+[view_side_oblique] rgb shape=(480, 640, 3)
+[view_side_oblique] depth type=<class 'numpy.ndarray'>
+[view_side_oblique] depth shape=(480, 640)
+[view_side_oblique] depth valid range [0.3874, 1.8879] m  (307200 px)
+[view_side_oblique] saved rgb.png  (640x480)
+[view_side_oblique] saved depth.npy  (float32, metres)
+[view_side_oblique] saved depth_vis.png
+[view_side_oblique] saved metadata.json
+[view_side_oblique] ok=True  req_pos=(0.5124,0.0887,0.8745)  meas_pos=[0.512435, 0.088678, 0.8745]  depth=[0.3874, 1.8879] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_00/view_02_side_oblique
+
+[contact_sheet] building contact sheet for cavity_00 ...
+[contact_sheet] saved /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_00/views_contact_sheet.png
+
+[summary] writing per-cavity summary for cavity_00 ...
+[summary] saved /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_00/multiview_capture_summary.json
+
+============================================================
+  cavity=cavity_00  success=True  views_succeeded=3/3
+============================================================
+
+######################################################################
+[cavity cavity_01] starting multi-view capture
+######################################################################
+[cavity cavity_01] target centre = (0.2871, 0.0779, 0.4745) m
+[cavity cavity_01] board_surface_depth_m = 0.5255 m
+[cavity cavity_01] metadata source = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_01/cavity_metadata.json
+[view_config] top_down: position=(0.2870873724596544, 0.07785056003072968, 0.974500023841858)  look_at=(0.2870873724596544, 0.07785056003072968, 0.47450002384185797)  offset_from_target=(0.0, 0.0, 0.5)
+[view_config] front_oblique: position=(0.2870873724596544, -0.2221494399692703, 0.874500023841858)  look_at=(0.2870873724596544, 0.07785056003072968, 0.47450002384185797)  offset_from_target=(0.0, -0.3, 0.4)
+[view_config] side_oblique: position=(0.5870873724596544, 0.07785056003072968, 0.874500023841858)  look_at=(0.2870873724596544, 0.07785056003072968, 0.47450002384185797)  offset_from_target=(0.3, 0.0, 0.4)
+[cavity cavity_01] output dir = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_01
+
+[view_top_down] --- starting capture ---
+[view_top_down] requested pos=(0.2870873724596544, 0.07785056003072968, 0.974500023841858)  look_at=(0.2870873724596544, 0.07785056003072968, 0.47450002384185797)  up=(0, 1, 0)
+[view_top_down] stepping renderer (8 rt_subframes) ...
+[view_top_down] measured pos=[0.287087, 0.077851, 0.9745]  quat=[0.707107, 0.0, 0.0, -0.707107]
+[view_top_down] rgb type=<class 'numpy.ndarray'>
+[view_top_down] rgb shape=(480, 640, 3)
+[view_top_down] depth type=<class 'numpy.ndarray'>
+[view_top_down] depth shape=(480, 640)
+[view_top_down] depth valid range [0.4995, 0.9745] m  (307200 px)
+[view_top_down] saved rgb.png  (640x480)
+[view_top_down] saved depth.npy  (float32, metres)
+[view_top_down] saved depth_vis.png
+[view_top_down] saved metadata.json
+[view_top_down] ok=True  req_pos=(0.2871,0.0779,0.9745)  meas_pos=[0.287087, 0.077851, 0.9745]  depth=[0.4995, 0.9745] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_01/view_00_top_down
+
+[view_front_oblique] --- starting capture ---
+[view_front_oblique] requested pos=(0.2870873724596544, -0.2221494399692703, 0.874500023841858)  look_at=(0.2870873724596544, 0.07785056003072968, 0.47450002384185797)  up=(0, 1, 0)
+[view_front_oblique] stepping renderer (8 rt_subframes) ...
+[view_front_oblique] measured pos=[0.287087, -0.222149, 0.8745]  quat=[-0.67082, -0.223607, -0.223607, 0.67082]
+[view_front_oblique] rgb type=<class 'numpy.ndarray'>
+[view_front_oblique] rgb shape=(480, 640, 3)
+[view_front_oblique] depth type=<class 'numpy.ndarray'>
+[view_front_oblique] depth shape=(480, 640)
+[view_front_oblique] depth valid range [0.3798, 2.4936] m  (307200 px)
+[view_front_oblique] saved rgb.png  (640x480)
+[view_front_oblique] saved depth.npy  (float32, metres)
+[view_front_oblique] saved depth_vis.png
+[view_front_oblique] saved metadata.json
+[view_front_oblique] ok=True  req_pos=(0.2871,-0.2221,0.8745)  meas_pos=[0.287087, -0.222149, 0.8745]  depth=[0.3798, 2.4936] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_01/view_01_front_oblique
+
+[view_side_oblique] --- starting capture ---
+[view_side_oblique] requested pos=(0.5870873724596544, 0.07785056003072968, 0.874500023841858)  look_at=(0.2870873724596544, 0.07785056003072968, 0.47450002384185797)  up=(0, 1, 0)
+[view_side_oblique] stepping renderer (8 rt_subframes) ...
+[view_side_oblique] measured pos=[0.587087, 0.077851, 0.8745]  quat=[-0.67082, 0.223607, -0.223607, 0.67082]
+[view_side_oblique] rgb type=<class 'numpy.ndarray'>
+[view_side_oblique] rgb shape=(480, 640, 3)
+[view_side_oblique] depth type=<class 'numpy.ndarray'>
+[view_side_oblique] depth shape=(480, 640)
+[view_side_oblique] depth valid range [0.4321, 1.8879] m  (307200 px)
+[view_side_oblique] saved rgb.png  (640x480)
+[view_side_oblique] saved depth.npy  (float32, metres)
+[view_side_oblique] saved depth_vis.png
+[view_side_oblique] saved metadata.json
+[view_side_oblique] ok=True  req_pos=(0.5871,0.0779,0.8745)  meas_pos=[0.587087, 0.077851, 0.8745]  depth=[0.4321, 1.8879] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_01/view_02_side_oblique
+
+[contact_sheet] building contact sheet for cavity_01 ...
+[contact_sheet] saved /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_01/views_contact_sheet.png
+
+[summary] writing per-cavity summary for cavity_01 ...
+[summary] saved /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_01/multiview_capture_summary.json
+
+============================================================
+  cavity=cavity_01  success=True  views_succeeded=3/3
+============================================================
+
+######################################################################
+[cavity cavity_02] starting multi-view capture
+######################################################################
+[cavity cavity_02] target centre = (0.2124, 0.0012, 0.4745) m
+[cavity cavity_02] board_surface_depth_m = 0.5255 m
+[cavity cavity_02] metadata source = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_02/cavity_metadata.json
+[view_config] top_down: position=(0.21243496264182032, 0.0012316405691206462, 0.974500023841858)  look_at=(0.21243496264182032, 0.0012316405691206462, 0.47450002384185797)  offset_from_target=(0.0, 0.0, 0.5)
+[view_config] front_oblique: position=(0.21243496264182032, -0.2987683594308793, 0.874500023841858)  look_at=(0.21243496264182032, 0.0012316405691206462, 0.47450002384185797)  offset_from_target=(0.0, -0.3, 0.4)
+[view_config] side_oblique: position=(0.5124349626418203, 0.0012316405691206462, 0.874500023841858)  look_at=(0.21243496264182032, 0.0012316405691206462, 0.47450002384185797)  offset_from_target=(0.3, 0.0, 0.4)
+[cavity cavity_02] output dir = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_02
+
+[view_top_down] --- starting capture ---
+[view_top_down] requested pos=(0.21243496264182032, 0.0012316405691206462, 0.974500023841858)  look_at=(0.21243496264182032, 0.0012316405691206462, 0.47450002384185797)  up=(0, 1, 0)
+[view_top_down] stepping renderer (8 rt_subframes) ...
+[view_top_down] measured pos=[0.212435, 0.001232, 0.9745]  quat=[0.707107, 0.0, 0.0, -0.707107]
+[view_top_down] rgb type=<class 'numpy.ndarray'>
+[view_top_down] rgb shape=(480, 640, 3)
+[view_top_down] depth type=<class 'numpy.ndarray'>
+[view_top_down] depth shape=(480, 640)
+[view_top_down] depth valid range [0.4995, 0.9745] m  (307200 px)
+[view_top_down] saved rgb.png  (640x480)
+[view_top_down] saved depth.npy  (float32, metres)
+[view_top_down] saved depth_vis.png
+[view_top_down] saved metadata.json
+[view_top_down] ok=True  req_pos=(0.2124,0.0012,0.9745)  meas_pos=[0.212435, 0.001232, 0.9745]  depth=[0.4995, 0.9745] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_02/view_00_top_down
+
+[view_front_oblique] --- starting capture ---
+[view_front_oblique] requested pos=(0.21243496264182032, -0.2987683594308793, 0.874500023841858)  look_at=(0.21243496264182032, 0.0012316405691206462, 0.47450002384185797)  up=(0, 1, 0)
+[view_front_oblique] stepping renderer (8 rt_subframes) ...
+[view_front_oblique] measured pos=[0.212435, -0.298768, 0.8745]  quat=[-0.67082, -0.223607, -0.223607, 0.67082]
+[view_front_oblique] rgb type=<class 'numpy.ndarray'>
+[view_front_oblique] rgb shape=(480, 640, 3)
+[view_front_oblique] depth type=<class 'numpy.ndarray'>
+[view_front_oblique] depth shape=(480, 640)
+[view_front_oblique] depth valid range [0.4242, 2.4936] m  (307200 px)
+[view_front_oblique] saved rgb.png  (640x480)
+[view_front_oblique] saved depth.npy  (float32, metres)
+[view_front_oblique] saved depth_vis.png
+[view_front_oblique] saved metadata.json
+[view_front_oblique] ok=True  req_pos=(0.2124,-0.2988,0.8745)  meas_pos=[0.212435, -0.298768, 0.8745]  depth=[0.4242, 2.4936] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_02/view_01_front_oblique
+
+[view_side_oblique] --- starting capture ---
+[view_side_oblique] requested pos=(0.5124349626418203, 0.0012316405691206462, 0.874500023841858)  look_at=(0.21243496264182032, 0.0012316405691206462, 0.47450002384185797)  up=(0, 1, 0)
+[view_side_oblique] stepping renderer (8 rt_subframes) ...
+[view_side_oblique] measured pos=[0.512435, 0.001232, 0.8745]  quat=[-0.67082, 0.223607, -0.223607, 0.67082]
+[view_side_oblique] rgb type=<class 'numpy.ndarray'>
+[view_side_oblique] rgb shape=(480, 640, 3)
+[view_side_oblique] depth type=<class 'numpy.ndarray'>
+[view_side_oblique] depth shape=(480, 640)
+[view_side_oblique] depth valid range [0.3874, 1.8879] m  (307200 px)
+[view_side_oblique] saved rgb.png  (640x480)
+[view_side_oblique] saved depth.npy  (float32, metres)
+[view_side_oblique] saved depth_vis.png
+[view_side_oblique] saved metadata.json
+[view_side_oblique] ok=True  req_pos=(0.5124,0.0012,0.8745)  meas_pos=[0.512435, 0.001232, 0.8745]  depth=[0.3874, 1.8879] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_02/view_02_side_oblique
+
+[contact_sheet] building contact sheet for cavity_02 ...
+[contact_sheet] saved /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_02/views_contact_sheet.png
+
+[summary] writing per-cavity summary for cavity_02 ...
+[summary] saved /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_02/multiview_capture_summary.json
+
+============================================================
+  cavity=cavity_02  success=True  views_succeeded=3/3
+============================================================
+
+######################################################################
+[cavity cavity_03] starting multi-view capture
+######################################################################
+[cavity cavity_03] target centre = (0.2869, 0.0006, 0.4745) m
+[cavity cavity_03] board_surface_depth_m = 0.5255 m
+[cavity cavity_03] metadata source = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected/cavity_03/cavity_metadata.json
+[view_config] top_down: position=(0.2868604501857548, 0.0006158202845603229, 0.974500023841858)  look_at=(0.2868604501857548, 0.0006158202845603229, 0.47450002384185797)  offset_from_target=(0.0, 0.0, 0.5)
+[view_config] front_oblique: position=(0.2868604501857548, -0.2993841797154397, 0.874500023841858)  look_at=(0.2868604501857548, 0.0006158202845603229, 0.47450002384185797)  offset_from_target=(0.0, -0.3, 0.4)
+[view_config] side_oblique: position=(0.5868604501857548, 0.0006158202845603229, 0.874500023841858)  look_at=(0.2868604501857548, 0.0006158202845603229, 0.47450002384185797)  offset_from_target=(0.3, 0.0, 0.4)
+[cavity cavity_03] output dir = /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_03
+
+[view_top_down] --- starting capture ---
+[view_top_down] requested pos=(0.2868604501857548, 0.0006158202845603229, 0.974500023841858)  look_at=(0.2868604501857548, 0.0006158202845603229, 0.47450002384185797)  up=(0, 1, 0)
+[view_top_down] stepping renderer (8 rt_subframes) ...
+[view_top_down] measured pos=[0.28686, 0.000616, 0.9745]  quat=[0.707107, 0.0, 0.0, -0.707107]
+[view_top_down] rgb type=<class 'numpy.ndarray'>
+[view_top_down] rgb shape=(480, 640, 3)
+[view_top_down] depth type=<class 'numpy.ndarray'>
+[view_top_down] depth shape=(480, 640)
+[view_top_down] depth valid range [0.4995, 0.9745] m  (307200 px)
+[view_top_down] saved rgb.png  (640x480)
+[view_top_down] saved depth.npy  (float32, metres)
+[view_top_down] saved depth_vis.png
+[view_top_down] saved metadata.json
+[view_top_down] ok=True  req_pos=(0.2869,0.0006,0.9745)  meas_pos=[0.28686, 0.000616, 0.9745]  depth=[0.4995, 0.9745] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_03/view_00_top_down
+
+[view_front_oblique] --- starting capture ---
+[view_front_oblique] requested pos=(0.2868604501857548, -0.2993841797154397, 0.874500023841858)  look_at=(0.2868604501857548, 0.0006158202845603229, 0.47450002384185797)  up=(0, 1, 0)
+[view_front_oblique] stepping renderer (8 rt_subframes) ...
+[view_front_oblique] measured pos=[0.28686, -0.299384, 0.8745]  quat=[-0.67082, -0.223607, -0.223607, 0.67082]
+[view_front_oblique] rgb type=<class 'numpy.ndarray'>
+[view_front_oblique] rgb shape=(480, 640, 3)
+[view_front_oblique] depth type=<class 'numpy.ndarray'>
+[view_front_oblique] depth shape=(480, 640)
+[view_front_oblique] depth valid range [0.4243, 2.4936] m  (307200 px)
+[view_front_oblique] saved rgb.png  (640x480)
+[view_front_oblique] saved depth.npy  (float32, metres)
+[view_front_oblique] saved depth_vis.png
+[view_front_oblique] saved metadata.json
+[view_front_oblique] ok=True  req_pos=(0.2869,-0.2994,0.8745)  meas_pos=[0.28686, -0.299384, 0.8745]  depth=[0.4243, 2.4936] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_03/view_01_front_oblique
+
+[view_side_oblique] --- starting capture ---
+[view_side_oblique] requested pos=(0.5868604501857548, 0.0006158202845603229, 0.874500023841858)  look_at=(0.2868604501857548, 0.0006158202845603229, 0.47450002384185797)  up=(0, 1, 0)
+[view_side_oblique] stepping renderer (8 rt_subframes) ...
+[view_side_oblique] measured pos=[0.58686, 0.000616, 0.8745]  quat=[0.67082, -0.223607, 0.223607, -0.67082]
+[view_side_oblique] rgb type=<class 'numpy.ndarray'>
+[view_side_oblique] rgb shape=(480, 640, 3)
+[view_side_oblique] depth type=<class 'numpy.ndarray'>
+[view_side_oblique] depth shape=(480, 640)
+[view_side_oblique] depth valid range [0.4321, 1.8879] m  (307200 px)
+[view_side_oblique] saved rgb.png  (640x480)
+[view_side_oblique] saved depth.npy  (float32, metres)
+[view_side_oblique] saved depth_vis.png
+[view_side_oblique] saved metadata.json
+[view_side_oblique] ok=True  req_pos=(0.5869,0.0006,0.8745)  meas_pos=[0.58686, 0.000616, 0.8745]  depth=[0.4321, 1.8879] m  n_valid=307200  save=/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_03/view_02_side_oblique
+
+[contact_sheet] building contact sheet for cavity_03 ...
+[contact_sheet] saved /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_03/views_contact_sheet.png
+
+[summary] writing per-cavity summary for cavity_03 ...
+[summary] saved /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_03/multiview_capture_summary.json
+
+============================================================
+  cavity=cavity_03  success=True  views_succeeded=3/3
+============================================================
+
+[visibility] restoring original piece visibility states ...
+[visibility] restore complete
+
+[all_cavities_summary] writing global summary ...
+[all_cavities_summary] saved /workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/multiview_phaseA_all_cavities_summary.json
+
+==========================================================================================
+PHASE A CAVITY RESULTS TABLE
+==========================================================================================
+cavity       target_centre_m (x,y,z)              views    success 
+------------------------------------------------------------------------------------------
+cavity_00    (0.2124, 0.0887, 0.4745)             3/3      YES     
+cavity_01    (0.2871, 0.0779, 0.4745)             3/3      YES     
+cavity_02    (0.2124, 0.0012, 0.4745)             3/3      YES     
+cavity_03    (0.2869, 0.0006, 0.4745)             3/3      YES     
+==========================================================================================

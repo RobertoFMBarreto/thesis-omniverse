@@ -1,0 +1,74 @@
+{
+  "script_name": "capture_multiview_cavities.py",
+  "phase": "A",
+  "phase_note": "sequential-camera proof-of-life; not final static multi-camera architecture",
+  "run_id": "dad4cddd",
+  "timestamp_utc": "2026-05-09T16:24:39.501654+00:00",
+  "n_cavities_attempted": 4,
+  "n_cavities_succeeded": 4,
+  "success_overall": true,
+  "cavities": [
+    {
+      "cavity_name": "cavity_00",
+      "target_centre_m": [
+        0.21243496264182032,
+        0.08867812097668645,
+        0.47450002384185797
+      ],
+      "views_succeeded": 3,
+      "views_total": 3,
+      "success": true,
+      "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_00",
+      "error_message": null
+    },
+    {
+      "cavity_name": "cavity_01",
+      "target_centre_m": [
+        0.2870873724596544,
+        0.07785056003072968,
+        0.47450002384185797
+      ],
+      "views_succeeded": 3,
+      "views_total": 3,
+      "success": true,
+      "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_01",
+      "error_message": null
+    },
+    {
+      "cavity_name": "cavity_02",
+      "target_centre_m": [
+        0.21243496264182032,
+        0.0012316405691206462,
+        0.47450002384185797
+      ],
+      "views_succeeded": 3,
+      "views_total": 3,
+      "success": true,
+      "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_02",
+      "error_message": null
+    },
+    {
+      "cavity_name": "cavity_03",
+      "target_centre_m": [
+        0.2868604501857548,
+        0.0006158202845603229,
+        0.47450002384185797
+      ],
+      "views_succeeded": 3,
+      "views_total": 3,
+      "success": true,
+      "output_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities/cavity_03",
+      "error_message": null
+    }
+  ],
+  "cavities_output_root": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/cavities",
+  "cavities_input_dir": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/cavities_detected",
+  "visibility_control_enabled": true,
+  "hidden_piece_prim_paths": [
+    "/World/Rectangle",
+    "/World/Square",
+    "/World/Circle",
+    "/World/Triangle"
+  ],
+  "note": "Cavity identity used only for experimental scene setup, not for perception/matching."
+}
