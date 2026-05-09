@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "script_name": "generate_phaseE_sdf_embedding_dataset.py",
+  "phase": "Phase E.1 \u2014 SDF embedding dataset",
+  "phase_note": "Footprint masks + signed distance fields at 128x128, derived from the deterministic Phase D.7 procedural shapes and partial-insertion labels. Supports learning of geometric embeddings for affordance ranking; does NOT train a robot controller, NOT learn perception, NOT reconstruct full 3D, NOT model contact dynamics.",
+  "timestamp_utc": "2026-05-09T22:04:19.542341+00:00",
+  "rng_seed": 12345,
+  "canvas": {
+    "px": 128,
+    "world_mm": 80.0,
+    "mm_per_px": 0.625
+  },
+  "sdf_convention": {
+    "positive_inside_shape": true,
+    "clip_mm": 20.0,
+    "int8_scale": 6.35,
+    "dequantise": "sdf_mm = sdf_int8 / int8_scale"
+  },
+  "thresholds_inherited_from_phaseD7": {
+    "lateral_outside_max": 0.05,
+    "lateral_inside_min": 0.8,
+    "depth_tolerance_mm": 0.5,
+    "min_required_insertion_mm": 5.0,
+    "insertion_fraction": 0.25,
+    "min_insertion_guidance_mm": 5.0,
+    "clearance_per_side_mm": 0.5
+  },
+  "summary": {
+    "n_pieces": 104,
+    "n_procedural": 100,
+    "n_mvp": 4,
+    "cavities_per_piece": 7,
+    "rotations_per_pair": 36,
+    "n_samples": 26208,
+    "n_positive": 5427,
+    "n_negative": 20781,
+    "positive_rate": 0.207074,
+    "per_family": {
+      "rectangle": {
+        "n_samples": 5544,
+        "n_positive": 918,
+        "positive_rate": 0.165584,
+        "fold_id": 0
+      },
+      "ellipse": {
+        "n_samples": 5292,
+        "n_positive": 1652,
+        "positive_rate": 0.312169,
+        "fold_id": 1
+      },
+      "regular_polygon": {
+        "n_samples": 5292,
+        "n_positive": 1873,
+        "positive_rate": 0.35393,
+        "fold_id": 2
+      },
+      "convex_irregular_polygon": {
+        "n_samples": 5040,
+        "n_positive": 340,
+        "positive_rate": 0.06746,
+        "fold_id": 3
+      },
+      "rounded_rectangle": {
+        "n_samples": 5040,
+        "n_positive": 644,
+        "positive_rate": 0.127778,
+        "fold_id": 4
+      }
+    },
+    "per_split": {
+      "train": {
+        "n": 18411,
+        "pos": 3822,
+        "positive_rate": 0.207593
+      },
+      "val": {
+        "n": 3912,
+        "pos": 841,
+        "positive_rate": 0.21498
+      },
+      "test": {
+        "n": 3885,
+        "pos": 764,
+        "positive_rate": 0.196654
+      }
+    },
+    "any_family_zero_positive": false,
+    "sdf_range_mm_first2000": {
+      "min": -20.0,
+      "max": 20.0
+    },
+    "npz_file_size_mb": 58.27
+  },
+  "leakage_diagnostic_columns": [
+    "iou",
+    "p_mask_area_px",
+    "c_mask_area_px"
+  ],
+  "identifier_columns_excluded_from_features": [
+    "sample_id",
+    "piece_id",
+    "cavity_id",
+    "shape_family",
+    "is_mvp",
+    "cavity_source",
+    "split",
+    "heldout_family_fold"
+  ]
+}

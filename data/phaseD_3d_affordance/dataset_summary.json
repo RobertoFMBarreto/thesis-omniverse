@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "script_name": "generate_phaseD_3d_affordance_dataset.py",
+  "phase": "Phase D.7 \u2014 3D-extrusion partial-insertion affordance dataset",
+  "phase_note": "Procedural convex-prismatic shapes + extruded MVP pieces. Deterministic geometric labels under PARTIAL-INSERTION-THROUGH-OPENING rule (NOT full containment). NOT robot control. NOT contact dynamics. Dataset only.",
+  "timestamp_utc": "2026-05-09T21:31:24.101046+00:00",
+  "rng_seed": 12345,
+  "thresholds": {
+    "lateral_outside_max": 0.05,
+    "lateral_inside_min": 0.8,
+    "depth_tolerance_mm": 0.5,
+    "min_required_insertion_mm": 5.0,
+    "insertion_fraction": 0.25,
+    "min_insertion_guidance_mm": 5.0,
+    "clearance_per_side_mm": 0.5
+  },
+  "summary": {
+    "n_pieces": 104,
+    "n_procedural": 100,
+    "n_mvp": 4,
+    "cavities_per_piece": 7,
+    "rotations_per_pair": 36,
+    "n_configurations": 26208,
+    "n_positive": 5427,
+    "n_negative": 20781,
+    "positive_rate": 0.207074,
+    "per_family": {
+      "rectangle": {
+        "n_configs": 5544,
+        "n_positive": 918,
+        "positive_rate": 0.165584,
+        "fold_id": 0
+      },
+      "ellipse": {
+        "n_configs": 5292,
+        "n_positive": 1652,
+        "positive_rate": 0.312169,
+        "fold_id": 1
+      },
+      "regular_polygon": {
+        "n_configs": 5292,
+        "n_positive": 1873,
+        "positive_rate": 0.35393,
+        "fold_id": 2
+      },
+      "convex_irregular_polygon": {
+        "n_configs": 5040,
+        "n_positive": 340,
+        "positive_rate": 0.06746,
+        "fold_id": 3
+      },
+      "rounded_rectangle": {
+        "n_configs": 5040,
+        "n_positive": 644,
+        "positive_rate": 0.127778,
+        "fold_id": 4
+      }
+    },
+    "any_family_zero_positive": false,
+    "leakage_diagnostic_columns": [
+      "diag_inside_ratio_raw",
+      "diag_outside_ratio_raw",
+      "diag_p_area_px",
+      "diag_c_area_px",
+      "diag_label_reason"
+    ],
+    "identifier_columns_excluded_from_features": [
+      "config_id",
+      "piece_id",
+      "cavity_id",
+      "shape_family",
+      "is_mvp",
+      "cavity_source",
+      "split",
+      "heldout_family_fold"
+    ]
+  }
+}

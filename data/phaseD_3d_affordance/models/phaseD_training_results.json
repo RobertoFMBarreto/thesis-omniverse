@@ -1,0 +1,736 @@
+{
+  "schema_version": 1,
+  "script_name": "train_phaseD_3d_affordance_model.py",
+  "phase": "Phase D.3/D.4 \u2014 affordance classifier training/eval",
+  "phase_note": "The model predicts a geometric insertion affordance score, NOT robot control. Interpretable supervised classifiers only. No neural network, no reinforcement learning, no robot execution.",
+  "timestamp_utc": "2026-05-09T21:32:34.004068+00:00",
+  "feature_columns_used": [
+    "candidate_rotation_deg",
+    "piece_area_mm2",
+    "piece_perimeter_mm",
+    "piece_compactness",
+    "piece_height_mm",
+    "piece_volume_mm3",
+    "piece_bbox_aspect_ratio",
+    "cavity_area_mm2",
+    "cavity_perimeter_mm",
+    "cavity_compactness",
+    "cavity_depth_mm",
+    "cavity_volume_mm3",
+    "cavity_bbox_aspect_ratio",
+    "area_ratio",
+    "depth_offset_mm",
+    "bbox_aspect_diff",
+    "compactness_diff",
+    "iou",
+    "lateral_clearance_proxy_mm2"
+  ],
+  "feature_columns_excluded": [
+    "cavity_id",
+    "cavity_source",
+    "config_id",
+    "diag_c_area_px",
+    "diag_insertion_required_mm",
+    "diag_inside_ratio_raw",
+    "diag_label_reason",
+    "diag_outside_ratio_raw",
+    "diag_p_area_px",
+    "heldout_family_fold",
+    "is_mvp",
+    "piece_id",
+    "shape_family",
+    "split"
+  ],
+  "label_column": "label",
+  "leakage_check": {
+    "threshold_abs_corr": 0.95,
+    "per_feature": {
+      "candidate_rotation_deg": {
+        "pearson_corr": -0.034268,
+        "abs_corr": 0.034268,
+        "leakage_flag": false
+      },
+      "piece_area_mm2": {
+        "pearson_corr": 0.014958,
+        "abs_corr": 0.014958,
+        "leakage_flag": false
+      },
+      "piece_perimeter_mm": {
+        "pearson_corr": -0.147216,
+        "abs_corr": 0.147216,
+        "leakage_flag": false
+      },
+      "piece_compactness": {
+        "pearson_corr": 0.250084,
+        "abs_corr": 0.250084,
+        "leakage_flag": false
+      },
+      "piece_height_mm": {
+        "pearson_corr": -0.058996,
+        "abs_corr": 0.058996,
+        "leakage_flag": false
+      },
+      "piece_volume_mm3": {
+        "pearson_corr": -0.037906,
+        "abs_corr": 0.037906,
+        "leakage_flag": false
+      },
+      "piece_bbox_aspect_ratio": {
+        "pearson_corr": -0.129349,
+        "abs_corr": 0.129349,
+        "leakage_flag": false
+      },
+      "cavity_area_mm2": {
+        "pearson_corr": 0.356017,
+        "abs_corr": 0.356017,
+        "leakage_flag": false
+      },
+      "cavity_perimeter_mm": {
+        "pearson_corr": 0.181444,
+        "abs_corr": 0.181444,
+        "leakage_flag": false
+      },
+      "cavity_compactness": {
+        "pearson_corr": 0.325854,
+        "abs_corr": 0.325854,
+        "leakage_flag": false
+      },
+      "cavity_depth_mm": {
+        "pearson_corr": 0.17737,
+        "abs_corr": 0.17737,
+        "leakage_flag": false
+      },
+      "cavity_volume_mm3": {
+        "pearson_corr": 0.394739,
+        "abs_corr": 0.394739,
+        "leakage_flag": false
+      },
+      "cavity_bbox_aspect_ratio": {
+        "pearson_corr": -0.224918,
+        "abs_corr": 0.224918,
+        "leakage_flag": false
+      },
+      "area_ratio": {
+        "pearson_corr": -0.265829,
+        "abs_corr": 0.265829,
+        "leakage_flag": false
+      },
+      "depth_offset_mm": {
+        "pearson_corr": 0.160299,
+        "abs_corr": 0.160299,
+        "leakage_flag": false
+      },
+      "bbox_aspect_diff": {
+        "pearson_corr": 0.028578,
+        "abs_corr": 0.028578,
+        "leakage_flag": false
+      },
+      "compactness_diff": {
+        "pearson_corr": 0.067743,
+        "abs_corr": 0.067743,
+        "leakage_flag": false
+      },
+      "iou": {
+        "pearson_corr": 0.298111,
+        "abs_corr": 0.298111,
+        "leakage_flag": false
+      },
+      "lateral_clearance_proxy_mm2": {
+        "pearson_corr": 0.441625,
+        "abs_corr": 0.441625,
+        "leakage_flag": false
+      }
+    },
+    "warnings": []
+  },
+  "models": {
+    "logreg": {
+      "type": "LogisticRegression",
+      "C": 1.0,
+      "class_weight": "balanced",
+      "max_iter": 5000,
+      "scaler": "StandardScaler"
+    },
+    "tree": {
+      "type": "DecisionTreeClassifier",
+      "max_depth": 4,
+      "class_weight": "balanced",
+      "random_state": 0
+    }
+  },
+  "standard_split": {
+    "logreg": {
+      "metrics_per_split": {
+        "train": {
+          "n": 18411,
+          "accuracy": 0.920863,
+          "precision": 0.735511,
+          "recall": 0.966248,
+          "f1": 0.835237,
+          "positive_rate_true": 0.207593,
+          "positive_rate_pred": 0.272717,
+          "confusion_matrix": {
+            "tp": 3693,
+            "fp": 1328,
+            "tn": 13261,
+            "fn": 129
+          },
+          "roc_auc": 0.986794,
+          "degenerate_flag": false
+        },
+        "val": {
+          "n": 3912,
+          "accuracy": 0.932515,
+          "precision": 0.769374,
+          "recall": 0.979786,
+          "f1": 0.861925,
+          "positive_rate_true": 0.21498,
+          "positive_rate_pred": 0.273773,
+          "confusion_matrix": {
+            "tp": 824,
+            "fp": 247,
+            "tn": 2824,
+            "fn": 17
+          },
+          "roc_auc": 0.988701,
+          "degenerate_flag": false
+        },
+        "test": {
+          "n": 3885,
+          "accuracy": 0.920463,
+          "precision": 0.718961,
+          "recall": 0.977749,
+          "f1": 0.828619,
+          "positive_rate_true": 0.196654,
+          "positive_rate_pred": 0.267439,
+          "confusion_matrix": {
+            "tp": 747,
+            "fp": 292,
+            "tn": 2829,
+            "fn": 17
+          },
+          "roc_auc": 0.986588,
+          "degenerate_flag": false
+        }
+      },
+      "intercept_standardised": -12.350683,
+      "coefficients_sorted": [
+        {
+          "feature": "area_ratio",
+          "coef_standardised": -16.492087,
+          "abs_coef": 16.492087,
+          "feature_mean": 1.142251,
+          "feature_scale": 0.761616
+        },
+        {
+          "feature": "iou",
+          "coef_standardised": 6.628816,
+          "abs_coef": 6.628816,
+          "feature_mean": 0.605995,
+          "feature_scale": 0.199622
+        },
+        {
+          "feature": "piece_perimeter_mm",
+          "coef_standardised": -3.817319,
+          "abs_coef": 3.817319,
+          "feature_mean": 139.615901,
+          "feature_scale": 35.628246
+        },
+        {
+          "feature": "cavity_perimeter_mm",
+          "coef_standardised": 2.969876,
+          "abs_coef": 2.969876,
+          "feature_mean": 139.582812,
+          "feature_scale": 38.336308
+        },
+        {
+          "feature": "piece_compactness",
+          "coef_standardised": -1.814232,
+          "abs_coef": 1.814232,
+          "feature_mean": 0.707309,
+          "feature_scale": 0.224092
+        },
+        {
+          "feature": "cavity_compactness",
+          "coef_standardised": 1.72853,
+          "abs_coef": 1.72853,
+          "feature_mean": 0.70397,
+          "feature_scale": 0.224315
+        },
+        {
+          "feature": "depth_offset_mm",
+          "coef_standardised": 0.753455,
+          "abs_coef": 0.753455,
+          "feature_mean": -31.505741,
+          "feature_scale": 45.959037
+        },
+        {
+          "feature": "cavity_volume_mm3",
+          "coef_standardised": 0.716835,
+          "abs_coef": 0.716835,
+          "feature_mean": 54218.204999,
+          "feature_scale": 50304.880625
+        },
+        {
+          "feature": "cavity_depth_mm",
+          "coef_standardised": 0.690859,
+          "abs_coef": 0.690859,
+          "feature_mean": 48.127012,
+          "feature_scale": 29.872169
+        },
+        {
+          "feature": "piece_volume_mm3",
+          "coef_standardised": 0.662351,
+          "abs_coef": 0.662351,
+          "feature_mean": 92366.919052,
+          "feature_scale": 74023.609291
+        },
+        {
+          "feature": "piece_height_mm",
+          "coef_standardised": -0.402153,
+          "abs_coef": 0.402153,
+          "feature_mean": 79.632753,
+          "feature_scale": 34.789245
+        },
+        {
+          "feature": "lateral_clearance_proxy_mm2",
+          "coef_standardised": 0.321513,
+          "abs_coef": 0.321513,
+          "feature_mean": 4.884723,
+          "feature_scale": 530.379596
+        },
+        {
+          "feature": "piece_area_mm2",
+          "coef_standardised": -0.258648,
+          "abs_coef": 0.258648,
+          "feature_mean": 1133.374094,
+          "feature_scale": 638.63222
+        },
+        {
+          "feature": "bbox_aspect_diff",
+          "coef_standardised": -0.254904,
+          "abs_coef": 0.254904,
+          "feature_mean": 0.114028,
+          "feature_scale": 0.30465
+        },
+        {
+          "feature": "compactness_diff",
+          "coef_standardised": -0.192167,
+          "abs_coef": 0.192167,
+          "feature_mean": 0.072375,
+          "feature_scale": 0.148779
+        },
+        {
+          "feature": "piece_bbox_aspect_ratio",
+          "coef_standardised": -0.117841,
+          "abs_coef": 0.117841,
+          "feature_mean": 1.369817,
+          "feature_scale": 0.414436
+        },
+        {
+          "feature": "cavity_bbox_aspect_ratio",
+          "coef_standardised": -0.040558,
+          "abs_coef": 0.040558,
+          "feature_mean": 1.363955,
+          "feature_scale": 0.415771
+        },
+        {
+          "feature": "candidate_rotation_deg",
+          "coef_standardised": 0.016288,
+          "abs_coef": 0.016288,
+          "feature_mean": 175.300092,
+          "feature_scale": 103.944793
+        },
+        {
+          "feature": "cavity_area_mm2",
+          "coef_standardised": 0.007842,
+          "abs_coef": 0.007842,
+          "feature_mean": 1138.258817,
+          "feature_scale": 681.261826
+        }
+      ]
+    },
+    "tree": {
+      "metrics_per_split": {
+        "train": {
+          "n": 18411,
+          "accuracy": 0.949107,
+          "precision": 0.805162,
+          "recall": 0.995814,
+          "f1": 0.890397,
+          "positive_rate_true": 0.207593,
+          "positive_rate_pred": 0.256749,
+          "confusion_matrix": {
+            "tp": 3806,
+            "fp": 921,
+            "tn": 13668,
+            "fn": 16
+          },
+          "roc_auc": 0.979596,
+          "degenerate_flag": false
+        },
+        "val": {
+          "n": 3912,
+          "accuracy": 0.954243,
+          "precision": 0.825787,
+          "recall": 0.997622,
+          "f1": 0.903608,
+          "positive_rate_true": 0.21498,
+          "positive_rate_pred": 0.259714,
+          "confusion_matrix": {
+            "tp": 839,
+            "fp": 177,
+            "tn": 2894,
+            "fn": 2
+          },
+          "roc_auc": 0.977595,
+          "degenerate_flag": false
+        },
+        "test": {
+          "n": 3885,
+          "accuracy": 0.941828,
+          "precision": 0.773931,
+          "recall": 0.994764,
+          "f1": 0.870561,
+          "positive_rate_true": 0.196654,
+          "positive_rate_pred": 0.252767,
+          "confusion_matrix": {
+            "tp": 760,
+            "fp": 222,
+            "tn": 2899,
+            "fn": 4
+          },
+          "roc_auc": 0.975477,
+          "degenerate_flag": false
+        }
+      },
+      "feature_importances_sorted": [
+        {
+          "feature": "area_ratio",
+          "importance": 0.485267
+        },
+        {
+          "feature": "iou",
+          "importance": 0.342618
+        },
+        {
+          "feature": "cavity_depth_mm",
+          "importance": 0.133214
+        },
+        {
+          "feature": "bbox_aspect_diff",
+          "importance": 0.01288
+        },
+        {
+          "feature": "depth_offset_mm",
+          "importance": 0.008083
+        },
+        {
+          "feature": "lateral_clearance_proxy_mm2",
+          "importance": 0.007629
+        },
+        {
+          "feature": "compactness_diff",
+          "importance": 0.005801
+        },
+        {
+          "feature": "piece_height_mm",
+          "importance": 0.004507
+        },
+        {
+          "feature": "candidate_rotation_deg",
+          "importance": 0.0
+        },
+        {
+          "feature": "piece_area_mm2",
+          "importance": 0.0
+        },
+        {
+          "feature": "piece_perimeter_mm",
+          "importance": 0.0
+        },
+        {
+          "feature": "piece_compactness",
+          "importance": 0.0
+        },
+        {
+          "feature": "piece_volume_mm3",
+          "importance": 0.0
+        },
+        {
+          "feature": "piece_bbox_aspect_ratio",
+          "importance": 0.0
+        },
+        {
+          "feature": "cavity_area_mm2",
+          "importance": 0.0
+        },
+        {
+          "feature": "cavity_perimeter_mm",
+          "importance": 0.0
+        },
+        {
+          "feature": "cavity_compactness",
+          "importance": 0.0
+        },
+        {
+          "feature": "cavity_volume_mm3",
+          "importance": 0.0
+        },
+        {
+          "feature": "cavity_bbox_aspect_ratio",
+          "importance": 0.0
+        }
+      ]
+    }
+  },
+  "lofo": {
+    "convex_irregular_polygon": {
+      "n_train": 20160,
+      "n_test": 5040,
+      "n_pos_test": 340,
+      "extreme_imbalance_test": false,
+      "models": {
+        "logreg": {
+          "n": 5040,
+          "accuracy": 0.941667,
+          "precision": 0.539116,
+          "recall": 0.932353,
+          "f1": 0.68319,
+          "positive_rate_true": 0.06746,
+          "positive_rate_pred": 0.116667,
+          "confusion_matrix": {
+            "tp": 317,
+            "fp": 271,
+            "tn": 4429,
+            "fn": 23
+          },
+          "roc_auc": 0.984015,
+          "degenerate_flag": false
+        },
+        "tree": {
+          "n": 5040,
+          "accuracy": 0.93631,
+          "precision": 0.515249,
+          "recall": 0.944118,
+          "f1": 0.666667,
+          "positive_rate_true": 0.06746,
+          "positive_rate_pred": 0.123611,
+          "confusion_matrix": {
+            "tp": 321,
+            "fp": 302,
+            "tn": 4398,
+            "fn": 19
+          },
+          "roc_auc": 0.945175,
+          "degenerate_flag": false
+        }
+      }
+    },
+    "ellipse": {
+      "n_train": 20160,
+      "n_test": 5040,
+      "n_pos_test": 1580,
+      "extreme_imbalance_test": false,
+      "models": {
+        "logreg": {
+          "n": 5040,
+          "accuracy": 0.872619,
+          "precision": 0.725048,
+          "recall": 0.956329,
+          "f1": 0.824782,
+          "positive_rate_true": 0.313492,
+          "positive_rate_pred": 0.413492,
+          "confusion_matrix": {
+            "tp": 1511,
+            "fp": 573,
+            "tn": 2887,
+            "fn": 69
+          },
+          "roc_auc": 0.967829,
+          "degenerate_flag": false
+        },
+        "tree": {
+          "n": 5040,
+          "accuracy": 0.926587,
+          "precision": 0.810256,
+          "recall": 1.0,
+          "f1": 0.895184,
+          "positive_rate_true": 0.313492,
+          "positive_rate_pred": 0.386905,
+          "confusion_matrix": {
+            "tp": 1580,
+            "fp": 370,
+            "tn": 3090,
+            "fn": 0
+          },
+          "roc_auc": 0.952257,
+          "degenerate_flag": false
+        }
+      }
+    },
+    "rectangle": {
+      "n_train": 20160,
+      "n_test": 5040,
+      "n_pos_test": 872,
+      "extreme_imbalance_test": false,
+      "models": {
+        "logreg": {
+          "n": 5040,
+          "accuracy": 0.926389,
+          "precision": 0.714653,
+          "recall": 0.956422,
+          "f1": 0.818048,
+          "positive_rate_true": 0.173016,
+          "positive_rate_pred": 0.231548,
+          "confusion_matrix": {
+            "tp": 834,
+            "fp": 333,
+            "tn": 3835,
+            "fn": 38
+          },
+          "roc_auc": 0.986686,
+          "degenerate_flag": false
+        },
+        "tree": {
+          "n": 5040,
+          "accuracy": 0.940079,
+          "precision": 0.790224,
+          "recall": 0.889908,
+          "f1": 0.837109,
+          "positive_rate_true": 0.173016,
+          "positive_rate_pred": 0.194841,
+          "confusion_matrix": {
+            "tp": 776,
+            "fp": 206,
+            "tn": 3962,
+            "fn": 96
+          },
+          "roc_auc": 0.960223,
+          "degenerate_flag": false
+        }
+      }
+    },
+    "regular_polygon": {
+      "n_train": 20160,
+      "n_test": 5040,
+      "n_pos_test": 1858,
+      "extreme_imbalance_test": false,
+      "models": {
+        "logreg": {
+          "n": 5040,
+          "accuracy": 0.888294,
+          "precision": 0.779698,
+          "recall": 0.971475,
+          "f1": 0.865085,
+          "positive_rate_true": 0.368651,
+          "positive_rate_pred": 0.459325,
+          "confusion_matrix": {
+            "tp": 1805,
+            "fp": 510,
+            "tn": 2672,
+            "fn": 53
+          },
+          "roc_auc": 0.977928,
+          "degenerate_flag": false
+        },
+        "tree": {
+          "n": 5040,
+          "accuracy": 0.919841,
+          "precision": 0.844223,
+          "recall": 0.959634,
+          "f1": 0.898237,
+          "positive_rate_true": 0.368651,
+          "positive_rate_pred": 0.419048,
+          "confusion_matrix": {
+            "tp": 1783,
+            "fp": 329,
+            "tn": 2853,
+            "fn": 75
+          },
+          "roc_auc": 0.964113,
+          "degenerate_flag": false
+        }
+      }
+    },
+    "rounded_rectangle": {
+      "n_train": 20160,
+      "n_test": 5040,
+      "n_pos_test": 644,
+      "extreme_imbalance_test": false,
+      "models": {
+        "logreg": {
+          "n": 5040,
+          "accuracy": 0.956746,
+          "precision": 0.822727,
+          "recall": 0.843168,
+          "f1": 0.832822,
+          "positive_rate_true": 0.127778,
+          "positive_rate_pred": 0.130952,
+          "confusion_matrix": {
+            "tp": 543,
+            "fp": 117,
+            "tn": 4279,
+            "fn": 101
+          },
+          "roc_auc": 0.988181,
+          "degenerate_flag": false
+        },
+        "tree": {
+          "n": 5040,
+          "accuracy": 0.90119,
+          "precision": 0.663677,
+          "recall": 0.459627,
+          "f1": 0.543119,
+          "positive_rate_true": 0.127778,
+          "positive_rate_pred": 0.088492,
+          "confusion_matrix": {
+            "tp": 296,
+            "fp": 150,
+            "tn": 4246,
+            "fn": 348
+          },
+          "roc_auc": 0.954307,
+          "degenerate_flag": false
+        }
+      }
+    }
+  },
+  "mvp_evaluation": {
+    "n_rows": 1008,
+    "logreg": {
+      "n": 1008,
+      "accuracy": 0.834325,
+      "precision": 0.443333,
+      "recall": 1.0,
+      "f1": 0.614319,
+      "positive_rate_true": 0.131944,
+      "positive_rate_pred": 0.297619,
+      "confusion_matrix": {
+        "tp": 133,
+        "fp": 167,
+        "tn": 708,
+        "fn": 0
+      },
+      "roc_auc": 0.991777,
+      "degenerate_flag": false
+    },
+    "tree": {
+      "n": 1008,
+      "accuracy": 0.944444,
+      "precision": 0.703704,
+      "recall": 1.0,
+      "f1": 0.826087,
+      "positive_rate_true": 0.131944,
+      "positive_rate_pred": 0.1875,
+      "confusion_matrix": {
+        "tp": 133,
+        "fp": 56,
+        "tn": 819,
+        "fn": 0
+      },
+      "roc_auc": 0.989654,
+      "degenerate_flag": false
+    }
+  }
+}

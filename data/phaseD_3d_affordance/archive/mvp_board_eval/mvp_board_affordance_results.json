@@ -1,0 +1,516 @@
+{
+  "schema_version": 1,
+  "script_name": "evaluate_phaseD_mvp_board_affordance.py",
+  "phase": "Phase D.6 \u2014 MVP-board affordance ranking",
+  "phase_note": "Evaluates the trained Phase D affordance models on the actual Baseline 1 board scenario. The model predicts a geometric insertion affordance score; it does NOT control the robot. Models are reproduced by re-fitting on the same Phase D dataset with the same hyperparameters; no tuning, no feature changes.",
+  "timestamp_utc": "2026-05-09T21:16:41.119097+00:00",
+  "feature_columns_used": [
+    "candidate_rotation_deg",
+    "piece_area_mm2",
+    "piece_perimeter_mm",
+    "piece_compactness",
+    "piece_height_mm",
+    "piece_volume_mm3",
+    "piece_bbox_aspect_ratio",
+    "cavity_area_mm2",
+    "cavity_perimeter_mm",
+    "cavity_compactness",
+    "cavity_depth_mm",
+    "cavity_volume_mm3",
+    "cavity_bbox_aspect_ratio",
+    "area_ratio",
+    "volume_ratio",
+    "depth_compatibility_mm",
+    "bbox_aspect_diff",
+    "compactness_diff",
+    "iou",
+    "lateral_clearance_proxy_mm2"
+  ],
+  "baseline1_reference": {
+    "rectangle": "cavity_00",
+    "square": "cavity_02",
+    "circle": "cavity_03",
+    "triangle": "cavity_01"
+  },
+  "pieces": {
+    "rectangle": {
+      "name": "rectangle",
+      "area_mm2": 3690.3454092443626,
+      "perim_mm": 243.13209218411873,
+      "compact": 0.7844988416900287,
+      "height_mm": 104.49997019767771,
+      "volume_mm3": 385640.98528517265,
+      "bbox_ar": 1.495412978570034
+    },
+    "square": {
+      "name": "square",
+      "area_mm2": 2477.1839618012714,
+      "perim_mm": 196.55111341829632,
+      "compact": 0.8057811562563543,
+      "height_mm": 104.49997019767771,
+      "volume_mm3": 258865.65018239807,
+      "bbox_ar": 1.0
+    },
+    "circle": {
+      "name": "circle",
+      "area_mm2": 1915.0944265541916,
+      "perim_mm": 155.52697595232817,
+      "compact": 0.9949210074630734,
+      "height_mm": 104.49997019767771,
+      "volume_mm3": 200127.3105006517,
+      "bbox_ar": 1.0000000772841424
+    },
+    "triangle": {
+      "name": "triangle",
+      "area_mm2": 1239.4798592550542,
+      "perim_mm": 159.4356627965725,
+      "compact": 0.6127430515714437,
+      "height_mm": 104.49997019767771,
+      "volume_mm3": 129525.60835277493,
+      "bbox_ar": 1.0000001932103713
+    }
+  },
+  "cavities": {
+    "cavity_00": {
+      "name": "cavity_00",
+      "area_mm2": 3730.9103091486577,
+      "perim_mm": 248.06991860884187,
+      "compact": 0.7618622666450842,
+      "depth_mm": 14.80110827833414,
+      "depth_source": "captured_z_depth_median_m",
+      "volume_mm3": 55221.60746246239,
+      "bbox_ar": 1.4634145807137344
+    },
+    "cavity_01": {
+      "name": "cavity_01",
+      "area_mm2": 1223.4108181171005,
+      "perim_mm": 157.83934433767718,
+      "compact": 0.6170944551247527,
+      "depth_mm": 16.919219866394997,
+      "depth_source": "captured_z_depth_median_m",
+      "volume_mm3": 20699.156618649402,
+      "bbox_ar": 1.0256409915325981
+    },
+    "cavity_02": {
+      "name": "cavity_02",
+      "area_mm2": 2487.7791239373437,
+      "perim_mm": 199.52577209472656,
+      "compact": 0.7852784564530122,
+      "depth_mm": 75.0,
+      "depth_source": "fallback_cad_nominal_75mm",
+      "volume_mm3": 186583.43429530077,
+      "bbox_ar": 1.0249999854816463
+    },
+    "cavity_03": {
+      "name": "cavity_03",
+      "area_mm2": 1961.4015011970173,
+      "perim_mm": 157.5705687373664,
+      "compact": 0.9927186072394828,
+      "depth_mm": 16.403162851929665,
+      "depth_source": "captured_z_depth_median_m",
+      "volume_mm3": 32173.188242153992,
+      "bbox_ar": 1.0249999854816463
+    }
+  },
+  "per_pair": {
+    "rectangle": {
+      "cavity_00": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 0,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 1,
+        "tree_rank": 1
+      },
+      "cavity_01": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 310,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 2,
+        "tree_rank": 2
+      },
+      "cavity_02": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 90,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 3,
+        "tree_rank": 3
+      },
+      "cavity_03": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 310,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 4,
+        "tree_rank": 4
+      }
+    },
+    "square": {
+      "cavity_00": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 180,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 2,
+        "tree_rank": 1
+      },
+      "cavity_01": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 230,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 3,
+        "tree_rank": 2
+      },
+      "cavity_02": {
+        "logreg_score": 0.003904,
+        "logreg_best_rot": 270,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 1,
+        "tree_rank": 3
+      },
+      "cavity_03": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 320,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 4,
+        "tree_rank": 4
+      }
+    },
+    "circle": {
+      "cavity_00": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 350,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 2,
+        "tree_rank": 1
+      },
+      "cavity_01": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 240,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 3,
+        "tree_rank": 2
+      },
+      "cavity_02": {
+        "logreg_score": 0.050817,
+        "logreg_best_rot": 350,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 1,
+        "tree_rank": 3
+      },
+      "cavity_03": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 300,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 4,
+        "tree_rank": 4
+      }
+    },
+    "triangle": {
+      "cavity_00": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 310,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 2,
+        "tree_rank": 1
+      },
+      "cavity_01": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 0,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 3,
+        "tree_rank": 2
+      },
+      "cavity_02": {
+        "logreg_score": 0.055247,
+        "logreg_best_rot": 130,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 1,
+        "tree_rank": 3
+      },
+      "cavity_03": {
+        "logreg_score": 0.0,
+        "logreg_best_rot": 340,
+        "tree_score": 0.0,
+        "tree_best_rot": 0,
+        "logreg_rank": 4,
+        "tree_rank": 4
+      }
+    }
+  },
+  "ranking": {
+    "logreg": {
+      "rectangle": {
+        "ranking": [
+          [
+            "cavity_00",
+            0.0
+          ],
+          [
+            "cavity_01",
+            0.0
+          ],
+          [
+            "cavity_02",
+            0.0
+          ],
+          [
+            "cavity_03",
+            0.0
+          ]
+        ],
+        "rank_1": "cavity_00",
+        "rank_1_score": 0.0,
+        "rank_1_best_rotation": 0,
+        "rank_2": "cavity_01",
+        "rank_2_score": 0.0,
+        "margin": 0.0,
+        "baseline1_reference": "cavity_00",
+        "rank_of_baseline1_ref": 1,
+        "matches_baseline1": true
+      },
+      "square": {
+        "ranking": [
+          [
+            "cavity_02",
+            0.003904
+          ],
+          [
+            "cavity_00",
+            0.0
+          ],
+          [
+            "cavity_01",
+            0.0
+          ],
+          [
+            "cavity_03",
+            0.0
+          ]
+        ],
+        "rank_1": "cavity_02",
+        "rank_1_score": 0.003904,
+        "rank_1_best_rotation": 270,
+        "rank_2": "cavity_00",
+        "rank_2_score": 0.0,
+        "margin": 0.003904,
+        "baseline1_reference": "cavity_02",
+        "rank_of_baseline1_ref": 1,
+        "matches_baseline1": true
+      },
+      "circle": {
+        "ranking": [
+          [
+            "cavity_02",
+            0.050817
+          ],
+          [
+            "cavity_00",
+            0.0
+          ],
+          [
+            "cavity_01",
+            0.0
+          ],
+          [
+            "cavity_03",
+            0.0
+          ]
+        ],
+        "rank_1": "cavity_02",
+        "rank_1_score": 0.050817,
+        "rank_1_best_rotation": 350,
+        "rank_2": "cavity_00",
+        "rank_2_score": 0.0,
+        "margin": 0.050817,
+        "baseline1_reference": "cavity_03",
+        "rank_of_baseline1_ref": 4,
+        "matches_baseline1": false
+      },
+      "triangle": {
+        "ranking": [
+          [
+            "cavity_02",
+            0.055247
+          ],
+          [
+            "cavity_00",
+            0.0
+          ],
+          [
+            "cavity_01",
+            0.0
+          ],
+          [
+            "cavity_03",
+            0.0
+          ]
+        ],
+        "rank_1": "cavity_02",
+        "rank_1_score": 0.055247,
+        "rank_1_best_rotation": 130,
+        "rank_2": "cavity_00",
+        "rank_2_score": 0.0,
+        "margin": 0.055247,
+        "baseline1_reference": "cavity_01",
+        "rank_of_baseline1_ref": 3,
+        "matches_baseline1": false
+      }
+    },
+    "tree": {
+      "rectangle": {
+        "ranking": [
+          [
+            "cavity_00",
+            0.0
+          ],
+          [
+            "cavity_01",
+            0.0
+          ],
+          [
+            "cavity_02",
+            0.0
+          ],
+          [
+            "cavity_03",
+            0.0
+          ]
+        ],
+        "rank_1": "cavity_00",
+        "rank_1_score": 0.0,
+        "rank_1_best_rotation": 0,
+        "rank_2": "cavity_01",
+        "rank_2_score": 0.0,
+        "margin": 0.0,
+        "baseline1_reference": "cavity_00",
+        "rank_of_baseline1_ref": 1,
+        "matches_baseline1": true
+      },
+      "square": {
+        "ranking": [
+          [
+            "cavity_00",
+            0.0
+          ],
+          [
+            "cavity_01",
+            0.0
+          ],
+          [
+            "cavity_02",
+            0.0
+          ],
+          [
+            "cavity_03",
+            0.0
+          ]
+        ],
+        "rank_1": "cavity_00",
+        "rank_1_score": 0.0,
+        "rank_1_best_rotation": 0,
+        "rank_2": "cavity_01",
+        "rank_2_score": 0.0,
+        "margin": 0.0,
+        "baseline1_reference": "cavity_02",
+        "rank_of_baseline1_ref": 3,
+        "matches_baseline1": false
+      },
+      "circle": {
+        "ranking": [
+          [
+            "cavity_00",
+            0.0
+          ],
+          [
+            "cavity_01",
+            0.0
+          ],
+          [
+            "cavity_02",
+            0.0
+          ],
+          [
+            "cavity_03",
+            0.0
+          ]
+        ],
+        "rank_1": "cavity_00",
+        "rank_1_score": 0.0,
+        "rank_1_best_rotation": 0,
+        "rank_2": "cavity_01",
+        "rank_2_score": 0.0,
+        "margin": 0.0,
+        "baseline1_reference": "cavity_03",
+        "rank_of_baseline1_ref": 4,
+        "matches_baseline1": false
+      },
+      "triangle": {
+        "ranking": [
+          [
+            "cavity_00",
+            0.0
+          ],
+          [
+            "cavity_01",
+            0.0
+          ],
+          [
+            "cavity_02",
+            0.0
+          ],
+          [
+            "cavity_03",
+            0.0
+          ]
+        ],
+        "rank_1": "cavity_00",
+        "rank_1_score": 0.0,
+        "rank_1_best_rotation": 0,
+        "rank_2": "cavity_01",
+        "rank_2_score": 0.0,
+        "margin": 0.0,
+        "baseline1_reference": "cavity_01",
+        "rank_of_baseline1_ref": 2,
+        "matches_baseline1": false
+      }
+    }
+  },
+  "summary": {
+    "logreg": {
+      "n_correct_top1": 2,
+      "n_pieces": 4,
+      "top1_accuracy": 0.5
+    },
+    "tree": {
+      "n_correct_top1": 1,
+      "n_pieces": 4,
+      "top1_accuracy": 0.25
+    }
+  },
+  "models": {
+    "logreg": {
+      "C": 1.0,
+      "max_iter": 5000,
+      "class_weight": "balanced",
+      "scaler": "StandardScaler"
+    },
+    "tree": {
+      "max_depth": 4,
+      "class_weight": "balanced",
+      "random_state": 0
+    }
+  }
+}

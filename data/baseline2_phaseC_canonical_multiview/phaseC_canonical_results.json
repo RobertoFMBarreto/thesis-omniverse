@@ -1,0 +1,428 @@
+{
+  "schema_version": 1,
+  "script_name": "baseline2_phaseC_canonical_multiview.py",
+  "phase": "Baseline 2 - Phase C (canonical multi-view, exploratory)",
+  "phase_note": "Exploratory canonical world-frame XY representation. NOT volumetric fusion, NOT SLAM, NOT TSDF, NOT 3D reconstruction. Baseline 1 scoring reused unchanged. No ML, no descriptors added.",
+  "timestamp_utc": "2026-05-09T20:14:48Z",
+  "run_id": "143cf836",
+  "canonical_entities": {
+    "pieces": {
+      "rectangle": {
+        "source_views_used": [
+          "top_down",
+          "front_oblique",
+          "side_oblique"
+        ],
+        "per_view_raw_point_count": {
+          "top_down": 3146,
+          "front_oblique": 4814,
+          "side_oblique": 5912
+        },
+        "merged_point_count": 13872,
+        "centroid_before_centring_world_m": [
+          -0.2440363353271915,
+          0.44396071330921527
+        ],
+        "mask_area_px": 13888,
+        "bbox_px": 57285,
+        "fill_ratio": 0.24243693811643538,
+        "convex_hull_fallback_triggered": true,
+        "canonical_sparse": false,
+        "invalid": false
+      },
+      "square": {
+        "source_views_used": [
+          "top_down",
+          "front_oblique",
+          "side_oblique"
+        ],
+        "per_view_raw_point_count": {
+          "top_down": 2116,
+          "front_oblique": 3944,
+          "side_oblique": 3944
+        },
+        "merged_point_count": 10004,
+        "centroid_before_centring_world_m": [
+          -0.24454762227771445,
+          0.4445476188881693
+        ],
+        "mask_area_px": 9516,
+        "bbox_px": 40401,
+        "fill_ratio": 0.23553872428900274,
+        "convex_hull_fallback_triggered": true,
+        "canonical_sparse": false,
+        "invalid": false
+      },
+      "circle": {
+        "source_views_used": [
+          "top_down",
+          "front_oblique",
+          "side_oblique"
+        ],
+        "per_view_raw_point_count": {
+          "top_down": 1644,
+          "front_oblique": 3448,
+          "side_oblique": 3448
+        },
+        "merged_point_count": 8540,
+        "centroid_before_centring_world_m": [
+          -0.24529604979318212,
+          0.44530050946100347
+        ],
+        "mask_area_px": 7465,
+        "bbox_px": 40000,
+        "fill_ratio": 0.186625,
+        "convex_hull_fallback_triggered": true,
+        "canonical_sparse": false,
+        "invalid": false
+      },
+      "triangle": {
+        "source_views_used": [
+          "top_down",
+          "front_oblique",
+          "side_oblique"
+        ],
+        "per_view_raw_point_count": {
+          "top_down": 1076,
+          "front_oblique": 3162,
+          "side_oblique": 3133
+        },
+        "merged_point_count": 7371,
+        "centroid_before_centring_world_m": [
+          -0.2464859369243604,
+          0.43939444869411287
+        ],
+        "mask_area_px": 5362,
+        "bbox_px": 40804,
+        "fill_ratio": 0.13140868542299775,
+        "convex_hull_fallback_triggered": true,
+        "canonical_sparse": false,
+        "invalid": false
+      }
+    },
+    "cavities": {
+      "cavity_00": {
+        "source_views_used": [
+          "top_down",
+          "front_oblique",
+          "side_oblique"
+        ],
+        "per_view_raw_point_count": {
+          "top_down": 2048,
+          "front_oblique": 74,
+          "side_oblique": 50
+        },
+        "cavity_source_per_view": {
+          "top_down": "baseline1_validated_opening",
+          "front_oblique": "multiview_roi_z_band",
+          "side_oblique": "multiview_roi_z_band"
+        },
+        "merged_point_count": 2172,
+        "centroid_before_centring_world_m": [
+          0.013656396413841781,
+          0.002738173608809434
+        ],
+        "mask_area_px": 2082,
+        "bbox_px": 59792,
+        "fill_ratio": 0.03482071180090982,
+        "convex_hull_fallback_triggered": true,
+        "canonical_sparse": false,
+        "invalid": false
+      },
+      "cavity_01": {
+        "source_views_used": [
+          "top_down",
+          "front_oblique",
+          "side_oblique"
+        ],
+        "per_view_raw_point_count": {
+          "top_down": 2048,
+          "front_oblique": 148,
+          "side_oblique": 70
+        },
+        "cavity_source_per_view": {
+          "top_down": "baseline1_validated_opening",
+          "front_oblique": "multiview_roi_z_band",
+          "side_oblique": "multiview_roi_z_band"
+        },
+        "merged_point_count": 2266,
+        "centroid_before_centring_world_m": [
+          0.02800344624505227,
+          0.0050059767175427115
+        ],
+        "mask_area_px": 656,
+        "bbox_px": 28512,
+        "fill_ratio": 0.023007856341189674,
+        "convex_hull_fallback_triggered": true,
+        "canonical_sparse": false,
+        "invalid": false
+      },
+      "cavity_02": {
+        "source_views_used": [
+          "top_down",
+          "front_oblique",
+          "side_oblique"
+        ],
+        "per_view_raw_point_count": {
+          "top_down": 2048,
+          "front_oblique": 72,
+          "side_oblique": 144
+        },
+        "cavity_source_per_view": {
+          "top_down": "baseline1_validated_opening",
+          "front_oblique": "multiview_roi_z_band",
+          "side_oblique": "multiview_roi_z_band"
+        },
+        "merged_point_count": 2264,
+        "centroid_before_centring_world_m": [
+          0.021819203757878644,
+          -0.0008927406400211676
+        ],
+        "mask_area_px": 1000,
+        "bbox_px": 34254,
+        "fill_ratio": 0.02919367081216792,
+        "convex_hull_fallback_triggered": true,
+        "canonical_sparse": false,
+        "invalid": false
+      },
+      "cavity_03": {
+        "source_views_used": [
+          "top_down",
+          "front_oblique",
+          "side_oblique"
+        ],
+        "per_view_raw_point_count": {
+          "top_down": 2048,
+          "front_oblique": 133,
+          "side_oblique": 162
+        },
+        "cavity_source_per_view": {
+          "top_down": "baseline1_validated_opening",
+          "front_oblique": "multiview_roi_z_band",
+          "side_oblique": "multiview_roi_z_band"
+        },
+        "merged_point_count": 2343,
+        "centroid_before_centring_world_m": [
+          0.03689833187578301,
+          -0.0014804433653420798
+        ],
+        "mask_area_px": 596,
+        "bbox_px": 22330,
+        "fill_ratio": 0.026690550828481863,
+        "convex_hull_fallback_triggered": true,
+        "canonical_sparse": false,
+        "invalid": false
+      }
+    }
+  },
+  "results": [
+    {
+      "piece": "rectangle",
+      "cavity": "cavity_00",
+      "score": 0.662808,
+      "inside_ratio": 0.852155,
+      "outside_ratio": 0.147845,
+      "iou": 0.689706,
+      "best_rotation_deg": 20.0,
+      "rank": 1,
+      "first_vs_second_margin": 0.18658999999999998,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "rectangle",
+      "cavity": "cavity_01",
+      "score": 0.214618,
+      "inside_ratio": 0.335338,
+      "outside_ratio": 0.664662,
+      "iou": 0.297665,
+      "best_rotation_deg": 76.0,
+      "rank": 4,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "rectangle",
+      "cavity": "cavity_02",
+      "score": 0.476218,
+      "inside_ratio": 0.601685,
+      "outside_ratio": 0.398315,
+      "iou": 0.555382,
+      "best_rotation_deg": 72.0,
+      "rank": 2,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "rectangle",
+      "cavity": "cavity_03",
+      "score": 0.225767,
+      "inside_ratio": 0.342762,
+      "outside_ratio": 0.657238,
+      "iou": 0.311863,
+      "best_rotation_deg": 78.0,
+      "rank": 3,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "square",
+      "cavity": "cavity_00",
+      "score": 0.624005,
+      "inside_ratio": 0.911849,
+      "outside_ratio": 0.088151,
+      "iou": 0.570315,
+      "best_rotation_deg": 58.0,
+      "rank": 1,
+      "first_vs_second_margin": 0.08273600000000003,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "square",
+      "cavity": "cavity_01",
+      "score": 0.222048,
+      "inside_ratio": 0.353705,
+      "outside_ratio": 0.646295,
+      "iou": 0.296146,
+      "best_rotation_deg": 66.0,
+      "rank": 3,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "square",
+      "cavity": "cavity_02",
+      "score": 0.541269,
+      "inside_ratio": 0.714547,
+      "outside_ratio": 0.285453,
+      "iou": 0.581315,
+      "best_rotation_deg": 44.0,
+      "rank": 2,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "square",
+      "cavity": "cavity_03",
+      "score": 0.188047,
+      "inside_ratio": 0.32065,
+      "outside_ratio": 0.67935,
+      "iou": 0.261371,
+      "best_rotation_deg": 24.0,
+      "rank": 4,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "circle",
+      "cavity": "cavity_00",
+      "score": 0.587543,
+      "inside_ratio": 0.944709,
+      "outside_ratio": 0.055291,
+      "iou": 0.477134,
+      "best_rotation_deg": 44.0,
+      "rank": 1,
+      "first_vs_second_margin": 0.012844999999999995,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "circle",
+      "cavity": "cavity_01",
+      "score": 0.212633,
+      "inside_ratio": 0.361297,
+      "outside_ratio": 0.638703,
+      "iou": 0.272817,
+      "best_rotation_deg": 50.0,
+      "rank": 3,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "circle",
+      "cavity": "cavity_02",
+      "score": 0.574698,
+      "inside_ratio": 0.789343,
+      "outside_ratio": 0.210657,
+      "iou": 0.580897,
+      "best_rotation_deg": 40.0,
+      "rank": 2,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "circle",
+      "cavity": "cavity_03",
+      "score": 0.169211,
+      "inside_ratio": 0.317102,
+      "outside_ratio": 0.682898,
+      "iou": 0.230027,
+      "best_rotation_deg": 46.0,
+      "rank": 4,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "triangle",
+      "cavity": "cavity_00",
+      "score": 0.524127,
+      "inside_ratio": 0.986494,
+      "outside_ratio": 0.013506,
+      "iou": 0.327644,
+      "best_rotation_deg": 336.0,
+      "rank": 1,
+      "first_vs_second_margin": 0.05700900000000003,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "triangle",
+      "cavity": "cavity_01",
+      "score": 0.134487,
+      "inside_ratio": 0.306604,
+      "outside_ratio": 0.693396,
+      "iou": 0.175482,
+      "best_rotation_deg": 62.0,
+      "rank": 3,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "triangle",
+      "cavity": "cavity_02",
+      "score": 0.467118,
+      "inside_ratio": 0.776873,
+      "outside_ratio": 0.223127,
+      "iou": 0.3955,
+      "best_rotation_deg": 30.0,
+      "rank": 2,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    },
+    {
+      "piece": "triangle",
+      "cavity": "cavity_03",
+      "score": 0.100107,
+      "inside_ratio": 0.262979,
+      "outside_ratio": 0.737021,
+      "iou": 0.148666,
+      "best_rotation_deg": 58.0,
+      "rank": 4,
+      "first_vs_second_margin": null,
+      "failed": false,
+      "failure_reason": null
+    }
+  ]
+}

@@ -19,7 +19,8 @@ Pipeline:
             3. Segment the piece by Z above the support surface.
             4. Centre XY on centroid; pass to Baseline 1's
                rasterise_xy_to_mask.
-            5. Score against each cavity using Baseline 1's score_pair.
+            5. Score against the MATCHING cavity view (top_down vs top_down,
+               front_oblique vs front_oblique, side_oblique vs side_oblique).
         Aggregate the three per-view best_scores via weighted average:
             top_down=0.6, front_oblique=0.2, side_oblique=0.2
         (Renormalise weights if a view is missing.)
@@ -69,15 +70,29 @@ VIEW_WEIGHTS = {
     "side_oblique":  0.2,
 }
 
-MULTIVIEW_DIR = PROJECT_ROOT / "data" / "multiview_captures" / "pieces"
-CAVITY_DIR    = PROJECT_ROOT / "data" / "cavities_detected"
+MULTIVIEW_DIR     = PROJECT_ROOT / "data" / "multiview_captures" / "pieces"
+CAVITY_MULTI_DIR  = PROJECT_ROOT / "data" / "multiview_captures" / "cavities"
+CAVITY_DIR        = PROJECT_ROOT / "data" / "cavities_detected"   # kept for reference only
 
 OUT_RESULTS_JSON   = PROJECT_ROOT / "data" / "baseline2_multiview_matching_results.json"
 OUT_MATRIX_CSV     = PROJECT_ROOT / "data" / "baseline2_multiview_matching_matrix.csv"
 OUT_REPORT_MD      = PROJECT_ROOT / "data" / "baseline2_multiview_matching_report.md"
 
-MIN_VIEW_POINTS                  = 50      # below this, view is marked missing
-PIECE_HEIGHT_MIN_ABOVE_SURFACE_M = 0.002   # 2 mm above support surface
+MIN_VIEW_POINTS                       = 50      # below this, view is marked missing
+PIECE_HEIGHT_MIN_ABOVE_SURFACE_M      = 0.002   # 2 mm above support surface
+CAVITY_DEPTH_MIN_BELOW_SURFACE_M      = 0.001   # 1 mm below board top
+
+# Local cavity-view perception threshold used to isolate the opening/rim band
+# below the board surface. Points are kept only inside the band
+# (board_top - MAX) < world_z < (board_top - MIN), so the cavity walls and
+# floor (deeper than MAX) and the board top itself (above MIN) are excluded.
+CAVITY_DEPTH_MAX_BELOW_SURFACE_M      = 0.005   # 5 mm
+
+# Lateral half-window (metres) around the known cavity XY centre. Cavity-view
+# segmentation only keeps points inside this XY box, so the table/floor below
+# the board top is excluded. Largest expected opening is ~76x51 mm; a 55 mm
+# half-size gives a 110x110 mm ROI with comfortable margin.
+CAVITY_VIEW_ROI_HALF_SIZE_M           = 0.055   # 55 mm
 
 
 # ── Geometry helpers ──────────────────────────────────────────────────────────
@@ -209,31 +224,201 @@ def aggregate_scores(per_view: dict) -> tuple[float | None, list[str]]:
 
 # ── Pipeline driver ───────────────────────────────────────────────────────────
 
-def load_cavities() -> dict:
-    """Load all cavities from disk, rasterise once, return {cid: (mask_dil, mask_undil, cav_xy_meta)}."""
-    cavities = {}
-    cav_paths = sorted(CAVITY_DIR.glob("cavity_*"))
-    for cav_path in cav_paths:
+def process_cavity_view(cavity_name: str, view_name: str) -> np.ndarray | None:
+    """
+    Load and segment one (cavity, view) from the multi-view cavity captures.
+
+    Keeps points whose world Z is BELOW the board top by at least
+    CAVITY_DEPTH_MIN_BELOW_SURFACE_M. The board top Z is taken from
+    target_bbox_center_world_m[2] in the metadata (fallback: median of
+    top 10 % of world-Z points minus 1 mm).
+
+    Returns centroid-centred Nx2 float32, or None if fewer than
+    MIN_VIEW_POINTS points survive.
+    """
+    view_dir = None
+    for d in (CAVITY_MULTI_DIR / cavity_name).glob(f"view_*_{view_name}"):
+        view_dir = d
+        break
+    if view_dir is None:
+        print(f"[cavity {cavity_name}] [view {view_name}] MISSING: no view directory")
+        return None
+
+    depth_path = view_dir / "depth.npy"
+    meta_path  = view_dir / "metadata.json"
+    if not (depth_path.exists() and meta_path.exists()):
+        print(f"[cavity {cavity_name}] [view {view_name}] MISSING: depth.npy or metadata.json absent")
+        return None
+
+    try:
+        depth = np.load(str(depth_path))
+    except Exception as exc:
+        print(f"[cavity {cavity_name}] [view {view_name}] MISSING: depth load failed ({exc})")
+        return None
+
+    try:
+        meta = json.loads(meta_path.read_text())
+    except Exception as exc:
+        print(f"[cavity {cavity_name}] [view {view_name}] MISSING: metadata load failed ({exc})")
+        return None
+
+    try:
+        world = back_project_view(depth, meta)
+        if world is None:
+            print(f"[cavity {cavity_name}] [view {view_name}] MISSING: no valid depth pixels")
+            return None
+    except Exception as exc:
+        print(f"[cavity {cavity_name}] [view {view_name}] MISSING: back-projection failed ({exc})")
+        return None
+
+    try:
+        # Determine board top Z and cavity XY centre from the multi-view metadata.
+        # target_bbox_center_world_m is set by capture_multiview_cavities.py from
+        # the single-view cavity's centroid_world_m + computed board top Z.
+        bbox_center = meta.get("target_bbox_center_world_m")
+        if bbox_center is not None and len(bbox_center) >= 3:
+            cavity_cx   = float(bbox_center[0])
+            cavity_cy   = float(bbox_center[1])
+            board_top_z = float(bbox_center[2])
+        else:
+            # Fallback: median of highest 10 % of world-Z values minus 1 mm,
+            # and use the depth-projection mean XY as the cavity centre proxy.
+            z_sorted = np.sort(world[:, 2])[::-1]
+            n = max(1, int(0.10 * len(z_sorted)))
+            board_top_z = float(np.median(z_sorted[:n])) - 0.001
+            cavity_cx   = float(world[:, 0].mean())
+            cavity_cy   = float(world[:, 1].mean())
+
+        n_before_z = int(len(world))
+
+        # Z band filter: keep only the opening/rim band immediately below the
+        # board top — exclude the board surface itself (above MIN) and the
+        # cavity walls / floor / deeper geometry (below MAX).
+        z_lo = board_top_z - CAVITY_DEPTH_MAX_BELOW_SURFACE_M
+        z_hi = board_top_z - CAVITY_DEPTH_MIN_BELOW_SURFACE_M
+        in_band = (world[:, 2] > z_lo) & (world[:, 2] < z_hi)
+        pts = world[in_band]
+        n_after_z = int(len(pts))
+
+        # XY ROI filter: stay within ±CAVITY_VIEW_ROI_HALF_SIZE_M of the
+        # known cavity XY centre. Excludes the surrounding table and floor
+        # which would otherwise dominate from oblique angles.
+        in_roi = (
+            (np.abs(pts[:, 0] - cavity_cx) <= CAVITY_VIEW_ROI_HALF_SIZE_M) &
+            (np.abs(pts[:, 1] - cavity_cy) <= CAVITY_VIEW_ROI_HALF_SIZE_M)
+        )
+        pts = pts[in_roi]
+        n_after_xy_roi = int(len(pts))
+
+        if n_after_xy_roi < MIN_VIEW_POINTS:
+            print(f"[cavity {cavity_name}] [view {view_name}] MISSING: "
+                  f"n_before_z={n_before_z}  n_after_z={n_after_z}  "
+                  f"n_after_xy_roi={n_after_xy_roi}  "
+                  f"(< {MIN_VIEW_POINTS}, board_top_z={board_top_z:.4f}, "
+                  f"centre=({cavity_cx:.4f},{cavity_cy:.4f}))")
+            return None
+
+        xy = pts[:, :2].astype(np.float32)
+        xy = xy - xy.mean(axis=0)   # centroid-centre
+        print(f"[cavity {cavity_name}] [view {view_name}] segmented "
+              f"n_before_z={n_before_z}  n_after_z={n_after_z}  "
+              f"n_after_xy_roi={n_after_xy_roi}  "
+              f"(board_top_z={board_top_z:.4f}, centre=({cavity_cx:.4f},{cavity_cy:.4f}))")
+        return xy
+    except Exception as exc:
+        print(f"[cavity {cavity_name}] [view {view_name}] MISSING: segmentation failed ({exc})")
+        return None
+
+
+def load_baseline1_cavity_opening(cavity_name: str) -> np.ndarray | None:
+    """
+    Load the validated Baseline 1 cavity opening point cloud for top_down use.
+
+    Source: data/cavities_detected/<cavity>/cavity_opening_pointcloud.npy
+    Returns centroid-centred Nx2 float32, or None if the file is absent / bad.
+    """
+    pc_path = CAVITY_DIR / cavity_name / "cavity_opening_pointcloud.npy"
+    if not pc_path.exists():
+        # Fall back to the generic cavity_pointcloud.npy if opening is absent.
+        pc_path = CAVITY_DIR / cavity_name / "cavity_pointcloud.npy"
+    if not pc_path.exists():
+        print(f"[baseline1_opening] {cavity_name}: file not found ({pc_path})")
+        return None
+    try:
+        pc = np.load(str(pc_path)).astype(np.float32)
+    except Exception as exc:
+        print(f"[baseline1_opening] {cavity_name}: load failed ({exc})")
+        return None
+    if pc.ndim != 2 or pc.shape[1] < 2:
+        print(f"[baseline1_opening] {cavity_name}: bad shape {pc.shape}")
+        return None
+    xy = pc[:, :2]
+    xy = xy - xy.mean(axis=0)
+    return xy.astype(np.float32)
+
+
+# Per-view cavity source policy. Hybrid representation:
+#   top_down       -> validated Baseline 1 opening point cloud
+#   front_oblique  -> multi-view ROI + Z-band rim derivation
+#   side_oblique   -> multi-view ROI + Z-band rim derivation
+CAVITY_VIEW_SOURCE = {
+    "top_down":      "baseline1_validated_opening",
+    "front_oblique": "multiview_roi_z_band",
+    "side_oblique":  "multiview_roi_z_band",
+}
+
+
+def load_cavity_view_masks() -> dict:
+    """
+    Build per-(cavity, view) masks using the hybrid cavity-source policy.
+
+    Returns:
+        {cavity_name: {view_name: {"mask_dil": ..., "mask_undil": ...,
+                                    "missing": bool, "source": str}}}
+    """
+    cavity_view_masks: dict = {}
+
+    cav_dirs = sorted(CAVITY_MULTI_DIR.glob("cavity_*"))
+    if not cav_dirs:
+        print(f"[load_cavity_view_masks] WARNING: no cavity directories found under {CAVITY_MULTI_DIR}")
+
+    for cav_path in cav_dirs:
         if not cav_path.is_dir():
             continue
-        pc_path = cav_path / "cavity_pointcloud.npy"
-        if not pc_path.exists():
-            print(f"[load_cavity] WARNING: missing {pc_path} — skipping {cav_path.name}")
-            continue
-        pc = np.load(str(pc_path)).astype(np.float32)
-        if pc.ndim != 2 or pc.shape[1] < 2:
-            print(f"[load_cavity] WARNING: bad shape {pc.shape} for {cav_path.name} — skipping")
-            continue
-        cav_xy = pc[:, :2]
-        mask_dil, mask_undil = build_cavity_masks(cav_xy)
-        cavities[cav_path.name] = {
-            "mask_dil":   mask_dil,
-            "mask_undil": mask_undil,
-            "n_points":   int(len(cav_xy)),
-        }
-        print(f"[load_cavity] {cav_path.name}: {len(cav_xy)} pts  "
-              f"undil={int((mask_undil>0).sum())}px  dil={int((mask_dil>0).sum())}px")
-    return cavities
+        cavity_name = cav_path.name
+        cavity_view_masks[cavity_name] = {}
+
+        for view_name in VIEW_NAMES:
+            source = CAVITY_VIEW_SOURCE.get(view_name, "multiview_roi_z_band")
+            if source == "baseline1_validated_opening":
+                cav_xy = load_baseline1_cavity_opening(cavity_name)
+            else:
+                cav_xy = process_cavity_view(cavity_name, view_name)
+
+            if cav_xy is None:
+                print(f"[load_cavity_view_masks] {cavity_name}/{view_name} "
+                      f"({source}): MISSING")
+                cavity_view_masks[cavity_name][view_name] = {
+                    "mask_dil":   None,
+                    "mask_undil": None,
+                    "missing":    True,
+                    "source":     source,
+                }
+            else:
+                mask_dil, mask_undil = build_cavity_masks(cav_xy)
+                px_undil = int((mask_undil > 0).sum())
+                px_dil   = int((mask_dil   > 0).sum())
+                print(f"[load_cavity_view_masks] {cavity_name}/{view_name} "
+                      f"({source}): {len(cav_xy)} pts  "
+                      f"undil={px_undil}px  dil={px_dil}px")
+                cavity_view_masks[cavity_name][view_name] = {
+                    "mask_dil":   mask_dil,
+                    "mask_undil": mask_undil,
+                    "missing":    False,
+                    "source":     source,
+                }
+
+    return cavity_view_masks
 
 
 def process_view(piece_name: str, view_name: str) -> np.ndarray | None:
@@ -300,7 +485,8 @@ def write_results_json(results: list, run_meta: dict) -> None:
         "script_name":    "baseline2_multiview_geometric_matching.py",
         "phase":          "Baseline 2 — Phase B (minimal validation)",
         "phase_note": (
-            "Minimal validation only. NOT multi-view fusion. NOT 3D reconstruction. "
+            "Minimal validation only. Viewpoint-symmetric matching: each piece view is scored "
+            "against the matching cavity view. NOT multi-view fusion. NOT 3D reconstruction. "
             "NOT pose estimation. Score-level aggregation across per-view rasterisations."
         ),
         "view_weights":   VIEW_WEIGHTS,
@@ -359,7 +545,19 @@ def write_report_md(results: list, score_matrix: dict, cavity_names: list,
                  "every cavity using Baseline 1's `score_pair` (180-rotation "
                  "search; `inside`/`outside` on dilated cavity, IoU on "
                  "non-dilated). The three per-view best scores are combined "
-                 "via weighted average (renormalised when a view is missing).")
+                 "via weighted average (renormalised when a view is missing). "
+                 "The comparison is viewpoint-symmetric: each piece view is "
+                 "scored only against the matching cavity view (top_down vs "
+                 "top_down, front_oblique vs front_oblique, side_oblique vs "
+                 "side_oblique). Cavity-view source policy is hybrid and "
+                 "deterministic: top_down cavity masks reuse the validated "
+                 "Baseline 1 opening point cloud "
+                 "(`cavity_opening_pointcloud.npy`); oblique cavity masks are "
+                 "derived from the multi-view depth via the local XY ROI + Z "
+                 "rim-band extraction. The policy is recorded per view as "
+                 "`cavity_source` (`baseline1_validated_opening` or "
+                 "`multiview_roi_z_band`). This is NOT multi-view fusion, NOT "
+                 "3D reconstruction, NOT pose estimation.")
     lines.append("")
 
     lines.append("## Descriptors used")
@@ -449,8 +647,8 @@ def write_report_md(results: list, score_matrix: dict, cavity_names: list,
     lines.append("- Sensitive to the choice of viewpoints; Phase A used "
                  "sequential single-camera relocation, not a synchronised "
                  "multi-camera rig.")
-    lines.append("- Cavity side is single-view only (Baseline 1 captures); "
-                 "only the piece side is multi-view.")
+    lines.append("- Cavity side now uses the symmetric multi-view captures from "
+                 "`data/multiview_captures/cavities/`.")
     lines.append("- The convex-hull representation-normalisation fallback "
                  "from Baseline 1 is inherited unchanged.")
     lines.append("- No 3D reconstruction. No pose estimation. No multi-view "
@@ -478,17 +676,28 @@ def main() -> None:
     print("=" * 70)
     print("baseline2_multiview_geometric_matching.py — Phase B (minimal)")
     print("=" * 70)
-    print(f"PROJECT_ROOT  : {PROJECT_ROOT}")
-    print(f"MULTIVIEW_DIR : {MULTIVIEW_DIR}")
-    print(f"CAVITY_DIR    : {CAVITY_DIR}")
-    print(f"VIEW_WEIGHTS  : {VIEW_WEIGHTS}")
+    print(f"PROJECT_ROOT     : {PROJECT_ROOT}")
+    print(f"MULTIVIEW_DIR    : {MULTIVIEW_DIR}")
+    print(f"CAVITY_MULTI_DIR : {CAVITY_MULTI_DIR}")
+    print(f"VIEW_WEIGHTS     : {VIEW_WEIGHTS}")
     print()
 
-    cavities = load_cavities()
-    if not cavities:
-        print("[main] FATAL: no cavities loaded; cannot proceed.")
+    # Validate cavity multi-view directory exists
+    if not CAVITY_MULTI_DIR.exists():
+        print(f"[main] WARNING: cavity multi-view directory does not exist: {CAVITY_MULTI_DIR}")
+
+    cavity_view_masks = load_cavity_view_masks()
+    if not cavity_view_masks:
+        print("[main] FATAL: no cavity multi-view masks loaded; cannot proceed.")
         sys.exit(1)
-    cavity_names = sorted(cavities.keys())
+    cavity_names = sorted(cavity_view_masks.keys())
+
+    # Warn about any missing cavity views
+    for cav in cavity_names:
+        for view in VIEW_NAMES:
+            entry = cavity_view_masks[cav].get(view, {})
+            if entry.get("missing", True):
+                print(f"[main] WARNING: cavity view missing: {cav}/{view}")
 
     run_meta = {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -509,14 +718,17 @@ def main() -> None:
         per_cavity_records: dict[str, dict] = {}
 
         for cav in cavity_names:
-            mask_dil   = cavities[cav]["mask_dil"]
-            mask_undil = cavities[cav]["mask_undil"]
-
             per_view_record: dict[str, dict] = {}
-            per_view_argmax_helper: dict[str, str] = {}   # filled later
+            cavity_view_missing: list[str] = []
+
             for view in VIEW_NAMES:
                 xy = per_view_xy[view]
-                if xy is None:
+                cav_view_entry = cavity_view_masks[cav].get(view, {"missing": True})
+
+                cav_source = cav_view_entry.get("source",
+                                                 CAVITY_VIEW_SOURCE.get(view, "unknown"))
+
+                if xy is None or cav_view_entry["missing"]:
                     per_view_record[view] = {
                         "score":             None,
                         "inside":            None,
@@ -524,13 +736,21 @@ def main() -> None:
                         "iou":               None,
                         "best_rotation_deg": None,
                         "missing":           True,
+                        "cavity_source":     cav_source,
                     }
+                    if cav_view_entry["missing"]:
+                        cavity_view_missing.append(view)
                 else:
-                    res = score_view_against_cavity(xy, mask_dil, mask_undil)
-                    res["missing"] = False
+                    res = score_view_against_cavity(
+                        xy,
+                        cav_view_entry["mask_dil"],
+                        cav_view_entry["mask_undil"],
+                    )
+                    res["missing"]       = False
+                    res["cavity_source"] = cav_source
                     per_view_record[view] = res
 
-            agg, missing_views = aggregate_scores(per_view_record)
+            agg, piece_view_missing = aggregate_scores(per_view_record)
             print(f"[piece {piece}] [score] vs {cav}: per-view "
                   f"top={per_view_record['top_down']['score']}  "
                   f"front={per_view_record['front_oblique']['score']}  "
@@ -538,11 +758,12 @@ def main() -> None:
                   f"-> agg={agg}")
 
             per_cavity_records[cav] = {
-                "piece":             piece,
-                "cavity":            cav,
-                "per_view":          per_view_record,
-                "missing_views":     missing_views,
-                "aggregate_score":   agg,
+                "piece":                      piece,
+                "cavity":                     cav,
+                "per_view":                   per_view_record,
+                "missing_views":              piece_view_missing,
+                "cavity_view_missing_views":  cavity_view_missing,
+                "aggregate_score":            agg,
             }
             score_matrix[piece][cav] = agg
 

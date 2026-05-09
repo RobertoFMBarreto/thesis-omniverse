@@ -2,14 +2,14 @@
   "schema_version": 1,
   "script_name": "baseline2_multiview_geometric_matching.py",
   "phase": "Baseline 2 \u2014 Phase B (minimal validation)",
-  "phase_note": "Minimal validation only. NOT multi-view fusion. NOT 3D reconstruction. NOT pose estimation. Score-level aggregation across per-view rasterisations.",
+  "phase_note": "Minimal validation only. Viewpoint-symmetric matching: each piece view is scored against the matching cavity view. NOT multi-view fusion. NOT 3D reconstruction. NOT pose estimation. Score-level aggregation across per-view rasterisations.",
   "view_weights": {
     "top_down": 0.6,
     "front_oblique": 0.2,
     "side_oblique": 0.2
   },
-  "timestamp_utc": "2026-05-09T15:47:16.293261+00:00",
-  "run_id": "b57e14e9",
+  "timestamp_utc": "2026-05-09T16:46:05.802232+00:00",
+  "run_id": "746b5f5e",
   "results": [
     {
       "piece": "rectangle",
@@ -21,33 +21,37 @@
           "outside": 0.0,
           "iou": 0.962694,
           "best_rotation_deg": 0,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.743483,
-          "inside": 0.982961,
-          "outside": 0.017039,
-          "iou": 0.729364,
+          "score": -0.083291,
+          "inside": 0.032815,
+          "outside": 0.967185,
+          "iou": 0.003532,
           "best_rotation_deg": 0,
-          "missing": false
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.582192,
-          "inside": 0.809624,
-          "outside": 0.190376,
-          "iou": 0.577929,
-          "best_rotation_deg": 328,
-          "missing": false
+          "score": -0.089708,
+          "inside": 0.020246,
+          "outside": 0.979754,
+          "iou": 0.002148,
+          "best_rotation_deg": 140,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.7928242000000001,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.4930894,
       "rank": 1,
-      "first_vs_second_margin": 0.22588720000000007,
+      "first_vs_second_margin": 0.1069194,
       "ambiguity_indicators": {
         "low_margin": false,
         "missing_view": false,
-        "per_view_disagreement": false
+        "per_view_disagreement": true
       }
     },
     {
@@ -60,27 +64,31 @@
           "outside": 0.294348,
           "iou": 0.667494,
           "best_rotation_deg": 90,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.6299,
-          "inside": 0.784715,
-          "outside": 0.215285,
-          "iou": 0.685051,
-          "best_rotation_deg": 272,
-          "missing": false
+          "score": 0.039211,
+          "inside": 0.157223,
+          "outside": 0.842777,
+          "iou": 0.124473,
+          "best_rotation_deg": 0,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.45079,
-          "inside": 0.622235,
-          "outside": 0.377765,
-          "iou": 0.492335,
-          "best_rotation_deg": 224,
-          "missing": false
+          "score": 0.137644,
+          "inside": 0.262962,
+          "outside": 0.737038,
+          "iou": 0.21693,
+          "best_rotation_deg": 166,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.566937,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.38617,
       "rank": 2,
       "first_vs_second_margin": null,
       "ambiguity_indicators": {
@@ -99,27 +107,31 @@
           "outside": 0.420586,
           "iou": 0.540084,
           "best_rotation_deg": 224,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.53307,
-          "inside": 0.669671,
-          "outside": 0.330329,
-          "iou": 0.603125,
-          "best_rotation_deg": 0,
-          "missing": false
+          "score": 0.200588,
+          "inside": 0.325596,
+          "outside": 0.674404,
+          "iou": 0.280127,
+          "best_rotation_deg": 40,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.341017,
-          "inside": 0.490234,
-          "outside": 0.509766,
-          "iou": 0.400748,
-          "best_rotation_deg": 224,
-          "missing": false
+          "score": 0.00656,
+          "inside": 0.132435,
+          "outside": 0.867565,
+          "iou": 0.08539,
+          "best_rotation_deg": 212,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.44948660000000007,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.3160988,
       "rank": 3,
       "first_vs_second_margin": null,
       "ambiguity_indicators": {
@@ -138,27 +150,31 @@
           "outside": 0.616416,
           "iou": 0.341168,
           "best_rotation_deg": 46,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.354909,
-          "inside": 0.485284,
-          "outside": 0.514716,
-          "iou": 0.430058,
-          "best_rotation_deg": 0,
-          "missing": false
+          "score": -0.076685,
+          "inside": 0.045607,
+          "outside": 0.954393,
+          "iou": 0.005076,
+          "best_rotation_deg": 232,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.216745,
-          "inside": 0.347432,
-          "outside": 0.652568,
-          "iou": 0.291638,
-          "best_rotation_deg": 224,
-          "missing": false
+          "score": -0.085977,
+          "inside": 0.027539,
+          "outside": 0.972461,
+          "iou": 0.002965,
+          "best_rotation_deg": 152,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.27048380000000005,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.12362060000000002,
       "rank": 4,
       "first_vs_second_margin": null,
       "ambiguity_indicators": {
@@ -177,72 +193,37 @@
           "outside": 0.0,
           "iou": 0.956098,
           "best_rotation_deg": 0,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.548066,
-          "inside": 0.75973,
-          "outside": 0.24027,
-          "iou": 0.556705,
-          "best_rotation_deg": 270,
-          "missing": false
+          "score": 0.069304,
+          "inside": 0.190793,
+          "outside": 0.809207,
+          "iou": 0.151722,
+          "best_rotation_deg": 230,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.548173,
-          "inside": 0.759527,
-          "outside": 0.240473,
-          "iou": 0.557065,
-          "best_rotation_deg": 180,
-          "missing": false
+          "score": 0.195514,
+          "inside": 0.326041,
+          "outside": 0.673959,
+          "iou": 0.270537,
+          "best_rotation_deg": 156,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.7447602000000001,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.578476,
       "rank": 1,
-      "first_vs_second_margin": 0.041821,
+      "first_vs_second_margin": 0.090565,
       "ambiguity_indicators": {
         "low_margin": false,
         "missing_view": false,
         "per_view_disagreement": true
-      }
-    },
-    {
-      "piece": "square",
-      "cavity": "cavity_00",
-      "per_view": {
-        "top_down": {
-          "score": 0.711701,
-          "inside": 1.0,
-          "outside": 0.0,
-          "iou": 0.657639,
-          "best_rotation_deg": 272,
-          "missing": false
-        },
-        "front_oblique": {
-          "score": 0.68995,
-          "inside": 0.994889,
-          "outside": 0.005111,
-          "iou": 0.622273,
-          "best_rotation_deg": 0,
-          "missing": false
-        },
-        "side_oblique": {
-          "score": 0.689643,
-          "inside": 0.994885,
-          "outside": 0.005115,
-          "iou": 0.621718,
-          "best_rotation_deg": 270,
-          "missing": false
-        }
-      },
-      "missing_views": [],
-      "aggregate_score": 0.7029392000000001,
-      "rank": 2,
-      "first_vs_second_margin": null,
-      "ambiguity_indicators": {
-        "low_margin": false,
-        "missing_view": false,
-        "per_view_disagreement": false
       }
     },
     {
@@ -255,27 +236,74 @@
           "outside": 0.14927,
           "iou": 0.801301,
           "best_rotation_deg": 0,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.48762,
-          "inside": 0.663792,
-          "outside": 0.336208,
-          "iou": 0.525297,
-          "best_rotation_deg": 324,
-          "missing": false
+          "score": 0.239022,
+          "inside": 0.372132,
+          "outside": 0.627868,
+          "iou": 0.311932,
+          "best_rotation_deg": 192,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.487585,
-          "inside": 0.663784,
-          "outside": 0.336216,
-          "iou": 0.52524,
-          "best_rotation_deg": 234,
-          "missing": false
+          "score": 0.029901,
+          "inside": 0.158052,
+          "outside": 0.841948,
+          "iou": 0.106868,
+          "best_rotation_deg": 152,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.6291673999999999,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.487911,
+      "rank": 2,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "square",
+      "cavity": "cavity_00",
+      "per_view": {
+        "top_down": {
+          "score": 0.711701,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.657639,
+          "best_rotation_deg": 272,
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
+        },
+        "front_oblique": {
+          "score": -0.079778,
+          "inside": 0.039714,
+          "outside": 0.960286,
+          "iou": 0.004275,
+          "best_rotation_deg": 206,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
+        },
+        "side_oblique": {
+          "score": -0.085875,
+          "inside": 0.027786,
+          "outside": 0.972214,
+          "iou": 0.002948,
+          "best_rotation_deg": 324,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
+        }
+      },
+      "missing_views": [],
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.39389,
       "rank": 3,
       "first_vs_second_margin": null,
       "ambiguity_indicators": {
@@ -294,27 +322,31 @@
           "outside": 0.442721,
           "iou": 0.496477,
           "best_rotation_deg": 134,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.322493,
-          "inside": 0.46725,
-          "outside": 0.53275,
-          "iou": 0.385873,
-          "best_rotation_deg": 312,
-          "missing": false
+          "score": -0.07456,
+          "inside": 0.04971,
+          "outside": 0.95029,
+          "iou": 0.005583,
+          "best_rotation_deg": 202,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.322573,
-          "inside": 0.46736,
-          "outside": 0.53264,
-          "iou": 0.385928,
-          "best_rotation_deg": 222,
-          "missing": false
+          "score": -0.080494,
+          "inside": 0.038307,
+          "outside": 0.961693,
+          "iou": 0.004124,
+          "best_rotation_deg": 152,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.383316,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.223292,
       "rank": 4,
       "first_vs_second_margin": null,
       "ambiguity_indicators": {
@@ -333,29 +365,33 @@
           "outside": 0.0,
           "iou": 0.972156,
           "best_rotation_deg": 80,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.527868,
-          "inside": 0.738767,
-          "outside": 0.261233,
-          "iou": 0.537132,
-          "best_rotation_deg": 350,
-          "missing": false
+          "score": 0.265326,
+          "inside": 0.414524,
+          "outside": 0.585476,
+          "iou": 0.325073,
+          "best_rotation_deg": 134,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.530198,
-          "inside": 0.742018,
-          "outside": 0.257982,
-          "iou": 0.538709,
-          "best_rotation_deg": 270,
-          "missing": false
+          "score": 0.041099,
+          "inside": 0.170867,
+          "outside": 0.829133,
+          "iou": 0.116744,
+          "best_rotation_deg": 190,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.7424248,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.5920966,
       "rank": 1,
-      "first_vs_second_margin": 0.041423600000000116,
+      "first_vs_second_margin": 0.05816460000000001,
       "ambiguity_indicators": {
         "low_margin": false,
         "missing_view": false,
@@ -372,27 +408,31 @@
           "outside": 0.0,
           "iou": 0.771685,
           "best_rotation_deg": 32,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.590342,
-          "inside": 0.845792,
-          "outside": 0.154208,
-          "iou": 0.563155,
-          "best_rotation_deg": 272,
-          "missing": false
+          "score": 0.1085,
+          "inside": 0.2354,
+          "outside": 0.7646,
+          "iou": 0.186492,
+          "best_rotation_deg": 170,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.591383,
-          "inside": 0.848646,
-          "outside": 0.151354,
-          "iou": 0.562713,
-          "best_rotation_deg": 186,
-          "missing": false
+          "score": 0.237879,
+          "inside": 0.379202,
+          "outside": 0.620798,
+          "iou": 0.30407,
+          "best_rotation_deg": 118,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.7010011999999999,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.533932,
       "rank": 2,
       "first_vs_second_margin": null,
       "ambiguity_indicators": {
@@ -411,27 +451,31 @@
           "outside": 0.0,
           "iou": 0.516831,
           "best_rotation_deg": 58,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.63527,
-          "inside": 1.0,
-          "outside": 0.0,
-          "iou": 0.518672,
-          "best_rotation_deg": 178,
-          "missing": false
+          "score": -0.075025,
+          "inside": 0.049037,
+          "outside": 0.950963,
+          "iou": 0.005288,
+          "best_rotation_deg": 0,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.634001,
-          "inside": 1.0,
-          "outside": 0.0,
-          "iou": 0.516366,
-          "best_rotation_deg": 274,
-          "missing": false
+          "score": -0.082556,
+          "inside": 0.034315,
+          "outside": 0.965685,
+          "iou": 0.003641,
+          "best_rotation_deg": 324,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.6344084,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.34903799999999996,
       "rank": 3,
       "first_vs_second_margin": null,
       "ambiguity_indicators": {
@@ -450,72 +494,37 @@
           "outside": 0.328425,
           "iou": 0.591557,
           "best_rotation_deg": 70,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.423023,
-          "inside": 0.577578,
-          "outside": 0.422422,
-          "iou": 0.478386,
-          "best_rotation_deg": 306,
-          "missing": false
+          "score": -0.070729,
+          "inside": 0.057277,
+          "outside": 0.942723,
+          "iou": 0.006357,
+          "best_rotation_deg": 256,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.424683,
-          "inside": 0.579736,
-          "outside": 0.420264,
-          "iou": 0.47964,
-          "best_rotation_deg": 214,
-          "missing": false
+          "score": -0.075756,
+          "inside": 0.047619,
+          "outside": 0.952381,
+          "iou": 0.005119,
+          "best_rotation_deg": 0,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.48608019999999996,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.287242,
       "rank": 4,
       "first_vs_second_margin": null,
       "ambiguity_indicators": {
         "low_margin": false,
         "missing_view": false,
         "per_view_disagreement": false
-      }
-    },
-    {
-      "piece": "triangle",
-      "cavity": "cavity_01",
-      "per_view": {
-        "top_down": {
-          "score": 0.862939,
-          "inside": 0.9998,
-          "outside": 0.0002,
-          "iou": 0.93278,
-          "best_rotation_deg": 0,
-          "missing": false
-        },
-        "front_oblique": {
-          "score": 0.448853,
-          "inside": 0.680796,
-          "outside": 0.319204,
-          "iou": 0.440899,
-          "best_rotation_deg": 350,
-          "missing": false
-        },
-        "side_oblique": {
-          "score": 0.448639,
-          "inside": 0.668198,
-          "outside": 0.331802,
-          "iou": 0.450818,
-          "best_rotation_deg": 214,
-          "missing": false
-        }
-      },
-      "missing_views": [],
-      "aggregate_score": 0.6972618,
-      "rank": 1,
-      "first_vs_second_margin": 0.07667340000000011,
-      "ambiguity_indicators": {
-        "low_margin": false,
-        "missing_view": false,
-        "per_view_disagreement": true
       }
     },
     {
@@ -528,27 +537,74 @@
           "outside": 0.030648,
           "iou": 0.58479,
           "best_rotation_deg": 24,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.552838,
-          "inside": 0.857978,
-          "outside": 0.142022,
-          "iou": 0.484995,
-          "best_rotation_deg": 8,
-          "missing": false
+          "score": 0.409114,
+          "inside": 0.580737,
+          "outside": 0.419263,
+          "iou": 0.450513,
+          "best_rotation_deg": 178,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.576575,
-          "inside": 0.882825,
-          "outside": 0.117175,
-          "iou": 0.507824,
-          "best_rotation_deg": 222,
-          "missing": false
+          "score": 0.115098,
+          "inside": 0.260573,
+          "outside": 0.739427,
+          "iou": 0.177891,
+          "best_rotation_deg": 180,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.6205883999999999,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.4995482,
+      "rank": 1,
+      "first_vs_second_margin": 0.005819200000000024,
+      "ambiguity_indicators": {
+        "low_margin": true,
+        "missing_view": false,
+        "per_view_disagreement": true
+      }
+    },
+    {
+      "piece": "triangle",
+      "cavity": "cavity_01",
+      "per_view": {
+        "top_down": {
+          "score": 0.862939,
+          "inside": 0.9998,
+          "outside": 0.0002,
+          "iou": 0.93278,
+          "best_rotation_deg": 0,
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
+        },
+        "front_oblique": {
+          "score": -0.057313,
+          "inside": 0.083548,
+          "outside": 0.916452,
+          "iou": 0.009256,
+          "best_rotation_deg": 8,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
+        },
+        "side_oblique": {
+          "score": -0.062859,
+          "inside": 0.072951,
+          "outside": 0.927049,
+          "iou": 0.007843,
+          "best_rotation_deg": 334,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
+        }
+      },
+      "missing_views": [],
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.493729,
       "rank": 2,
       "first_vs_second_margin": null,
       "ambiguity_indicators": {
@@ -567,27 +623,31 @@
           "outside": 0.007599,
           "iou": 0.486762,
           "best_rotation_deg": 126,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.577611,
-          "inside": 0.948611,
-          "outside": 0.051389,
-          "iou": 0.455884,
-          "best_rotation_deg": 312,
-          "missing": false
+          "score": 0.206199,
+          "inside": 0.343352,
+          "outside": 0.656648,
+          "iou": 0.275801,
+          "best_rotation_deg": 178,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.610357,
-          "inside": 0.986075,
-          "outside": 0.013925,
-          "iou": 0.48477,
-          "best_rotation_deg": 190,
-          "missing": false
+          "score": 0.375252,
+          "inside": 0.540822,
+          "outside": 0.459178,
+          "iou": 0.421604,
+          "best_rotation_deg": 158,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.6061730000000001,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.4848696,
       "rank": 3,
       "first_vs_second_margin": null,
       "ambiguity_indicators": {
@@ -606,27 +666,31 @@
           "outside": 0.0,
           "iou": 0.332034,
           "best_rotation_deg": 354,
-          "missing": false
+          "missing": false,
+          "cavity_source": "baseline1_validated_opening"
         },
         "front_oblique": {
-          "score": 0.536763,
-          "inside": 1.0,
-          "outside": 0.0,
-          "iou": 0.339569,
-          "best_rotation_deg": 214,
-          "missing": false
+          "score": -0.060823,
+          "inside": 0.076939,
+          "outside": 0.923061,
+          "iou": 0.008281,
+          "best_rotation_deg": 0,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         },
         "side_oblique": {
-          "score": 0.538175,
-          "inside": 1.0,
-          "outside": 0.0,
-          "iou": 0.342137,
-          "best_rotation_deg": 200,
-          "missing": false
+          "score": -0.073296,
+          "inside": 0.05253,
+          "outside": 0.94747,
+          "iou": 0.005574,
+          "best_rotation_deg": 334,
+          "missing": false,
+          "cavity_source": "multiview_roi_z_band"
         }
       },
       "missing_views": [],
-      "aggregate_score": 0.534559,
+      "cavity_view_missing_views": [],
+      "aggregate_score": 0.29274759999999994,
       "rank": 4,
       "first_vs_second_margin": null,
       "ambiguity_indicators": {
