@@ -346,16 +346,48 @@ def estimate_table_or_background_depth(depth):
     """
     import numpy as np
 
+    # Report the observed valid depth range before applying the configured window.
+    all_valid = depth[(depth > 0) & np.isfinite(depth)]
+    if all_valid.size > 0:
+        print(f"[table_depth] observed valid depth range: "
+              f"[{all_valid.min():.4f}, {all_valid.max():.4f}] m  "
+              f"(n_valid={all_valid.size})")
+    else:
+        print("[table_depth] observed valid depth range: no finite positive pixels at all")
+
     valid = depth[(depth > SURFACE_DEPTH_MIN) & (depth < SURFACE_DEPTH_MAX)]
     if valid.size == 0:
-        raise RuntimeError(
-            f"[table_depth] No valid depth pixels in "
-            f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m. "
-            f"Check SURFACE_DEPTH_MIN / SURFACE_DEPTH_MAX."
-        )
+        # Adaptive fallback: the configured window is empty (e.g. after a scene
+        # re-export that shifted the board/camera distance). Rather than aborting,
+        # derive the estimation window from the observed valid-depth distribution,
+        # biased toward the closer (smaller-depth) portion to target the board/table
+        # and exclude distant background (floor, walls).
+        if all_valid.size == 0:
+            raise RuntimeError(
+                f"[table_depth] No valid depth pixels in "
+                f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m and no finite "
+                f"depth pixels found anywhere. Cannot estimate table depth."
+            )
+        p05  = float(np.percentile(all_valid, 5))
+        p70  = float(np.percentile(all_valid, 70))
+        print(f"[table_depth] configured range [{SURFACE_DEPTH_MIN:.3f}, "
+              f"{SURFACE_DEPTH_MAX:.3f}] m empty; using adaptive valid-depth "
+              f"range [{p05:.3f}, {p70:.3f}] m (p05..p70 of valid)")
+        valid = all_valid[all_valid < p70]
+        if valid.size == 0:
+            raise RuntimeError(
+                f"[table_depth] No valid depth pixels in "
+                f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m. "
+                f"Check SURFACE_DEPTH_MIN / SURFACE_DEPTH_MAX."
+            )
+        adapt_min = p05
+        adapt_max = p70
+    else:
+        adapt_min = SURFACE_DEPTH_MIN
+        adapt_max = SURFACE_DEPTH_MAX
 
-    bins        = np.arange(SURFACE_DEPTH_MIN,
-                             SURFACE_DEPTH_MAX + SURFACE_HIST_BIN,
+    bins        = np.arange(adapt_min,
+                             adapt_max + SURFACE_HIST_BIN,
                              SURFACE_HIST_BIN)
     hist, edges = np.histogram(valid, bins=bins)
     peak_bin    = int(np.argmax(hist))
