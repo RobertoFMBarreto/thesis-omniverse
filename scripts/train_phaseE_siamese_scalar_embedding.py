@@ -110,10 +110,18 @@ class PhaseEDataset(Dataset):
         psdf = np.clip(psdf_mm / SDF_NORM_DIV_MM, -1.0, 1.0)[None, :, :]   # (1, 128, 128)
         csdf = np.clip(csdf_mm / SDF_NORM_DIV_MM, -1.0, 1.0)[None, :, :]
         label = float(self.labels[idx])
+        # Defensive scalar conversion: in some code paths self.scalars[idx]
+        # may already be a torch.Tensor (e.g. when scalars is built from a
+        # tensor view); torch.from_numpy would then raise TypeError.
+        scalar_row = self.scalars[idx]
+        if isinstance(scalar_row, torch.Tensor):
+            scalar_tensor = scalar_row.detach().float()
+        else:
+            scalar_tensor = torch.from_numpy(np.asarray(scalar_row)).float()
         return (
             torch.from_numpy(psdf).float(),
             torch.from_numpy(csdf).float(),
-            torch.from_numpy(self.scalars[idx]).float(),
+            scalar_tensor,
             torch.tensor(label, dtype=torch.float32),
             torch.tensor(idx, dtype=torch.long),
         )
@@ -447,6 +455,22 @@ def main() -> None:
         per_family_metrics[fam] = m
         print(f"  [family {fam:30s}] n={m['n']:5d} acc={m['accuracy']:.4f} "
               f"prec={m['precision']:.4f} rec={m['recall']:.4f} F1={m['f1']:.4f}")
+
+    # 6b. Save the best model BEFORE ranking eval. Ranking is the most likely
+    # site for runtime errors (subset construction, scope iteration); persisting
+    # the trained weights here protects against losing them on a downstream
+    # crash. The file may be overwritten in §8 with the final payload, but
+    # the snapshot is identical.
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    torch.save({
+        "state_dict":  model.state_dict(),
+        "embed_dim":   EMBED_DIM,
+        "scalar_dim":  SCALAR_DIM,
+        "best_epoch":  best_epoch,
+        "best_val_f1": best_val_f1,
+        "checkpoint_origin": "pre_ranking_eval",
+    }, OUT_MODEL_PT)
+    print(f"[checkpoint] saved pre-ranking model to {OUT_MODEL_PT}")
 
     # 7. Ranking eval on test split (and MVP scenario rows if any)
     print("\n[ranking] grouping by piece_id within test split + MVP rows ...")
