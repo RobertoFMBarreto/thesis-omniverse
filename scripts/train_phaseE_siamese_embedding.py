@@ -32,12 +32,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
+_DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = Path(
-    os.environ.get(
-        "SHAPE_INSERTION_PROJECT_ROOT",
-        "/Users/robertofmbarreto/Documents/Mestrado/tese/code/thesis-omniverse",
-    )
-)
+    os.environ.get("SHAPE_INSERTION_PROJECT_ROOT", str(_DEFAULT_PROJECT_ROOT))
+).resolve()
 
 DATA_DIR = PROJECT_ROOT / "data" / "phaseE_learned_embeddings"
 NPZ_PATH = DATA_DIR / "phaseE_sdf_pairs.npz"
