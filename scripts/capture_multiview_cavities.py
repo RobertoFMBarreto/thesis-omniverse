@@ -131,6 +131,10 @@ TOP_DOWN_HEIGHT = 0.50   # m above target centre (z+)
 OBLIQUE_HEIGHT  = 0.40   # m above target centre (z+); gives ~37° from vertical
 OBLIQUE_OFFSET  = 0.30   # m lateral offset: front = −Y, side = +X
 
+# Correction applied after the look-at quaternion is built, rotating the camera
+# around its local Z axis to match the piece multi-view camera convention.
+CAMERA_Z_ROT_CORRECTION_DEG = -90.0
+
 # ── VIEW CONFIGS ──────────────────────────────────────────────────────────────
 #
 # Positions and look-ats are placeholders; they are overwritten per cavity
@@ -470,6 +474,16 @@ def set_camera_pose(prim, position: tuple, look_at: tuple, up_axis: tuple) -> No
     ops_dict["xformOp:translate"].Set(Gf.Vec3d(*position))
 
     quat = _look_at_quaternion(position, look_at, up_axis)
+
+    # Compose with a local-Z roll to match the piece multi-view camera convention.
+    # q_z_rot = (cos(θ/2), 0, 0, sin(θ/2))  in (w, x, y, z) for a Z-axis rotation.
+    _theta = math.radians(CAMERA_Z_ROT_CORRECTION_DEG)
+    _cz    = math.cos(_theta / 2.0)
+    _sz    = math.sin(_theta / 2.0)
+    from pxr import Gf as _Gf_local
+    q_z_rot = _Gf_local.Quatd(_cz, 0.0, 0.0, _sz)
+    # q_final = q_look_at * q_z_rot  (local-frame rotation applied after look-at)
+    quat = quat * q_z_rot
 
     if "xformOp:orient" in ops_dict:
         ops_dict["xformOp:orient"].Set(quat)
@@ -836,6 +850,7 @@ def save_view_outputs(view_result: dict, view_idx: int,
         # ── Visibility control fields ─────────────────────────────────────────
         "visibility_control_enabled":   True,
         "hidden_piece_prim_paths":      PIECE_PRIM_PATHS_TO_HIDE,
+        "camera_z_rotation_correction_deg": CAMERA_Z_ROT_CORRECTION_DEG,
         "note":  CAVITY_IDENTITY_NOTE,
         "phase_note_detail": (
             "sequential-camera proof-of-life; not final static multi-camera architecture"
