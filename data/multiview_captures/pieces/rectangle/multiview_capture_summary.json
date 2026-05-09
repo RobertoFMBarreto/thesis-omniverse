@@ -2,12 +2,44 @@
   "script_name": "capture_multiview_piece.py",
   "phase": "A",
   "phase_note": "sequential-camera proof-of-life; not final static multi-camera architecture",
-  "run_id": "4a17bec2",
-  "timestamp_utc": "2026-05-09T13:30:06.402629+00:00",
+  "run_id": "aa05e41f",
+  "timestamp_utc": "2026-05-09T14:19:09.155747+00:00",
   "piece": "rectangle",
   "n_views_requested": 3,
   "n_views_succeeded": 3,
   "success": true,
+  "target_resolution": {
+    "target_mode": "auto_prim_bbox",
+    "selected_target_prim_path": "/World/Rectangle",
+    "target_prim_type_name": "Xform",
+    "bbox_min_m": [
+      -0.275,
+      0.4125,
+      0.4
+    ],
+    "bbox_max_m": [
+      -0.225,
+      0.4875,
+      0.505
+    ],
+    "bbox_center_m": [
+      -0.25,
+      0.45,
+      0.4525
+    ],
+    "bbox_size_m": [
+      0.05,
+      0.075,
+      0.105
+    ],
+    "bbox_size_mm": [
+      50.0,
+      75.0,
+      105.0
+    ],
+    "bbox_method": "BBoxCache",
+    "n_candidates_examined": 2
+  },
   "views": [
     {
       "view_index": 0,
@@ -15,14 +47,14 @@
       "prim_path": "/World/Camera",
       "requested_pose": {
         "position_m": [
-          0.0,
-          0.0,
-          0.7
+          -0.25,
+          0.45,
+          0.9525
         ],
         "look_at_m": [
-          0.0,
-          0.0,
-          0.0
+          -0.25,
+          0.45,
+          0.4525
         ],
         "up_axis": [
           0,
@@ -32,9 +64,9 @@
       },
       "measured_pose": {
         "position": [
-          0.0,
-          0.0,
-          0.7
+          -0.25,
+          0.45,
+          0.9525
         ],
         "quaternion": [
           1.0,
@@ -54,45 +86,50 @@
         "cy_px": 240.0,
         "model": "pinhole_square_pixels"
       },
-      "depth_valid_min_m": 0.2671,
-      "depth_valid_max_m": 0.7,
+      "depth_valid_min_m": 0.4475,
+      "depth_valid_max_m": 0.9525,
       "n_valid_depth_pixels": 307200,
       "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/view_00_top_down",
       "ok": true,
-      "error_message": null
+      "error_message": null,
+      "camera_offset_from_target": [
+        0.0,
+        0.0,
+        0.5
+      ]
     },
     {
       "view_index": 1,
-      "name": "oblique_left",
+      "name": "front_oblique",
       "prim_path": "/World/Camera",
       "requested_pose": {
         "position_m": [
-          0.5,
-          0.0,
-          0.7
+          -0.25,
+          0.15000000000000002,
+          0.8525
         ],
         "look_at_m": [
-          0.0,
-          0.0,
-          0.0
+          -0.25,
+          0.45,
+          0.4525
         ],
         "up_axis": [
           0,
-          0,
-          1
+          1,
+          0
         ]
       },
       "measured_pose": {
         "position": [
-          0.5,
-          0.0,
-          0.7
+          -0.25,
+          0.15,
+          0.8525
         ],
         "quaternion": [
-          0.673375,
-          0.215793,
-          0.215793,
-          0.673375
+          0.948683,
+          0.316228,
+          0.0,
+          0.0
         ]
       },
       "image_size": [
@@ -106,45 +143,50 @@
         "cy_px": 240.0,
         "model": "pinhole_square_pixels"
       },
-      "depth_valid_min_m": 0.2413,
-      "depth_valid_max_m": 1.436,
+      "depth_valid_min_m": 0.4355,
+      "depth_valid_max_m": 1.8405,
       "n_valid_depth_pixels": 307200,
-      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/view_01_oblique_left",
+      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/view_01_front_oblique",
       "ok": true,
-      "error_message": null
+      "error_message": null,
+      "camera_offset_from_target": [
+        0.0,
+        -0.3,
+        0.4
+      ]
     },
     {
       "view_index": 2,
-      "name": "oblique_right",
+      "name": "side_oblique",
       "prim_path": "/World/Camera",
       "requested_pose": {
         "position_m": [
-          -0.5,
-          0.0,
-          0.7
+          0.04999999999999999,
+          0.45,
+          0.8525
         ],
         "look_at_m": [
-          0.0,
-          0.0,
-          0.0
+          -0.25,
+          0.45,
+          0.4525
         ],
         "up_axis": [
           0,
-          0,
-          1
+          1,
+          0
         ]
       },
       "measured_pose": {
         "position": [
-          -0.5,
-          0.0,
-          0.7
+          0.05,
+          0.45,
+          0.8525
         ],
         "quaternion": [
-          -0.673375,
-          -0.215793,
-          0.215793,
-          0.673375
+          0.948683,
+          0.0,
+          0.316228,
+          0.0
         ]
       },
       "image_size": [
@@ -158,12 +200,17 @@
         "cy_px": 240.0,
         "model": "pinhole_square_pixels"
       },
-      "depth_valid_min_m": 0.4674,
-      "depth_valid_max_m": 1.436,
+      "depth_valid_min_m": 0.3622,
+      "depth_valid_max_m": 2.4308,
       "n_valid_depth_pixels": 307200,
-      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/view_02_oblique_right",
+      "save_path": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/data/multiview_captures/pieces/rectangle/view_02_side_oblique",
       "ok": true,
-      "error_message": null
+      "error_message": null,
+      "camera_offset_from_target": [
+        0.3,
+        0.0,
+        0.4
+      ]
     }
   ],
   "inputs_dir": "/World/Camera",
