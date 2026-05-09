@@ -1,0 +1,559 @@
+{
+  "script": "inspect_cavity_scene_scale.py",
+  "timestamp": "2026-05-09T10:05:54.445062+00:00",
+  "stage_identifier": "/workspace/Tese_Roberto/shape_insertion/thesis-omniverse/scene/final_stage.usd",
+  "search_terms": [
+    "cavity",
+    "circle",
+    "cylinder",
+    "board",
+    "hole"
+  ],
+  "context": {
+    "measured_opening_mm": 60.84,
+    "cad_nominal_diameter_mm": 51.0,
+    "inflation_mm": 9.84,
+    "inflation_pct": 19.3
+  },
+  "summary": {
+    "total_candidates": 8,
+    "highlighted": 6,
+    "non_unity_scale_prims": 0,
+    "circular_candidates": 4,
+    "board_candidates": 4
+  },
+  "forced_inspection_targets": [
+    {
+      "path": "/World/Circle",
+      "found": true,
+      "type_name": "Xform",
+      "bbox_available": true,
+      "bbox_method": "BBoxCache",
+      "bbox_min_m": [
+        -0.27499999999999997,
+        0.42501521587371816,
+        0.39999999999999997
+      ],
+      "bbox_max_m": [
+        -0.22506089925765987,
+        0.4749847602844237,
+        0.5049999999999999
+      ],
+      "bbox_size_m": [
+        0.04993910074234009,
+        0.04996954441070556,
+        0.10499999999999993
+      ],
+      "bbox_size_mm": [
+        49.939,
+        49.97,
+        105.0
+      ],
+      "bbox_highlight_flags": [
+        "near_51mm"
+      ],
+      "bbox_error": null
+    },
+    {
+      "path": "/World/Circle/Body1",
+      "found": true,
+      "type_name": "Mesh",
+      "bbox_available": true,
+      "bbox_method": "BBoxCache",
+      "bbox_min_m": [
+        -0.275,
+        0.42501521587371827,
+        0.4
+      ],
+      "bbox_max_m": [
+        -0.2250608992576599,
+        0.4749847602844238,
+        0.505
+      ],
+      "bbox_size_m": [
+        0.04993910074234012,
+        0.04996954441070556,
+        0.10499999999999998
+      ],
+      "bbox_size_mm": [
+        49.939,
+        49.97,
+        105.0
+      ],
+      "bbox_highlight_flags": [
+        "near_51mm"
+      ],
+      "bbox_error": null
+    },
+    {
+      "path": "/World/Board_Tese",
+      "found": true,
+      "type_name": "Xform",
+      "bbox_available": true,
+      "bbox_method": "BBoxCache",
+      "bbox_min_m": [
+        0.19999999700500265,
+        -0.08750000342285412,
+        0.40000000596046464
+      ],
+      "bbox_max_m": [
+        0.40000000299499733,
+        0.08750000342285412,
+        0.47500000596046466
+      ],
+      "bbox_size_m": [
+        0.20000000598999468,
+        0.17500000684570824,
+        0.07500000000000001
+      ],
+      "bbox_size_mm": [
+        200.0,
+        175.0,
+        75.0
+      ],
+      "bbox_highlight_flags": [
+        "near_75mm"
+      ],
+      "bbox_error": null
+    },
+    {
+      "path": "/World/Board_Tese/Body1",
+      "found": true,
+      "type_name": "Mesh",
+      "bbox_available": true,
+      "bbox_method": "BBoxCache",
+      "bbox_min_m": [
+        0.19999999700500265,
+        -0.08750000342285412,
+        0.4000000059604645
+      ],
+      "bbox_max_m": [
+        0.40000000299499733,
+        0.08750000342285412,
+        0.4750000059604645
+      ],
+      "bbox_size_m": [
+        0.20000000598999468,
+        0.17500000684570824,
+        0.07500000000000001
+      ],
+      "bbox_size_mm": [
+        200.0,
+        175.0,
+        75.0
+      ],
+      "bbox_highlight_flags": [
+        "near_75mm"
+      ],
+      "bbox_error": null
+    }
+  ],
+  "conclusion_candidates": "Circle mesh authored at correct ~51 mm — inflation source must be elsewhere.",
+  "candidate_circular_prims": [
+    "/World/Circle",
+    "/World/Circle/Body1",
+    "/World/Circle/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C",
+    "/World/Circle/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C_shader"
+  ],
+  "candidate_board_prims": [
+    "/World/Board_Tese",
+    "/World/Board_Tese/Body1",
+    "/World/Board_Tese/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C",
+    "/World/Board_Tese/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C_shader"
+  ],
+  "non_unity_scale_paths": [],
+  "highlighted_paths": [
+    "/World/Board_Tese",
+    "/World/Board_Tese/Body1",
+    "/World/Circle",
+    "/World/Circle/Body1",
+    "/World/Circle/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C",
+    "/World/Circle/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C_shader"
+  ],
+  "candidates": [
+    {
+      "path": "/World/Board_Tese",
+      "type_name": "Xform",
+      "local_scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "local_matrix": [
+        -3.4228541778702496e-11,
+        -0.0009999999999999994,
+        0.0,
+        0.0,
+        0.0009999999999999994,
+        -3.4228541778702496e-11,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.001,
+        0.0,
+        0.3,
+        0.0,
+        0.4000000059604645,
+        1.0
+      ],
+      "world_matrix": [
+        -3.4228541778702496e-11,
+        -0.0009999999999999994,
+        0.0,
+        0.0,
+        0.0009999999999999994,
+        -3.4228541778702496e-11,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.001,
+        0.0,
+        0.3,
+        0.0,
+        0.4000000059604645,
+        1.0
+      ],
+      "bbox_available": true,
+      "bbox_method": "BBoxCache",
+      "bbox_min_m": [
+        0.19999999700500265,
+        -0.08750000342285412,
+        0.40000000596046464
+      ],
+      "bbox_max_m": [
+        0.40000000299499733,
+        0.08750000342285412,
+        0.47500000596046466
+      ],
+      "bbox_size_m": [
+        0.20000000598999468,
+        0.17500000684570824,
+        0.07500000000000001
+      ],
+      "bbox_size_mm": [
+        200.0,
+        175.0,
+        75.0
+      ],
+      "bbox_highlight_flags": [
+        "near_75mm"
+      ],
+      "bbox_error": null,
+      "parent_non_unity_scales": [],
+      "highlights": [
+        "bbox_Z = 75.00 mm ≈ 75.0 mm (matches CAD board thickness)"
+      ],
+      "errors": []
+    },
+    {
+      "path": "/World/Board_Tese/Body1",
+      "type_name": "Mesh",
+      "local_scale": null,
+      "local_matrix": [
+        10.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        10.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        10.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "world_matrix": [
+        -3.4228541778702497e-10,
+        -0.009999999999999993,
+        0.0,
+        0.0,
+        0.009999999999999993,
+        -3.4228541778702497e-10,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.01,
+        0.0,
+        0.3,
+        0.0,
+        0.4000000059604645,
+        1.0
+      ],
+      "bbox_available": true,
+      "bbox_method": "BBoxCache",
+      "bbox_min_m": [
+        0.19999999700500265,
+        -0.08750000342285412,
+        0.4000000059604645
+      ],
+      "bbox_max_m": [
+        0.40000000299499733,
+        0.08750000342285412,
+        0.4750000059604645
+      ],
+      "bbox_size_m": [
+        0.20000000598999468,
+        0.17500000684570824,
+        0.07500000000000001
+      ],
+      "bbox_size_mm": [
+        200.0,
+        175.0,
+        75.0
+      ],
+      "bbox_highlight_flags": [
+        "near_75mm"
+      ],
+      "bbox_error": null,
+      "parent_non_unity_scales": [],
+      "highlights": [
+        "bbox_Z = 75.00 mm ≈ 75.0 mm (matches CAD board thickness)"
+      ],
+      "errors": []
+    },
+    {
+      "path": "/World/Board_Tese/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C",
+      "type_name": "Material",
+      "local_scale": null,
+      "local_matrix": null,
+      "world_matrix": null,
+      "bbox_available": false,
+      "bbox_method": "empty",
+      "bbox_min_m": null,
+      "bbox_max_m": null,
+      "bbox_size_m": null,
+      "bbox_size_mm": null,
+      "bbox_highlight_flags": [],
+      "bbox_error": "BBoxCache returned empty range; no mesh points found in subtree",
+      "parent_non_unity_scales": [],
+      "highlights": [],
+      "errors": [
+        "bbox: BBoxCache returned empty range; no mesh points found in subtree"
+      ]
+    },
+    {
+      "path": "/World/Board_Tese/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C_shader",
+      "type_name": "Shader",
+      "local_scale": null,
+      "local_matrix": null,
+      "world_matrix": null,
+      "bbox_available": false,
+      "bbox_method": "empty",
+      "bbox_min_m": null,
+      "bbox_max_m": null,
+      "bbox_size_m": null,
+      "bbox_size_mm": null,
+      "bbox_highlight_flags": [],
+      "bbox_error": "BBoxCache returned empty range; no mesh points found in subtree",
+      "parent_non_unity_scales": [],
+      "highlights": [],
+      "errors": [
+        "bbox: BBoxCache returned empty range; no mesh points found in subtree"
+      ]
+    },
+    {
+      "path": "/World/Circle",
+      "type_name": "Xform",
+      "local_scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "local_matrix": [
+        0.001,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.001,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.001,
+        0.0,
+        -0.25,
+        0.44999998807907104,
+        0.4,
+        1.0
+      ],
+      "world_matrix": [
+        0.001,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.001,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.001,
+        0.0,
+        -0.25,
+        0.44999998807907104,
+        0.4,
+        1.0
+      ],
+      "bbox_available": true,
+      "bbox_method": "BBoxCache",
+      "bbox_min_m": [
+        -0.27499999999999997,
+        0.42501521587371816,
+        0.39999999999999997
+      ],
+      "bbox_max_m": [
+        -0.22506089925765987,
+        0.4749847602844237,
+        0.5049999999999999
+      ],
+      "bbox_size_m": [
+        0.04993910074234009,
+        0.04996954441070556,
+        0.10499999999999993
+      ],
+      "bbox_size_mm": [
+        49.939,
+        49.97,
+        105.0
+      ],
+      "bbox_highlight_flags": [
+        "near_51mm"
+      ],
+      "bbox_error": null,
+      "parent_non_unity_scales": [],
+      "highlights": [
+        "name/path contains 'circle' or 'cylinder'",
+        "bbox_X = 49.94 mm ≈ 51.0 mm (matches CAD nominal)",
+        "bbox_Y = 49.97 mm ≈ 51.0 mm (matches CAD nominal)"
+      ],
+      "errors": []
+    },
+    {
+      "path": "/World/Circle/Body1",
+      "type_name": "Mesh",
+      "local_scale": null,
+      "local_matrix": [
+        10.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        10.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        10.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "world_matrix": [
+        0.01,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.01,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.01,
+        0.0,
+        -0.25,
+        0.44999998807907104,
+        0.4,
+        1.0
+      ],
+      "bbox_available": true,
+      "bbox_method": "BBoxCache",
+      "bbox_min_m": [
+        -0.275,
+        0.42501521587371827,
+        0.4
+      ],
+      "bbox_max_m": [
+        -0.2250608992576599,
+        0.4749847602844238,
+        0.505
+      ],
+      "bbox_size_m": [
+        0.04993910074234012,
+        0.04996954441070556,
+        0.10499999999999998
+      ],
+      "bbox_size_mm": [
+        49.939,
+        49.97,
+        105.0
+      ],
+      "bbox_highlight_flags": [
+        "near_51mm"
+      ],
+      "bbox_error": null,
+      "parent_non_unity_scales": [],
+      "highlights": [
+        "name/path contains 'circle' or 'cylinder'",
+        "bbox_X = 49.94 mm ≈ 51.0 mm (matches CAD nominal)",
+        "bbox_Y = 49.97 mm ≈ 51.0 mm (matches CAD nominal)"
+      ],
+      "errors": []
+    },
+    {
+      "path": "/World/Circle/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C",
+      "type_name": "Material",
+      "local_scale": null,
+      "local_matrix": null,
+      "world_matrix": null,
+      "bbox_available": false,
+      "bbox_method": "empty",
+      "bbox_min_m": null,
+      "bbox_max_m": null,
+      "bbox_size_m": null,
+      "bbox_size_mm": null,
+      "bbox_highlight_flags": [],
+      "bbox_error": "BBoxCache returned empty range; no mesh points found in subtree",
+      "parent_non_unity_scales": [],
+      "highlights": [
+        "name/path contains 'circle' or 'cylinder'"
+      ],
+      "errors": [
+        "bbox: BBoxCache returned empty range; no mesh points found in subtree"
+      ]
+    },
+    {
+      "path": "/World/Circle/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C/XID_SteelSatin_873C466D5CB8B69EEF5D4FD81DF6749C_shader",
+      "type_name": "Shader",
+      "local_scale": null,
+      "local_matrix": null,
+      "world_matrix": null,
+      "bbox_available": false,
+      "bbox_method": "empty",
+      "bbox_min_m": null,
+      "bbox_max_m": null,
+      "bbox_size_m": null,
+      "bbox_size_mm": null,
+      "bbox_highlight_flags": [],
+      "bbox_error": "BBoxCache returned empty range; no mesh points found in subtree",
+      "parent_non_unity_scales": [],
+      "highlights": [
+        "name/path contains 'circle' or 'cylinder'"
+      ],
+      "errors": [
+        "bbox: BBoxCache returned empty range; no mesh points found in subtree"
+      ]
+    }
+  ]
+}
