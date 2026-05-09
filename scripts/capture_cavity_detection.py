@@ -564,6 +564,7 @@ def estimate_board_surface_depth(depth, board_mask=None):
         print(f"[surface_est] using board surface mask  "
               f"({n_board_px} board pixels)")
         # roi is already a 1-D array of depth values
+        source_pool = roi
         valid = roi[(roi > SURFACE_DEPTH_MIN) & (roi < SURFACE_DEPTH_MAX)]
     else:
         # Legacy path
@@ -574,20 +575,58 @@ def estimate_board_surface_depth(depth, board_mask=None):
             roi_2d = depth[dh : h - dh, dw : w - dw]
             print(f"[surface_est] using ROI [{dh}:{h-dh}, {dw}:{w-dw}]  "
                   f"({roi_2d.shape[1]}x{roi_2d.shape[0]} px)")
+            source_pool = roi_2d.reshape(-1)
             valid = roi_2d[(roi_2d > SURFACE_DEPTH_MIN) & (roi_2d < SURFACE_DEPTH_MAX)]
         else:
             print("[surface_est] using full image (BOARD_ROI_ENABLED=False)")
+            source_pool = depth.reshape(-1)
             valid = depth[(depth > SURFACE_DEPTH_MIN) & (depth < SURFACE_DEPTH_MAX)]
 
-    if valid.size == 0:
-        raise RuntimeError(
-            f"[surface_est] No valid depth pixels in "
-            f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m. "
-            f"Check CAM_Z and SURFACE_DEPTH_MIN / SURFACE_DEPTH_MAX."
-        )
+    # Report observed valid depth range inside the source pool, before applying
+    # the configured window — useful for diagnosing depth-range mismatches after
+    # scene/camera updates.
+    pool_valid = source_pool[(source_pool > 0) & np.isfinite(source_pool)]
+    if pool_valid.size > 0:
+        print(f"[surface_est] observed valid depth range in source pool: "
+              f"[{float(pool_valid.min()):.4f}, {float(pool_valid.max()):.4f}] m  "
+              f"(n_valid={pool_valid.size})")
+    else:
+        print("[surface_est] observed valid depth range in source pool: "
+              "no finite positive pixels at all")
 
-    bins             = np.arange(SURFACE_DEPTH_MIN,
-                                  SURFACE_DEPTH_MAX + SURFACE_HIST_BIN,
+    if valid.size == 0:
+        # Adaptive fallback: configured window is empty (e.g. after a scene
+        # re-export shifted the camera/board distance). Derive an estimation
+        # window from valid depths inside the source pool, biased toward the
+        # closer (smaller-depth) portion to target the board top and exclude
+        # distant background. Mirrors the fallback in
+        # estimate_table_or_background_depth.
+        if pool_valid.size == 0:
+            raise RuntimeError(
+                f"[surface_est] No valid depth pixels in "
+                f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m and no finite "
+                f"depth pixels in source pool. Cannot estimate board surface depth."
+            )
+        p05 = float(np.percentile(pool_valid, 5))
+        p70 = float(np.percentile(pool_valid, 70))
+        print(f"[surface_est] configured range [{SURFACE_DEPTH_MIN:.3f}, "
+              f"{SURFACE_DEPTH_MAX:.3f}] m empty; using adaptive board-depth "
+              f"range [{p05:.3f}, {p70:.3f}] m (p05..p70 of source pool)")
+        valid = pool_valid[pool_valid < p70]
+        if valid.size == 0:
+            raise RuntimeError(
+                f"[surface_est] No valid depth pixels in "
+                f"[{SURFACE_DEPTH_MIN}, {SURFACE_DEPTH_MAX}] m. "
+                f"Check CAM_Z and SURFACE_DEPTH_MIN / SURFACE_DEPTH_MAX."
+            )
+        adapt_min = p05
+        adapt_max = p70
+    else:
+        adapt_min = SURFACE_DEPTH_MIN
+        adapt_max = SURFACE_DEPTH_MAX
+
+    bins             = np.arange(adapt_min,
+                                  adapt_max + SURFACE_HIST_BIN,
                                   SURFACE_HIST_BIN)
     hist, edges      = np.histogram(valid, bins=bins)
     peak_bin         = int(np.argmax(hist))
