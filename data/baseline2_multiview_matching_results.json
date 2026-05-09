@@ -1,0 +1,639 @@
+{
+  "schema_version": 1,
+  "script_name": "baseline2_multiview_geometric_matching.py",
+  "phase": "Baseline 2 \u2014 Phase B (minimal validation)",
+  "phase_note": "Minimal validation only. NOT multi-view fusion. NOT 3D reconstruction. NOT pose estimation. Score-level aggregation across per-view rasterisations.",
+  "view_weights": {
+    "top_down": 0.6,
+    "front_oblique": 0.2,
+    "side_oblique": 0.2
+  },
+  "timestamp_utc": "2026-05-09T15:47:16.293261+00:00",
+  "run_id": "b57e14e9",
+  "results": [
+    {
+      "piece": "rectangle",
+      "cavity": "cavity_00",
+      "per_view": {
+        "top_down": {
+          "score": 0.879482,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.962694,
+          "best_rotation_deg": 0,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.743483,
+          "inside": 0.982961,
+          "outside": 0.017039,
+          "iou": 0.729364,
+          "best_rotation_deg": 0,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.582192,
+          "inside": 0.809624,
+          "outside": 0.190376,
+          "iou": 0.577929,
+          "best_rotation_deg": 328,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.7928242000000001,
+      "rank": 1,
+      "first_vs_second_margin": 0.22588720000000007,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "rectangle",
+      "cavity": "cavity_02",
+      "per_view": {
+        "top_down": {
+          "score": 0.584665,
+          "inside": 0.705652,
+          "outside": 0.294348,
+          "iou": 0.667494,
+          "best_rotation_deg": 90,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.6299,
+          "inside": 0.784715,
+          "outside": 0.215285,
+          "iou": 0.685051,
+          "best_rotation_deg": 272,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.45079,
+          "inside": 0.622235,
+          "outside": 0.377765,
+          "iou": 0.492335,
+          "best_rotation_deg": 224,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.566937,
+      "rank": 2,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "rectangle",
+      "cavity": "cavity_03",
+      "per_view": {
+        "top_down": {
+          "score": 0.457782,
+          "inside": 0.579414,
+          "outside": 0.420586,
+          "iou": 0.540084,
+          "best_rotation_deg": 224,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.53307,
+          "inside": 0.669671,
+          "outside": 0.330329,
+          "iou": 0.603125,
+          "best_rotation_deg": 0,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.341017,
+          "inside": 0.490234,
+          "outside": 0.509766,
+          "iou": 0.400748,
+          "best_rotation_deg": 224,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.44948660000000007,
+      "rank": 3,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "rectangle",
+      "cavity": "cavity_01",
+      "per_view": {
+        "top_down": {
+          "score": 0.260255,
+          "inside": 0.383584,
+          "outside": 0.616416,
+          "iou": 0.341168,
+          "best_rotation_deg": 46,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.354909,
+          "inside": 0.485284,
+          "outside": 0.514716,
+          "iou": 0.430058,
+          "best_rotation_deg": 0,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.216745,
+          "inside": 0.347432,
+          "outside": 0.652568,
+          "iou": 0.291638,
+          "best_rotation_deg": 224,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.27048380000000005,
+      "rank": 4,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "square",
+      "cavity": "cavity_02",
+      "per_view": {
+        "top_down": {
+          "score": 0.875854,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.956098,
+          "best_rotation_deg": 0,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.548066,
+          "inside": 0.75973,
+          "outside": 0.24027,
+          "iou": 0.556705,
+          "best_rotation_deg": 270,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.548173,
+          "inside": 0.759527,
+          "outside": 0.240473,
+          "iou": 0.557065,
+          "best_rotation_deg": 180,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.7447602000000001,
+      "rank": 1,
+      "first_vs_second_margin": 0.041821,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": true
+      }
+    },
+    {
+      "piece": "square",
+      "cavity": "cavity_00",
+      "per_view": {
+        "top_down": {
+          "score": 0.711701,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.657639,
+          "best_rotation_deg": 272,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.68995,
+          "inside": 0.994889,
+          "outside": 0.005111,
+          "iou": 0.622273,
+          "best_rotation_deg": 0,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.689643,
+          "inside": 0.994885,
+          "outside": 0.005115,
+          "iou": 0.621718,
+          "best_rotation_deg": 270,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.7029392000000001,
+      "rank": 2,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "square",
+      "cavity": "cavity_03",
+      "per_view": {
+        "top_down": {
+          "score": 0.723544,
+          "inside": 0.85073,
+          "outside": 0.14927,
+          "iou": 0.801301,
+          "best_rotation_deg": 0,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.48762,
+          "inside": 0.663792,
+          "outside": 0.336208,
+          "iou": 0.525297,
+          "best_rotation_deg": 324,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.487585,
+          "inside": 0.663784,
+          "outside": 0.336216,
+          "iou": 0.52524,
+          "best_rotation_deg": 234,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.6291673999999999,
+      "rank": 3,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "square",
+      "cavity": "cavity_01",
+      "per_view": {
+        "top_down": {
+          "score": 0.423838,
+          "inside": 0.557279,
+          "outside": 0.442721,
+          "iou": 0.496477,
+          "best_rotation_deg": 134,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.322493,
+          "inside": 0.46725,
+          "outside": 0.53275,
+          "iou": 0.385873,
+          "best_rotation_deg": 312,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.322573,
+          "inside": 0.46736,
+          "outside": 0.53264,
+          "iou": 0.385928,
+          "best_rotation_deg": 222,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.383316,
+      "rank": 4,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "circle",
+      "cavity": "cavity_03",
+      "per_view": {
+        "top_down": {
+          "score": 0.884686,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.972156,
+          "best_rotation_deg": 80,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.527868,
+          "inside": 0.738767,
+          "outside": 0.261233,
+          "iou": 0.537132,
+          "best_rotation_deg": 350,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.530198,
+          "inside": 0.742018,
+          "outside": 0.257982,
+          "iou": 0.538709,
+          "best_rotation_deg": 270,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.7424248,
+      "rank": 1,
+      "first_vs_second_margin": 0.041423600000000116,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": true
+      }
+    },
+    {
+      "piece": "circle",
+      "cavity": "cavity_02",
+      "per_view": {
+        "top_down": {
+          "score": 0.774427,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.771685,
+          "best_rotation_deg": 32,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.590342,
+          "inside": 0.845792,
+          "outside": 0.154208,
+          "iou": 0.563155,
+          "best_rotation_deg": 272,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.591383,
+          "inside": 0.848646,
+          "outside": 0.151354,
+          "iou": 0.562713,
+          "best_rotation_deg": 186,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.7010011999999999,
+      "rank": 2,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "circle",
+      "cavity": "cavity_00",
+      "per_view": {
+        "top_down": {
+          "score": 0.634257,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.516831,
+          "best_rotation_deg": 58,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.63527,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.518672,
+          "best_rotation_deg": 178,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.634001,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.516366,
+          "best_rotation_deg": 274,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.6344084,
+      "rank": 3,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "circle",
+      "cavity": "cavity_01",
+      "per_view": {
+        "top_down": {
+          "score": 0.527565,
+          "inside": 0.671575,
+          "outside": 0.328425,
+          "iou": 0.591557,
+          "best_rotation_deg": 70,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.423023,
+          "inside": 0.577578,
+          "outside": 0.422422,
+          "iou": 0.478386,
+          "best_rotation_deg": 306,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.424683,
+          "inside": 0.579736,
+          "outside": 0.420264,
+          "iou": 0.47964,
+          "best_rotation_deg": 214,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.48608019999999996,
+      "rank": 4,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "triangle",
+      "cavity": "cavity_01",
+      "per_view": {
+        "top_down": {
+          "score": 0.862939,
+          "inside": 0.9998,
+          "outside": 0.0002,
+          "iou": 0.93278,
+          "best_rotation_deg": 0,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.448853,
+          "inside": 0.680796,
+          "outside": 0.319204,
+          "iou": 0.440899,
+          "best_rotation_deg": 350,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.448639,
+          "inside": 0.668198,
+          "outside": 0.331802,
+          "iou": 0.450818,
+          "best_rotation_deg": 214,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.6972618,
+      "rank": 1,
+      "first_vs_second_margin": 0.07667340000000011,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": true
+      }
+    },
+    {
+      "piece": "triangle",
+      "cavity": "cavity_03",
+      "per_view": {
+        "top_down": {
+          "score": 0.657843,
+          "inside": 0.969352,
+          "outside": 0.030648,
+          "iou": 0.58479,
+          "best_rotation_deg": 24,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.552838,
+          "inside": 0.857978,
+          "outside": 0.142022,
+          "iou": 0.484995,
+          "best_rotation_deg": 8,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.576575,
+          "inside": 0.882825,
+          "outside": 0.117175,
+          "iou": 0.507824,
+          "best_rotation_deg": 222,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.6205883999999999,
+      "rank": 2,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "triangle",
+      "cavity": "cavity_02",
+      "per_view": {
+        "top_down": {
+          "score": 0.614299,
+          "inside": 0.992401,
+          "outside": 0.007599,
+          "iou": 0.486762,
+          "best_rotation_deg": 126,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.577611,
+          "inside": 0.948611,
+          "outside": 0.051389,
+          "iou": 0.455884,
+          "best_rotation_deg": 312,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.610357,
+          "inside": 0.986075,
+          "outside": 0.013925,
+          "iou": 0.48477,
+          "best_rotation_deg": 190,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.6061730000000001,
+      "rank": 3,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    },
+    {
+      "piece": "triangle",
+      "cavity": "cavity_00",
+      "per_view": {
+        "top_down": {
+          "score": 0.532619,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.332034,
+          "best_rotation_deg": 354,
+          "missing": false
+        },
+        "front_oblique": {
+          "score": 0.536763,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.339569,
+          "best_rotation_deg": 214,
+          "missing": false
+        },
+        "side_oblique": {
+          "score": 0.538175,
+          "inside": 1.0,
+          "outside": 0.0,
+          "iou": 0.342137,
+          "best_rotation_deg": 200,
+          "missing": false
+        }
+      },
+      "missing_views": [],
+      "aggregate_score": 0.534559,
+      "rank": 4,
+      "first_vs_second_margin": null,
+      "ambiguity_indicators": {
+        "low_margin": false,
+        "missing_view": false,
+        "per_view_disagreement": false
+      }
+    }
+  ]
+}

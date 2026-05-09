@@ -197,6 +197,29 @@ report.
 
 ---
 
+## Table of figures — Baseline 2 Phase A — Completion across the MVP set
+
+> Note: these figures correspond to the **completion of Baseline
+> 2 Phase A** documented in doc 04 — section 2 (extension of the
+> capture pipeline from the rectangle alone to the four MVP
+> pieces `rectangle, square, circle, triangle`). The
+> rectangle-only entries above (`fig:baseline2_phaseA_*`) are
+> preserved unchanged; the entries below are **additional**, one
+> per non-rectangle piece. As in the rectangle case, these are
+> capture-only proof-of-life artefacts and **must not** be
+> presented as evidence of fusion or of multi-view matching:
+> neither is implemented at this phase. Captures use the
+> sequential-camera proof-of-life layout, not the final static
+> multi-camera architecture (see doc 04 — sections 2.3 and 2.6).
+
+| Figure ID | Source file | Suggested LaTeX filename | Suggested caption | Related section | Notes |
+|---|---|---|---|---|---|
+| `fig:baseline2_phaseA_square_contact_sheet` | `data/multiview_captures/pieces/square/views_contact_sheet.png` | `fig50_baseline2_phaseA_square_contact_sheet.png` | Contact sheet of the three views captured for the square in Baseline 2 Phase A (`top_down`, `front_oblique`, `side_oblique`); sequential-camera proof-of-life, not final static multi-camera architecture. Visibility control: piece identity used only for scene setup, not for perception/matching. | Doc 04 — sections 2.3 and 2.5 | Per-piece synthesis figure; complement to `fig:baseline2_phaseA_contact_sheet` for the completion of Phase A across the MVP set. |
+| `fig:baseline2_phaseA_circle_contact_sheet` | `data/multiview_captures/pieces/circle/views_contact_sheet.png` | `fig51_baseline2_phaseA_circle_contact_sheet.png` | Contact sheet of the three views captured for the circle in Baseline 2 Phase A (`top_down`, `front_oblique`, `side_oblique`); sequential-camera proof-of-life, not final static multi-camera architecture. Visibility control: piece identity used only for scene setup, not for perception/matching. | Doc 04 — sections 2.3 and 2.5 | Per-piece synthesis figure; complement to `fig:baseline2_phaseA_contact_sheet` for the completion of Phase A across the MVP set. |
+| `fig:baseline2_phaseA_triangle_contact_sheet` | `data/multiview_captures/pieces/triangle/views_contact_sheet.png` | `fig52_baseline2_phaseA_triangle_contact_sheet.png` | Contact sheet of the three views captured for the triangle in Baseline 2 Phase A (`top_down`, `front_oblique`, `side_oblique`); sequential-camera proof-of-life, not final static multi-camera architecture. Visibility control: piece identity used only for scene setup, not for perception/matching. | Doc 04 — sections 2.3 and 2.5 | Per-piece synthesis figure; complement to `fig:baseline2_phaseA_contact_sheet` for the completion of Phase A across the MVP set. The triangle is the piece that replaces the star in the MVP (doc 03 — section 11). |
+
+---
+
 ## Gaps and figures to consider later
 
 Items **not** available yet but potentially relevant for the
