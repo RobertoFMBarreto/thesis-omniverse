@@ -24,6 +24,7 @@ Single training run; no hyperparameter tuning.
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 import math
@@ -40,7 +41,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
 
 _DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = Path(
@@ -87,24 +88,30 @@ SCALAR_NAMES      = [
 
 class PhaseEDataset(Dataset):
     """
-    In-memory int8 SDF arrays + per-row scalar action/depth features.
-    Dequantise SDFs + normalise per sample. Scalar block is computed once
-    per row from the metadata and indexed alongside the SDFs.
+    Full dataset over ALL N rows of the Phase E.1 npz + metadata. The
+    constructor takes the full int8 SDF arrays + labels + scalar block
+    (no `indices` parameter). `__getitem__(idx)` interprets `idx` as a
+    GLOBAL sample index directly. For train/val/test/scope subsets, wrap
+    this dataset with torch.utils.data.Subset(full_ds, global_idx_list);
+    PyTorch's Subset performs the local→global mapping before calling
+    __getitem__, so the returned `idx` is always the global sample_id.
+
+    This removes the global/local indexing ambiguity that caused the
+    Phase E.3 ranking IndexError.
     """
 
     def __init__(self, piece_sdf_int8: np.ndarray, cavity_sdf_int8: np.ndarray,
-                 labels: np.ndarray, scalars: np.ndarray, indices: np.ndarray):
+                 labels: np.ndarray, scalars: np.ndarray):
         self.piece_sdf_int8  = piece_sdf_int8
         self.cavity_sdf_int8 = cavity_sdf_int8
         self.labels          = labels
         self.scalars         = scalars       # (N, SCALAR_DIM) float32
-        self.indices         = indices
 
     def __len__(self) -> int:
-        return len(self.indices)
+        return len(self.labels)
 
-    def __getitem__(self, i: int) -> tuple:
-        idx = int(self.indices[i])
+    def __getitem__(self, idx: int) -> tuple:
+        idx = int(idx)
         psdf_mm = self.piece_sdf_int8[idx].astype(np.float32) / SDF_INT8_SCALE
         csdf_mm = self.cavity_sdf_int8[idx].astype(np.float32) / SDF_INT8_SCALE
         psdf = np.clip(psdf_mm / SDF_NORM_DIV_MM, -1.0, 1.0)[None, :, :]   # (1, 128, 128)
@@ -251,12 +258,24 @@ def evaluate_loader(model: nn.Module, loader: DataLoader, device: torch.device
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Phase E.3 Siamese-with-scalars trainer / evaluator. "
+                     "Default mode trains and then evaluates. "
+                     "--eval-only loads the saved checkpoint and runs eval + ranking only."
+    )
+    parser.add_argument("--eval-only", action="store_true",
+                          help="Skip training; load saved checkpoint and run "
+                               "evaluation + ranking + report only.")
+    args = parser.parse_args()
+
     print("=" * 70)
-    print("train_phaseE_siamese_embedding.py")
+    print("train_phaseE_siamese_scalar_embedding.py "
+          + ("(eval-only mode)" if args.eval_only else "(train + eval mode)"))
     print("=" * 70)
     print(f"PROJECT_ROOT : {PROJECT_ROOT}")
     print(f"DATA_DIR     : {DATA_DIR}")
     print(f"OUT_DIR      : {OUT_DIR}")
+    print(f"mode         : {'eval-only' if args.eval_only else 'train+eval'}")
     print()
 
     if not NPZ_PATH.exists() or not CSV_PATH.exists():
@@ -317,9 +336,10 @@ def main() -> None:
     print(f"[class] train pos={n_pos_train} neg={n_neg_train} → pos_weight={pos_weight_value:.4f}")
 
     # 2. Datasets / loaders
-    train_ds = PhaseEDataset(piece_sdf, cavity_sdf, labels, scalars, train_idx)
-    val_ds   = PhaseEDataset(piece_sdf, cavity_sdf, labels, scalars, val_idx)
-    test_ds  = PhaseEDataset(piece_sdf, cavity_sdf, labels, scalars, test_idx)
+    full_ds  = PhaseEDataset(piece_sdf, cavity_sdf, labels, scalars)
+    train_ds = Subset(full_ds, train_idx.tolist())
+    val_ds   = Subset(full_ds, val_idx.tolist())
+    test_ds  = Subset(full_ds, test_idx.tolist())
 
     g = torch.Generator(); g.manual_seed(SEED)
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,
@@ -343,65 +363,81 @@ def main() -> None:
     pos_weight = torch.tensor([pos_weight_value], device=device)
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-    # 4. Train with early stopping on val F1
-    print("[train] starting ...")
     curves = []
     best_val_f1 = -1.0
     best_state  = None
     best_epoch  = 0
-    epochs_without_improve = 0
 
-    for epoch in range(1, MAX_EPOCHS + 1):
-        t0 = time.time()
-        model.train()
-        train_loss_sum = 0.0
-        n_batches = 0
-        for xp, xc, scalars, y, _ in train_loader:
-            xp = xp.to(device); xc = xc.to(device)
-            scalars = scalars.to(device); y = y.to(device)
-            optimizer.zero_grad()
-            logit = model(xp, xc, scalars)
-            loss = loss_fn(logit, y)
-            loss.backward()
-            optimizer.step()
-            train_loss_sum += loss.item()
-            n_batches += 1
-        train_loss = train_loss_sum / max(n_batches, 1)
+    if args.eval_only:
+        # ── EVAL-ONLY MODE: load checkpoint, skip training ────────────────────
+        if not OUT_MODEL_PT.exists():
+            print(f"[FATAL] --eval-only requested but no checkpoint at {OUT_MODEL_PT}")
+            print("[FATAL] Run without --eval-only first to train + save the model.")
+            sys.exit(1)
+        print(f"[eval-only] loading checkpoint {OUT_MODEL_PT} ...")
+        ckpt = torch.load(OUT_MODEL_PT, map_location=device)
+        model.load_state_dict(ckpt["state_dict"])
+        best_epoch  = int(ckpt.get("best_epoch", 0))
+        best_val_f1 = float(ckpt.get("best_val_f1", 0.0))
+        ckpt_origin = ckpt.get("checkpoint_origin", "unknown")
+        print(f"[eval-only] checkpoint loaded "
+              f"(best_epoch={best_epoch}, best_val_f1={best_val_f1:.4f}, "
+              f"origin='{ckpt_origin}'). NO training will be performed.")
+    else:
+        # ── TRAIN MODE: train with early stopping on val F1 ───────────────────
+        print("[train] starting ...")
+        epochs_without_improve = 0
+        for epoch in range(1, MAX_EPOCHS + 1):
+            t0 = time.time()
+            model.train()
+            train_loss_sum = 0.0
+            n_batches = 0
+            for xp, xc, scalars_b, y, _ in train_loader:
+                xp = xp.to(device); xc = xc.to(device)
+                scalars_b = scalars_b.to(device); y = y.to(device)
+                optimizer.zero_grad()
+                logit = model(xp, xc, scalars_b)
+                loss = loss_fn(logit, y)
+                loss.backward()
+                optimizer.step()
+                train_loss_sum += loss.item()
+                n_batches += 1
+            train_loss = train_loss_sum / max(n_batches, 1)
 
-        y_v, yp_v, prob_v, _, val_loss = evaluate_loader(model, val_loader, device)
-        val_metrics = compute_metrics(y_v, yp_v, prob_v)
-        val_f1 = val_metrics["f1"]
+            y_v, yp_v, prob_v, _, val_loss = evaluate_loader(model, val_loader, device)
+            val_metrics = compute_metrics(y_v, yp_v, prob_v)
+            val_f1 = val_metrics["f1"]
 
-        epoch_dt = time.time() - t0
-        print(f"  [epoch {epoch:02d}] train_loss={train_loss:.4f}  "
-              f"val_loss={val_loss:.4f}  val_F1={val_f1:.4f}  "
-              f"val_acc={val_metrics['accuracy']:.4f}  "
-              f"val_pos_rate_pred={val_metrics['positive_rate_pred']:.4f}  "
-              f"({epoch_dt:.1f}s)")
-        curves.append({
-            "epoch": epoch,
-            "train_loss": round(train_loss, 6),
-            "val_loss":   round(val_loss, 6),
-            "val_f1":     round(val_f1, 6),
-            "val_acc":    val_metrics["accuracy"],
-            "val_pos_rate_pred": val_metrics["positive_rate_pred"],
-        })
+            epoch_dt = time.time() - t0
+            print(f"  [epoch {epoch:02d}] train_loss={train_loss:.4f}  "
+                  f"val_loss={val_loss:.4f}  val_F1={val_f1:.4f}  "
+                  f"val_acc={val_metrics['accuracy']:.4f}  "
+                  f"val_pos_rate_pred={val_metrics['positive_rate_pred']:.4f}  "
+                  f"({epoch_dt:.1f}s)")
+            curves.append({
+                "epoch": epoch,
+                "train_loss": round(train_loss, 6),
+                "val_loss":   round(val_loss, 6),
+                "val_f1":     round(val_f1, 6),
+                "val_acc":    val_metrics["accuracy"],
+                "val_pos_rate_pred": val_metrics["positive_rate_pred"],
+            })
 
-        if val_f1 > best_val_f1 + 1e-6:
-            best_val_f1 = val_f1
-            best_state  = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
-            best_epoch  = epoch
-            epochs_without_improve = 0
-        else:
-            epochs_without_improve += 1
-            if epochs_without_improve >= EARLY_STOP_PATIENCE:
-                print(f"[early-stop] no val_F1 improvement for "
-                      f"{EARLY_STOP_PATIENCE} epochs (best @ epoch {best_epoch}, "
-                      f"F1={best_val_f1:.4f})")
-                break
+            if val_f1 > best_val_f1 + 1e-6:
+                best_val_f1 = val_f1
+                best_state  = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+                best_epoch  = epoch
+                epochs_without_improve = 0
+            else:
+                epochs_without_improve += 1
+                if epochs_without_improve >= EARLY_STOP_PATIENCE:
+                    print(f"[early-stop] no val_F1 improvement for "
+                          f"{EARLY_STOP_PATIENCE} epochs (best @ epoch {best_epoch}, "
+                          f"F1={best_val_f1:.4f})")
+                    break
 
-    if best_state is not None:
-        model.load_state_dict(best_state)
+        if best_state is not None:
+            model.load_state_dict(best_state)
 
     # 5. Final eval on train/val/test with the best model
     print("\n[final-eval] evaluating best model ...")
@@ -480,7 +516,7 @@ def main() -> None:
         # Need probs for ALL scope rows, not just test. Compute now.
         if len(scope_indices) == 0:
             return {"scope": scope_name, "n_pieces": 0, "skipped": True}
-        scope_ds = PhaseEDataset(piece_sdf, cavity_sdf, labels, scalars, scope_indices)
+        scope_ds = Subset(full_ds, [int(i) for i in scope_indices])
         scope_loader = DataLoader(scope_ds, batch_size=BATCH_SIZE, shuffle=False)
         _, _, prob_arr, idx_arr, _ = evaluate_loader(model, scope_loader, device)
 
